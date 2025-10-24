@@ -44,7 +44,7 @@ L'intégration officielle Enphase Envoy de Home Assistant ne gère pas correctem
 2. Allez dans "Intégrations"
 3. Cliquez sur les 3 points en haut à droite
 4. Sélectionnez "Dépôts personnalisés"
-5. Ajoutez l'URL : `https://github.com/your-username/enphase-battery`
+5. Ajoutez l'URL : `https://github.com/foXaCe/enphase-battery`
 6. Catégorie : "Integration"
 7. Cliquez sur "Télécharger"
 8. Redémarrez Home Assistant
@@ -60,10 +60,11 @@ L'intégration officielle Enphase Envoy de Home Assistant ne gère pas correctem
 1. Allez dans **Configuration** → **Intégrations**
 2. Cliquez sur **+ Ajouter une intégration**
 3. Recherchez **"Enphase Battery IQ 5P"**
-4. Entrez les informations :
-   - **Hôte** : Adresse IP de votre Envoy (ex: 192.168.1.50)
-   - **Nom d'utilisateur** : (optionnel) Votre compte Enphase
-   - **Mot de passe** : (optionnel) Votre mot de passe Enphase
+4. Entrez vos identifiants Enphase Enlighten :
+   - **Nom d'utilisateur** : Votre email Enphase
+   - **Mot de passe** : Votre mot de passe Enphase
+   - **Site ID** : (optionnel, auto-détecté) ID de votre site
+   - **User ID** : (optionnel, auto-détecté) ID de votre compte
 
 ### 📊 Entités disponibles
 
@@ -88,9 +89,9 @@ L'intégration officielle Enphase Envoy de Home Assistant ne gère pas correctem
 
 #### Contrôles (Controls)
 
-- `switch.battery_backup_mode` : Activer/désactiver le mode backup
-- `select.battery_mode` : Sélection du mode (Autoconsommation / Backup / Économie)
-- `number.battery_reserve` : Pourcentage de réserve (0-100%)
+- `switch.battery_charge_from_grid` : Activer/désactiver la charge depuis le réseau
+- `select.battery_mode` : Sélection du mode (Autoconsommation / Optimisation IA)
+- `number.battery_stop_level` : Niveau d'arrêt de la batterie (5-25%)
 
 ### 🔍 Capture des données avec mitmdump
 
@@ -166,7 +167,7 @@ The official Enphase Envoy integration in Home Assistant doesn't properly suppor
 2. Go to "Integrations"
 3. Click on the 3 dots in the top right
 4. Select "Custom repositories"
-5. Add URL: `https://github.com/your-username/enphase-battery`
+5. Add URL: `https://github.com/foXaCe/enphase-battery`
 6. Category: "Integration"
 7. Click "Download"
 8. Restart Home Assistant
@@ -182,10 +183,11 @@ The official Enphase Envoy integration in Home Assistant doesn't properly suppor
 1. Go to **Settings** → **Integrations**
 2. Click **+ Add Integration**
 3. Search for **"Enphase Battery IQ 5P"**
-4. Enter the information:
-   - **Host**: Your Envoy IP address (e.g., 192.168.1.50)
-   - **Username**: (optional) Your Enphase account
-   - **Password**: (optional) Your Enphase password
+4. Enter your Enphase Enlighten credentials:
+   - **Username**: Your Enphase email
+   - **Password**: Your Enphase password
+   - **Site ID**: (optional, auto-detected) Your site ID
+   - **User ID**: (optional, auto-detected) Your account ID
 
 ### 📊 Available Entities
 
@@ -210,9 +212,9 @@ The official Enphase Envoy integration in Home Assistant doesn't properly suppor
 
 #### Controls
 
-- `switch.battery_backup_mode`: Enable/disable backup mode
-- `select.battery_mode`: Mode selection (Self Consumption / Backup / Savings)
-- `number.battery_reserve`: Reserve percentage (0-100%)
+- `switch.battery_charge_from_grid`: Enable/disable charging from grid
+- `select.battery_mode`: Mode selection (Self Consumption / AI Optimization)
+- `number.battery_stop_level`: Battery minimum discharge level (5-25%)
 
 ### 🔍 Data Capture with mitmdump
 
