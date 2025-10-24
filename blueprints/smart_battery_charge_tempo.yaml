@@ -446,8 +446,11 @@ action:
 
                 Charge forcée activée même hors heures creuses pour éviter une décharge complète.
 
-      # CAS 4: Hors heures creuses OU cible fin HC atteinte → Désactiver charge
+      # CAS 4: Hors heures creuses OU cible fin HC atteinte → Désactiver charge SI ACTIVE
       - conditions:
+          - condition: state
+            entity_id: !input charge_from_grid_switch
+            state: "on"
           - condition: or
             conditions:
               - condition: not
