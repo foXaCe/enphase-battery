@@ -5,5 +5,5 @@
   "render_readme": true,
   "country": ["FR"],
   "homeassistant": "2024.1.0",
-  "domains": ["sensor", "binary_sensor", "switch", "select", "number"]
+  "domains": ["sensor", "binary_sensor", "switch", "select"]
 }

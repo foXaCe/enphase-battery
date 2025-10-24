@@ -1,0 +1,161 @@
+syntax = "proto3";
+option java_package = "com.enphaseenergy.evselib";
+message ResetIdentityCommand
+{
+  string reset_data = 1;
+}
+
+message RebootCommand
+{
+  int32 connector_id = 1;
+  RebootType reboot_type = 2;
+}
+
+message LocalAuthenticationCommand
+{
+  AuthData data = 1;
+}
+
+message StartChargingCommand
+{
+  int32 connector_id = 1;
+}
+
+message StopChargingCommand
+{
+  int32 connector_id = 1;
+}
+
+message EVSEStateCommand
+{
+  int32 connector_id = 1;
+}
+
+message AuthData
+{
+  int32 connector_id = 1;
+  string token = 2;
+}
+
+message LocalControlRequest
+{
+  EvseCommandType command_type = 1;
+  oneof request
+  {
+    RebootCommand reboot_command = 2;
+    LocalAuthenticationCommand local_authentication_command = 3;
+    StartChargingCommand start_charging_command = 4;
+    StopChargingCommand stop_charging_command = 5;
+    EVSEStateCommand evse_state_command = 6;
+    ResetIdentityCommand reset_identity_command = 7;
+  }
+}
+
+message RebootResponse
+{
+  int32 connector_id = 1;
+}
+
+message LocalAuthenticationResponse
+{
+  int32 connector_id = 1;
+  LocalAuthenticationStatus response = 2;
+}
+
+message StartChargingResponse
+{
+  int32 connector_id = 1;
+}
+
+message StopChargingResponse
+{
+  int32 connector_id = 1;
+}
+
+message EVSEStateResponse
+{
+  EVSEStateData data = 1;
+}
+
+message ResetIdentityResponse
+{
+  string data = 1;
+}
+
+message EVSEStateData
+{
+  int32 connector_id = 1;
+  EVSEState evse_state = 2;
+}
+
+message LocalControlResponse
+{
+  EvseCommandType command_type = 1;
+  Status status = 2;
+  oneof response
+  {
+    RebootResponse reboot_response = 3;
+    LocalAuthenticationResponse local_authentication_response = 4;
+    StartChargingResponse start_charging_response = 5;
+    StopChargingResponse stop_charging_response = 6;
+    EVSEStateResponse evse_state_response = 7;
+    ResetIdentityResponse reset_identity_response = 8;
+  }
+}
+
+enum EvseCommandType
+{
+  REBOOT = 0;
+  LOCAL_AUTHENTICATION = 1;
+  START_CHARGING = 2;
+  STOP_CHARGING = 3;
+  EVSE_STATE = 4;
+  RESET_IDENTITY = 5;
+}
+
+enum Status
+{
+  SUCCESS = 0;
+  FAILURE = 1;
+}
+
+enum LocalAuthenticationStatus
+{
+  PROCESSING = 0;
+  ACCEPTED   = 1;
+  REJECTED   = 2;
+}
+
+enum EVSEState
+{
+  Authorized = 0;
+  Deauthorized = 1;
+  Enabled = 2;
+  Disabled = 3;
+  SessionStarted = 4;
+  AuthRequired = 5;
+  TransactionStarted = 6;
+  PrepareCharging = 7;
+  ChargingStarted = 8;
+  ChargingPausedEV = 9;
+  ChargingPausedEVSE = 10;
+  WaitingForEnergy = 11;
+  ChargingResumed = 12;
+  StoppingCharging = 13;
+  ChargingFinished = 14;
+  TransactionFinished = 15;
+  SessionFinished = 16;
+  ReservationStart = 17;
+  ReservationEnd = 18;
+  ReplugStarted = 19;
+  ReplugFinished = 20;
+  PluginTimeout = 21;
+  SwitchingPhases = 22;
+  SessionResumed = 23;
+}
+
+enum RebootType
+{
+  SOFT = 0;
+  HARD = 1;
+}

@@ -1,0 +1,228 @@
+blueprint:
+  name: Gestion Intelligente Charge Batterie Enphase (Tempo + Météo)
+  description: >
+    Gère automatiquement la charge de la batterie Enphase en fonction :
+    - Des heures creuses (optimisation tarifaire)
+    - Des jours EDF Tempo (charge à 100% avant jours rouges)
+    - De la météo à venir (production solaire prévue)
+    - De l'état de charge actuel de la batterie
+
+
+    **Fonctionnalités :**
+    - ⚡ Active la charge depuis le réseau en heures creuses
+    - 🔴 Charge forcée à 100% avant les jours rouges Tempo
+    - ☀️ Désactive la charge si météo favorable (production solaire suffisante)
+    - 🔋 Optimise selon le SOC (State of Charge) actuel
+
+  domain: automation
+  source_url: https://github.com/foXaCe/enphase-battery/blob/main/blueprints/smart_battery_charge_tempo.yaml
+
+  input:
+    battery_soc_sensor:
+      name: Capteur SOC Batterie
+      description: Capteur indiquant le pourcentage de charge de la batterie (0-100%)
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+              device_class: battery
+
+    charge_from_grid_switch:
+      name: Switch Charge depuis Réseau
+      description: Switch pour activer/désactiver la charge depuis le réseau (ex. switch.enphase_battery_charge_from_grid)
+      selector:
+        entity:
+          filter:
+            - domain: switch
+
+    tempo_sensor:
+      name: Capteur Tempo Jour Suivant
+      description: Capteur indiquant la couleur Tempo du lendemain (Bleu/Blanc/Rouge)
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+
+    heures_creuses_start:
+      name: Début Heures Creuses
+      description: Heure de début des heures creuses
+      default: "22:30:00"
+      selector:
+        time:
+
+    heures_creuses_end:
+      name: Fin Heures Creuses
+      description: Heure de fin des heures creuses
+      default: "06:30:00"
+      selector:
+        time:
+
+    weather_entity:
+      name: Entité Météo
+      description: Entité météo pour prévisions (ex. weather.home)
+      selector:
+        entity:
+          filter:
+            - domain: weather
+
+    min_soc_charge:
+      name: SOC Minimum pour Charge
+      description: En-dessous de ce seuil, active la charge en heures creuses (%)
+      default: 30
+      selector:
+        number:
+          min: 10
+          max: 90
+          step: 5
+          unit_of_measurement: "%"
+
+    target_soc_normal:
+      name: SOC Cible Normal
+      description: Niveau de charge cible en heures creuses normales (%)
+      default: 80
+      selector:
+        number:
+          min: 50
+          max: 100
+          step: 5
+          unit_of_measurement: "%"
+
+    target_soc_tempo_rouge:
+      name: SOC Cible Tempo Rouge
+      description: Niveau de charge cible avant un jour rouge Tempo (%)
+      default: 100
+      selector:
+        number:
+          min: 80
+          max: 100
+          step: 5
+          unit_of_measurement: "%"
+
+    sunny_forecast_threshold:
+      name: Seuil Météo Ensoleillée
+      description: Nombre de jours ensoleillés prévus pour désactiver charge (0 = désactivé)
+      default: 1
+      selector:
+        number:
+          min: 0
+          max: 3
+          step: 1
+
+variables:
+  battery_soc: !input battery_soc_sensor
+  tempo_color: !input tempo_sensor
+  weather: !input weather_entity
+  min_soc: !input min_soc_charge
+  target_normal: !input target_soc_normal
+  target_rouge: !input target_soc_tempo_rouge
+  sunny_threshold: !input sunny_forecast_threshold
+
+trigger:
+  # Déclenchement à chaque changement de SOC
+  - platform: state
+    entity_id: !input battery_soc_sensor
+
+  # Déclenchement au début des heures creuses
+  - platform: time
+    at: !input heures_creuses_start
+
+  # Déclenchement à la fin des heures creuses
+  - platform: time
+    at: !input heures_creuses_end
+
+  # Déclenchement quand Tempo change
+  - platform: state
+    entity_id: !input tempo_sensor
+
+  # Déclenchement à 18h pour vérifier Tempo lendemain
+  - platform: time
+    at: "18:00:00"
+
+condition: []
+
+action:
+  - choose:
+      # CAS 1: Heures creuses + Tempo ROUGE demain → Charge forcée à 100%
+      - conditions:
+          - condition: time
+            after: !input heures_creuses_start
+            before: !input heures_creuses_end
+          - condition: or
+            conditions:
+              - condition: state
+                entity_id: !input tempo_sensor
+                state: "Rouge"
+              - condition: state
+                entity_id: !input tempo_sensor
+                state: "red"
+          - condition: numeric_state
+            entity_id: !input battery_soc_sensor
+            below: !input target_soc_tempo_rouge
+        sequence:
+          - service: switch.turn_on
+            target:
+              entity_id: !input charge_from_grid_switch
+          - service: notify.notify
+            data:
+              title: "🔴 Batterie - Charge Tempo Rouge"
+              message: "Charge activée (Tempo Rouge demain) → Cible {{ target_rouge }}%"
+
+      # CAS 2: Heures creuses + SOC bas + météo défavorable → Charge normale
+      - conditions:
+          - condition: time
+            after: !input heures_creuses_start
+            before: !input heures_creuses_end
+          - condition: numeric_state
+            entity_id: !input battery_soc_sensor
+            below: !input target_soc_normal
+          - condition: template
+            value_template: >
+              {% set forecast = state_attr(weather, 'forecast') %}
+              {% if forecast is not none and forecast|length > 0 %}
+                {% set sunny_days = forecast[:sunny_threshold]|selectattr('condition', 'in', ['sunny', 'partlycloudy'])|list|length %}
+                {{ sunny_days < sunny_threshold }}
+              {% else %}
+                true
+              {% endif %}
+        sequence:
+          - service: switch.turn_on
+            target:
+              entity_id: !input charge_from_grid_switch
+          - service: notify.notify
+            data:
+              title: "⚡ Batterie - Charge Heures Creuses"
+              message: "Charge activée (SOC {{ states(battery_soc) }}%) → Cible {{ target_normal }}%"
+
+      # CAS 3: SOC critique (< min_soc) → Charge forcée même hors heures creuses
+      - conditions:
+          - condition: numeric_state
+            entity_id: !input battery_soc_sensor
+            below: !input min_soc_charge
+        sequence:
+          - service: switch.turn_on
+            target:
+              entity_id: !input charge_from_grid_switch
+          - service: notify.notify
+            data:
+              title: "⚠️ Batterie - Charge d'Urgence"
+              message: "SOC critique {{ states(battery_soc) }}% - Charge activée"
+
+      # CAS 4: Hors heures creuses OU cible atteinte → Désactiver charge
+      - conditions:
+          - condition: or
+            conditions:
+              - condition: not
+                conditions:
+                  - condition: time
+                    after: !input heures_creuses_start
+                    before: !input heures_creuses_end
+              - condition: numeric_state
+                entity_id: !input battery_soc_sensor
+                above: !input target_soc_normal
+        sequence:
+          - service: switch.turn_off
+            target:
+              entity_id: !input charge_from_grid_switch
+
+mode: single
+max_exceeded: silent

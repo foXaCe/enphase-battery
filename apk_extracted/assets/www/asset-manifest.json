@@ -1,0 +1,26 @@
+{
+  "files": {
+    "main.css": "/static/css/offline.chunk.css",
+    "main.js": "/static/js/offline.chunk.js",
+    "main.js.map": "/static/js/offline.chunk.js.map",
+    "runtime-main.js": "/static/js/offline.js",
+    "runtime-main.js.map": "/static/js/offline.js.map",
+    "index.html": "/index.html",
+    "precache-manifest.8afeafa5e340efd864d118b0166a3b18.js": "/precache-manifest.8afeafa5e340efd864d118b0166a3b18.js",
+    "service-worker.js": "/service-worker.js",
+    "static/css/offline.chunk.css.map": "/static/css/offline.chunk.css.map",
+    "static/js/offline.chunk.js.LICENSE.txt": "/static/js/offline.chunk.js.LICENSE.txt",
+    "static/media/ENV-IQ.png": "/static/media/ENV-IQ.bc05eb49.png",
+    "static/media/IQ-Combiner.png": "/static/media/IQ-Combiner.7b2c8088.png",
+    "static/media/lightSettingsItem.scss": "/static/media/Light-automatic-switchedOn.53434f1a.svg",
+    "static/media/app.scss": "/static/media/prev.2964fd3b.svg",
+    "static/media/style.scss": "/static/media/envoyDataUploading.1cfe8f06.svg",
+    "static/media/swipeSlider.scss": "/static/media/slider-thumb.e3d111c6.svg",
+    "static/media/wifiList.png": "/static/media/wifiList.5dca9e3a.png"
+  },
+  "entrypoints": [
+    "static/js/offline.js",
+    "static/css/offline.chunk.css",
+    "static/js/offline.chunk.js"
+  ]
+}
