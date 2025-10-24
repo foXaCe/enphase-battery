@@ -778,14 +778,92 @@ class EnphaseBatteryAPI:
         raise NotImplementedError("Setting battery mode requires POST endpoint discovery")
 
     async def set_backup_reserve(self, percentage: int) -> bool:
-        """Set battery backup reserve percentage.
+        """Set battery backup reserve percentage (batteryBackupPercentage).
 
         Args:
             percentage: Reserve percentage (10-100)
         """
-        # TODO: Implémenter après capture de la requête POST
-        _LOGGER.warning("set_backup_reserve not yet implemented")
-        raise NotImplementedError("Setting backup reserve requires POST endpoint discovery")
+        if not self._site_id or not self._user_id:
+            raise EnphaseBatteryAuthError("Not authenticated")
+
+        # Get current battery settings to preserve other values
+        try:
+            current_settings = await self.get_battery_settings()
+        except Exception as err:
+            raise EnphaseBatteryConnectionError(f"Failed to get current settings: {err}") from err
+
+        # Update the batteryBackupPercentage field
+        data = current_settings.copy()
+        data["batteryBackupPercentage"] = percentage
+
+        # Send PUT request
+        url = f"{API_BASE_URL}/service/batteryConfig/api/v1/batterySettings/{self._site_id}"
+        params = {"userId": self._user_id, "source": "enho"}
+
+        try:
+            async with self._session.put(
+                url,
+                params=params,
+                json=data,
+                headers=self._get_headers(),
+                timeout=ClientTimeout(total=API_TIMEOUT),
+            ) as response:
+                response.raise_for_status()
+                result = await response.json()
+
+                if result.get("message") == "success":
+                    _LOGGER.debug(f"Successfully set backup_reserve to {percentage}%")
+                    return True
+                else:
+                    _LOGGER.warning(f"Unexpected response from set_backup_reserve: {result}")
+                    return False
+
+        except aiohttp.ClientError as err:
+            raise EnphaseBatteryConnectionError(f"Failed to set backup reserve: {err}") from err
+
+    async def set_very_low_soc(self, percentage: int) -> bool:
+        """Set battery very low SOC (minimum discharge level).
+
+        Args:
+            percentage: Very low SOC percentage (5-25)
+        """
+        if not self._site_id or not self._user_id:
+            raise EnphaseBatteryAuthError("Not authenticated")
+
+        # Get current battery settings to preserve other values
+        try:
+            current_settings = await self.get_battery_settings()
+        except Exception as err:
+            raise EnphaseBatteryConnectionError(f"Failed to get current settings: {err}") from err
+
+        # Update the veryLowSoc field
+        data = current_settings.copy()
+        data["veryLowSoc"] = percentage
+
+        # Send PUT request
+        url = f"{API_BASE_URL}/service/batteryConfig/api/v1/batterySettings/{self._site_id}"
+        params = {"userId": self._user_id, "source": "enho"}
+
+        try:
+            async with self._session.put(
+                url,
+                params=params,
+                json=data,
+                headers=self._get_headers(),
+                timeout=ClientTimeout(total=API_TIMEOUT),
+            ) as response:
+                response.raise_for_status()
+                result = await response.json()
+
+                if result.get("message") == "success":
+                    _LOGGER.debug(f"Successfully set very_low_soc to {percentage}%")
+                    return True
+                else:
+                    _LOGGER.warning(f"Unexpected response from set_very_low_soc: {result}")
+                    return False
+
+        except aiohttp.ClientError as err:
+            raise EnphaseBatteryConnectionError(f"Failed to set very low SOC: {err}") from err
 
     async def set_charge_from_grid(self, enabled: bool) -> bool:
         """Enable/disable charging from grid.
