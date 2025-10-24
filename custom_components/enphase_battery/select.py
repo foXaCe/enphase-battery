@@ -48,18 +48,18 @@ class BatteryModeSelect(CoordinatorEntity, SelectEntity):
         self._attr_has_entity_name = True
         self._attr_icon = "mdi:battery-sync"
 
-        # Options basées sur les modes découverts dans l'API
+        # Options basées sur les modes disponibles dans l'app Enphase
+        # Note: backup_only et expert sont souvent cachés selon la configuration
         self._attr_options = [
             "Autoconsommation",  # self-consumption
-            "Économie",          # cost_savings
-            "Backup uniquement", # backup_only
-            "Expert",            # expert
+            "Optimisation IA",   # cost_savings (AI optimization)
         ]
 
         # Mapping API <-> UI
         self._mode_api_to_ui = {
             BATTERY_MODE_SELF_CONSUMPTION: "Autoconsommation",
-            BATTERY_MODE_COST_SAVINGS: "Économie",
+            BATTERY_MODE_COST_SAVINGS: "Optimisation IA",
+            # Modes cachés mais conservés pour compatibilité
             BATTERY_MODE_BACKUP_ONLY: "Backup uniquement",
             BATTERY_MODE_EXPERT: "Expert",
         }
