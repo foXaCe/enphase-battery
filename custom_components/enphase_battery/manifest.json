@@ -1,6 +1,7 @@
 {
   "domain": "enphase_battery",
   "name": "Enphase Battery IQ 5P",
+  "description": "Monitoring and control for Enphase IQ Battery via cloud API with Tempo and weather-based smart charging",
   "codeowners": ["@foXaCe"],
   "config_flow": true,
   "dependencies": [],
@@ -8,5 +9,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/foXaCe/enphase-battery/issues",
   "requirements": [],
-  "version": "1.1.0"
+  "version": "1.2.0"
 }
