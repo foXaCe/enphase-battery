@@ -84,9 +84,9 @@ blueprint:
           step: 5
           unit_of_measurement: "%"
 
-    target_soc_normal:
-      name: SOC Cible Normal
-      description: Niveau de charge cible en heures creuses normales (%)
+    target_soc_end_offpeak:
+      name: SOC Minimum Fin Heures Creuses
+      description: SOC minimum souhaité à la fin des heures creuses (%)
       default: 80
       selector:
         number:
@@ -122,7 +122,7 @@ variables:
   tempo_tomorrow: !input tempo_tomorrow_sensor
   weather: !input weather_entity
   min_soc: !input min_soc_charge
-  target_normal: !input target_soc_normal
+  target_end_offpeak: !input target_soc_end_offpeak
   target_rouge: !input target_soc_tempo_rouge
   sunny_threshold: !input sunny_forecast_threshold
 
@@ -205,14 +205,14 @@ action:
               title: "🔴 Batterie - Charge Tempo Rouge"
               message: "Charge activée (Tempo Rouge demain) → Cible {{ target_rouge }}%"
 
-      # CAS 2: Heures creuses + SOC bas + météo défavorable → Charge normale
+      # CAS 2: Heures creuses + SOC < cible fin heures creuses → Charge pour atteindre objectif
       - conditions:
           - condition: time
             after: !input heures_creuses_start
             before: !input heures_creuses_end
           - condition: numeric_state
             entity_id: !input battery_soc_sensor
-            below: !input target_soc_normal
+            below: !input target_soc_end_offpeak
           - condition: template
             value_template: >
               {% set forecast = state_attr(weather, 'forecast') %}
@@ -229,7 +229,7 @@ action:
           - service: notify.notify
             data:
               title: "⚡ Batterie - Charge Heures Creuses"
-              message: "Charge activée (SOC {{ states(battery_soc) }}%) → Cible {{ target_normal }}%"
+              message: "Charge activée (SOC {{ states(battery_soc) }}%) → Cible fin HC {{ target_end_offpeak }}%"
 
       # CAS 3: SOC critique (< min_soc) → Charge forcée même hors heures creuses
       - conditions:
@@ -245,7 +245,7 @@ action:
               title: "⚠️ Batterie - Charge d'Urgence"
               message: "SOC critique {{ states(battery_soc) }}% - Charge activée"
 
-      # CAS 4: Hors heures creuses OU cible atteinte → Désactiver charge
+      # CAS 4: Hors heures creuses OU cible fin HC atteinte → Désactiver charge
       - conditions:
           - condition: or
             conditions:
@@ -256,7 +256,7 @@ action:
                     before: !input heures_creuses_end
               - condition: numeric_state
                 entity_id: !input battery_soc_sensor
-                above: !input target_soc_normal
+                above: !input target_soc_end_offpeak
         sequence:
           - service: switch.turn_off
             target:
