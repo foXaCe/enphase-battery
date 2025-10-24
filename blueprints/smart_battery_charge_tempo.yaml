@@ -95,6 +95,37 @@ blueprint:
           filter:
             - domain: weather
 
+    solar_forecast_sensor:
+      name: Capteur Prévision Production Solaire
+      description: Capteur estimant la production solaire du jour (kWh) - ex. sensor.energy_production_today
+      default: ""
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+
+    solar_forecast_threshold_low:
+      name: Seuil Production Faible
+      description: En-dessous de cette production prévue (kWh), charge à 100% (0 = désactivé)
+      default: 5.0
+      selector:
+        number:
+          min: 0
+          max: 50
+          step: 0.5
+          unit_of_measurement: "kWh"
+
+    solar_forecast_threshold_medium:
+      name: Seuil Production Moyenne
+      description: Production moyenne (kWh) - ajuste le SOC cible proportionnellement
+      default: 15.0
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 0.5
+          unit_of_measurement: "kWh"
+
     min_soc_charge:
       name: SOC Minimum pour Charge
       description: En-dessous de ce seuil, active la charge en heures creuses (%)
@@ -145,10 +176,30 @@ variables:
   tempo_today: !input tempo_today_sensor
   tempo_tomorrow: !input tempo_tomorrow_sensor
   weather: !input weather_entity
+  solar_forecast: !input solar_forecast_sensor
+  solar_low: !input solar_forecast_threshold_low
+  solar_medium: !input solar_forecast_threshold_medium
   min_soc: !input min_soc_charge
-  target_end_offpeak: !input target_soc_end_offpeak
+  target_end_offpeak_base: !input target_soc_end_offpeak
   target_rouge: !input target_soc_tempo_rouge
   sunny_threshold: !input sunny_forecast_threshold
+  # Calcul du SOC cible dynamique basé sur la prévision solaire
+  target_end_offpeak: >
+    {% if solar_forecast == "" or solar_low == 0 %}
+      {{ target_end_offpeak_base }}
+    {% else %}
+      {% set forecast_kwh = states(solar_forecast) | float(0) %}
+      {% if forecast_kwh <= solar_low %}
+        100
+      {% elif forecast_kwh >= solar_medium %}
+        {{ target_end_offpeak_base }}
+      {% else %}
+        {# Interpolation linéaire entre low et medium #}
+        {% set ratio = (forecast_kwh - solar_low) / (solar_medium - solar_low) %}
+        {% set dynamic_target = 100 - (ratio * (100 - target_end_offpeak_base)) %}
+        {{ dynamic_target | round(0) }}
+      {% endif %}
+    {% endif %}
   # Calcul du temps de charge nécessaire en heures
   charge_time_needed: >
     {% set current_soc = states(battery_soc) | float(0) %}
@@ -185,6 +236,10 @@ trigger:
   # Déclenchement à 18h pour vérifier Tempo lendemain
   - platform: time
     at: "18:00:00"
+
+  # Déclenchement quand la prévision solaire change
+  - platform: state
+    entity_id: !input solar_forecast_sensor
 
 condition: []
 
@@ -292,7 +347,13 @@ action:
           - service: notify.notify
             data:
               title: "⚡ Batterie - Charge Heures Creuses Optimisée"
-              message: "Charge démarrée (SOC {{ states(battery_soc) }}%) - Temps estimé: {{ charge_time_needed }}h → {{ target_end_offpeak }}%"
+              message: >
+                Charge démarrée (SOC {{ states(battery_soc) }}%)
+                Cible dynamique: {{ target_end_offpeak }}%
+                {% if solar_forecast != "" %}
+                Production prévue: {{ states(solar_forecast) }} kWh
+                {% endif %}
+                Temps estimé: {{ charge_time_needed }}h
 
       # CAS 3: SOC critique (< min_soc) → Charge forcée même hors heures creuses
       - conditions:
