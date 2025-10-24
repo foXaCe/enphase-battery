@@ -1,3 +1,7 @@
 apk_extracted/
 extracted_icons/
 brands/
+captured_data/
+scripts/captured_data/
+scripts/__pycache__/
+*.apk
