@@ -35,8 +35,16 @@ blueprint:
           filter:
             - domain: switch
 
-    tempo_sensor:
-      name: Capteur Tempo Jour Suivant
+    tempo_today_sensor:
+      name: Capteur Tempo Aujourd'hui
+      description: Capteur indiquant la couleur Tempo du jour (Bleu/Blanc/Rouge)
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+
+    tempo_tomorrow_sensor:
+      name: Capteur Tempo Demain
       description: Capteur indiquant la couleur Tempo du lendemain (Bleu/Blanc/Rouge)
       selector:
         entity:
@@ -110,7 +118,8 @@ blueprint:
 
 variables:
   battery_soc: !input battery_soc_sensor
-  tempo_color: !input tempo_sensor
+  tempo_today: !input tempo_today_sensor
+  tempo_tomorrow: !input tempo_tomorrow_sensor
   weather: !input weather_entity
   min_soc: !input min_soc_charge
   target_normal: !input target_soc_normal
@@ -130,9 +139,13 @@ trigger:
   - platform: time
     at: !input heures_creuses_end
 
-  # Déclenchement quand Tempo change
+  # Déclenchement quand Tempo aujourd'hui change
   - platform: state
-    entity_id: !input tempo_sensor
+    entity_id: !input tempo_today_sensor
+
+  # Déclenchement quand Tempo demain change
+  - platform: state
+    entity_id: !input tempo_tomorrow_sensor
 
   # Déclenchement à 18h pour vérifier Tempo lendemain
   - platform: time
@@ -142,6 +155,28 @@ condition: []
 
 action:
   - choose:
+      # CAS 0: BLOQUAGE - Jour rouge Tempo AUJOURD'HUI → JAMAIS de charge depuis réseau
+      - conditions:
+          - condition: or
+            conditions:
+              - condition: state
+                entity_id: !input tempo_today_sensor
+                state: "RED"
+              - condition: state
+                entity_id: !input tempo_today_sensor
+                state: "Rouge"
+              - condition: state
+                entity_id: !input tempo_today_sensor
+                state: "red"
+        sequence:
+          - service: switch.turn_off
+            target:
+              entity_id: !input charge_from_grid_switch
+          - service: notify.notify
+            data:
+              title: "🔴 Batterie - Jour Rouge Tempo"
+              message: "Charge désactivée (jour rouge = tarif élevé)"
+
       # CAS 1: Heures creuses + Tempo ROUGE demain → Charge forcée à 100%
       - conditions:
           - condition: time
@@ -150,13 +185,13 @@ action:
           - condition: or
             conditions:
               - condition: state
-                entity_id: !input tempo_sensor
+                entity_id: !input tempo_tomorrow_sensor
                 state: "RED"
               - condition: state
-                entity_id: !input tempo_sensor
+                entity_id: !input tempo_tomorrow_sensor
                 state: "Rouge"
               - condition: state
-                entity_id: !input tempo_sensor
+                entity_id: !input tempo_tomorrow_sensor
                 state: "red"
           - condition: numeric_state
             entity_id: !input battery_soc_sensor
