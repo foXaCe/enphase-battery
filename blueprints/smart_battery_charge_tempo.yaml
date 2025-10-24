@@ -258,20 +258,21 @@ action:
           - condition: template
             value_template: "{{ debug_mode }}"
         sequence:
-          - service: notify.notify
+          - service: persistent_notification.create
             data:
+              notification_id: "battery_charge_debug"
               title: "🔍 Debug - Charge Batterie"
               message: >
-                📊 Calculs actuels:
-                SOC: {{ states(battery_soc) }}%
-                Tempo Aujourd'hui: {{ states(tempo_today) }}
-                Tempo Demain: {{ states(tempo_tomorrow) }}
+                **📊 Calculs actuels:**
+                - SOC: {{ states(battery_soc) }}%
+                - Tempo Aujourd'hui: {{ states(tempo_today) }}
+                - Tempo Demain: {{ states(tempo_tomorrow) }}
                 {% if solar_forecast != "" %}
-                Production prévue: {{ states(solar_forecast) }} kWh
+                - Production prévue: {{ states(solar_forecast) }} kWh
                 {% endif %}
-                SOC Cible dynamique: {{ target_end_offpeak }}%
-                Temps de charge estimé: {{ charge_time_needed }}h
-                Heure actuelle: {{ now().strftime('%H:%M') }}
+                - SOC Cible dynamique: {{ target_end_offpeak }}%
+                - Temps de charge estimé: {{ charge_time_needed }}h
+                - Heure actuelle: {{ now().strftime('%H:%M') }}
 
   - choose:
       # CAS 0: BLOQUAGE - Jour rouge Tempo AUJOURD'HUI → JAMAIS de charge depuis réseau
@@ -291,10 +292,17 @@ action:
           - service: switch.turn_off
             target:
               entity_id: !input charge_from_grid_switch
-          - service: notify.notify
+          - service: persistent_notification.create
             data:
+              notification_id: "battery_charge_red_day"
               title: "🔴 Batterie - Jour Rouge Tempo"
-              message: "Charge désactivée (jour rouge = tarif élevé)"
+              message: |
+                **⚠️ Charge bloquée aujourd'hui**
+
+                Raison: Jour rouge Tempo (tarif très élevé)
+                Action: Charge depuis réseau désactivée
+
+                La batterie utilisera uniquement l'énergie stockée et la production solaire.
 
       # CAS 1: Heures creuses + Tempo ROUGE demain → Charge forcée à 100%
       - conditions:
@@ -319,10 +327,18 @@ action:
           - service: switch.turn_on
             target:
               entity_id: !input charge_from_grid_switch
-          - service: notify.notify
+          - service: persistent_notification.create
             data:
-              title: "🔴 Batterie - Charge Tempo Rouge"
-              message: "Charge activée (Tempo Rouge demain) → Cible {{ target_rouge }}%"
+              notification_id: "battery_charge_before_red"
+              title: "🔴 Batterie - Préparation Jour Rouge"
+              message: |
+                **⚡ Charge forcée activée**
+
+                Raison: Tempo ROUGE demain
+                SOC actuel: {{ states(battery_soc) }}%
+                Cible: {{ target_rouge }}%
+
+                La batterie sera chargée au maximum pour préparer le jour rouge à tarif élevé.
 
       # CAS 2: Heures creuses + calcul intelligent du moment de charge
       - conditions:
@@ -373,16 +389,22 @@ action:
           - service: switch.turn_on
             target:
               entity_id: !input charge_from_grid_switch
-          - service: notify.notify
+          - service: persistent_notification.create
             data:
-              title: "⚡ Batterie - Charge Heures Creuses Optimisée"
-              message: >
-                Charge démarrée (SOC {{ states(battery_soc) }}%)
-                Cible dynamique: {{ target_end_offpeak }}%
+              notification_id: "battery_charge_optimized"
+              title: "⚡ Batterie - Charge Optimisée"
+              message: |
+                **🔋 Charge intelligente démarrée**
+
+                - SOC actuel: {{ states(battery_soc) }}%
+                - Cible dynamique: {{ target_end_offpeak }}%
                 {% if solar_forecast != "" %}
-                Production prévue: {{ states(solar_forecast) }} kWh
+                - Production prévue demain: {{ states(solar_forecast) }} kWh
                 {% endif %}
-                Temps estimé: {{ charge_time_needed }}h
+                - Temps de charge estimé: {{ charge_time_needed }}h
+                - Fin des heures creuses: 06:30
+
+                Le système a calculé le moment optimal pour démarrer la charge.
 
       # CAS 3: SOC critique (< min_soc) → Charge forcée même hors heures creuses
       - conditions:
@@ -393,10 +415,17 @@ action:
           - service: switch.turn_on
             target:
               entity_id: !input charge_from_grid_switch
-          - service: notify.notify
+          - service: persistent_notification.create
             data:
+              notification_id: "battery_charge_emergency"
               title: "⚠️ Batterie - Charge d'Urgence"
-              message: "SOC critique {{ states(battery_soc) }}% - Charge activée"
+              message: |
+                **🚨 SOC critique détecté**
+
+                SOC actuel: {{ states(battery_soc) }}%
+                Seuil minimum: {{ min_soc }}%
+
+                Charge forcée activée même hors heures creuses pour éviter une décharge complète.
 
       # CAS 4: Hors heures creuses OU cible fin HC atteinte → Désactiver charge
       - conditions:
@@ -414,18 +443,30 @@ action:
           - service: switch.turn_off
             target:
               entity_id: !input charge_from_grid_switch
+          - service: persistent_notification.dismiss
+            data:
+              notification_id: "battery_charge_optimized"
+          - service: persistent_notification.dismiss
+            data:
+              notification_id: "battery_charge_before_red"
+          - service: persistent_notification.dismiss
+            data:
+              notification_id: "battery_charge_emergency"
           - choose:
               - conditions:
                   - condition: template
                     value_template: "{{ debug_mode }}"
                 sequence:
-                  - service: notify.notify
+                  - service: persistent_notification.create
                     data:
+                      notification_id: "battery_charge_stopped"
                       title: "🔍 Debug - Charge Arrêtée"
-                      message: >
-                        ⏸️ Raison: Hors HC ou cible atteinte
-                        SOC: {{ states(battery_soc) }}%
-                        Cible: {{ target_end_offpeak }}%
+                      message: |
+                        **⏸️ Charge désactivée**
+
+                        Raison: Hors heures creuses ou cible atteinte
+                        - SOC actuel: {{ states(battery_soc) }}%
+                        - Cible: {{ target_end_offpeak }}%
 
     # CAS 5 (default): Aucune condition remplie - Log debug
     default:
@@ -434,16 +475,20 @@ action:
               - condition: template
                 value_template: "{{ debug_mode }}"
             sequence:
-              - service: notify.notify
+              - service: persistent_notification.create
                 data:
+                  notification_id: "battery_charge_no_action"
                   title: "🔍 Debug - Aucune Action"
-                  message: >
-                    ℹ️ Aucune condition remplie
-                    SOC: {{ states(battery_soc) }}%
-                    Cible: {{ target_end_offpeak }}%
-                    En heures creuses: {% if now().hour >= 22 or now().hour < 7 %}Oui{% else %}Non{% endif %}
-                    Tempo aujourd'hui: {{ states(tempo_today) }}
-                    Switch charge: {{ states('switch.enphase_battery_iq_5p_charge_depuis_le_reseau') }}
+                  message: |
+                    **ℹ️ En attente du bon moment**
+
+                    État actuel:
+                    - SOC: {{ states(battery_soc) }}%
+                    - Cible: {{ target_end_offpeak }}%
+                    - En heures creuses: {% if now().hour >= 22 or now().hour < 7 %}Oui{% else %}Non{% endif %}
+                    - Tempo aujourd'hui: {{ states(tempo_today) }}
+
+                    Raison: Le système attend le moment optimal calculé pour charger.
 
 mode: single
 max_exceeded: silent
