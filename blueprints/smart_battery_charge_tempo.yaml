@@ -169,6 +169,13 @@ blueprint:
           max: 3
           step: 1
 
+    debug_notifications:
+      name: Notifications de Debug
+      description: Active les notifications détaillées pour comprendre les décisions du blueprint
+      default: false
+      selector:
+        boolean:
+
 variables:
   battery_soc: !input battery_soc_sensor
   battery_capacity_kwh: !input battery_capacity
@@ -183,6 +190,7 @@ variables:
   target_end_offpeak_base: !input target_soc_end_offpeak
   target_rouge: !input target_soc_tempo_rouge
   sunny_threshold: !input sunny_forecast_threshold
+  debug_mode: !input debug_notifications
   # Calcul du SOC cible dynamique basé sur la prévision solaire
   target_end_offpeak: >
     {% if solar_forecast == "" or solar_low == 0 %}
@@ -244,6 +252,27 @@ trigger:
 condition: []
 
 action:
+  # Notification de debug au démarrage
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ debug_mode }}"
+        sequence:
+          - service: notify.notify
+            data:
+              title: "🔍 Debug - Charge Batterie"
+              message: >
+                📊 Calculs actuels:
+                SOC: {{ states(battery_soc) }}%
+                Tempo Aujourd'hui: {{ states(tempo_today) }}
+                Tempo Demain: {{ states(tempo_tomorrow) }}
+                {% if solar_forecast != "" %}
+                Production prévue: {{ states(solar_forecast) }} kWh
+                {% endif %}
+                SOC Cible dynamique: {{ target_end_offpeak }}%
+                Temps de charge estimé: {{ charge_time_needed }}h
+                Heure actuelle: {{ now().strftime('%H:%M') }}
+
   - choose:
       # CAS 0: BLOQUAGE - Jour rouge Tempo AUJOURD'HUI → JAMAIS de charge depuis réseau
       - conditions:
@@ -385,6 +414,36 @@ action:
           - service: switch.turn_off
             target:
               entity_id: !input charge_from_grid_switch
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ debug_mode }}"
+                sequence:
+                  - service: notify.notify
+                    data:
+                      title: "🔍 Debug - Charge Arrêtée"
+                      message: >
+                        ⏸️ Raison: Hors HC ou cible atteinte
+                        SOC: {{ states(battery_soc) }}%
+                        Cible: {{ target_end_offpeak }}%
+
+    # CAS 5 (default): Aucune condition remplie - Log debug
+    default:
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ debug_mode }}"
+            sequence:
+              - service: notify.notify
+                data:
+                  title: "🔍 Debug - Aucune Action"
+                  message: >
+                    ℹ️ Aucune condition remplie
+                    SOC: {{ states(battery_soc) }}%
+                    Cible: {{ target_end_offpeak }}%
+                    En heures creuses: {% if now().hour >= 22 or now().hour < 7 %}Oui{% else %}Non{% endif %}
+                    Tempo aujourd'hui: {{ states(tempo_today) }}
+                    Switch charge: {{ states('switch.enphase_battery_iq_5p_charge_depuis_le_reseau') }}
 
 mode: single
 max_exceeded: silent
