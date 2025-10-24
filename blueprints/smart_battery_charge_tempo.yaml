@@ -169,6 +169,18 @@ blueprint:
           max: 3
           step: 1
 
+    charge_strategy:
+      name: Stratégie de Charge
+      description: Quand démarrer la charge pendant les heures creuses
+      default: "optimized"
+      selector:
+        select:
+          options:
+            - label: "Optimisée (au dernier moment)"
+              value: "optimized"
+            - label: "Immédiate (dès le début HC)"
+              value: "immediate"
+
     debug_notifications:
       name: Notifications de Debug
       description: Active les notifications détaillées pour comprendre les décisions du blueprint
@@ -190,6 +202,7 @@ variables:
   target_end_offpeak_base: !input target_soc_end_offpeak
   target_rouge: !input target_soc_tempo_rouge
   sunny_threshold: !input sunny_forecast_threshold
+  strategy: !input charge_strategy
   debug_mode: !input debug_notifications
   # Calcul du SOC cible dynamique basé sur la prévision solaire
   target_end_offpeak: >
@@ -359,31 +372,36 @@ action:
               {% endif %}
           - condition: template
             value_template: >
-              {# Toujours charger si SOC bas, sinon calcul intelligent du timing #}
-              {% set current_soc = states(battery_soc) | float(0) %}
-              {% set target = target_end_offpeak | float(80) %}
-
-              {# Si SOC très bas (< 50%), charger immédiatement #}
-              {% if current_soc < 50 %}
+              {# Stratégie immédiate: charger dès le début des HC #}
+              {% if strategy == "immediate" %}
                 true
               {% else %}
-                {# Calcul du temps restant - approximation simple basée sur l'heure #}
-                {% set current_hour = now().hour + (now().minute / 60) %}
-                {% set end_hour = 6.5 %}  {# 06:30 par défaut #}
+                {# Stratégie optimisée: calcul intelligent du timing #}
+                {% set current_soc = states(battery_soc) | float(0) %}
+                {% set target = target_end_offpeak | float(80) %}
 
-                {% if current_hour < end_hour %}
-                  {% set hours_remaining = end_hour - current_hour %}
+                {# Si SOC très bas (< 50%), charger immédiatement #}
+                {% if current_soc < 50 %}
+                  true
                 {% else %}
-                  {% set hours_remaining = (24 - current_hour) + end_hour %}
+                  {# Calcul du temps restant - approximation simple basée sur l'heure #}
+                  {% set current_hour = now().hour + (now().minute / 60) %}
+                  {% set end_hour = 6.5 %}  {# 06:30 par défaut #}
+
+                  {% if current_hour < end_hour %}
+                    {% set hours_remaining = end_hour - current_hour %}
+                  {% else %}
+                    {% set hours_remaining = (24 - current_hour) + end_hour %}
+                  {% endif %}
+
+                  {# Calcul du temps de charge nécessaire #}
+                  {% set soc_to_charge = target - current_soc %}
+                  {% set energy_needed = (soc_to_charge / 100) * battery_capacity_kwh %}
+                  {% set charge_hours_needed = (energy_needed / charge_power_kw) %}
+
+                  {# Charger si le temps restant <= temps nécessaire + marge de 0.5h #}
+                  {{ hours_remaining <= (charge_hours_needed + 0.5) }}
                 {% endif %}
-
-                {# Calcul du temps de charge nécessaire #}
-                {% set soc_to_charge = target - current_soc %}
-                {% set energy_needed = (soc_to_charge / 100) * battery_capacity_kwh %}
-                {% set charge_hours_needed = (energy_needed / charge_power_kw) %}
-
-                {# Charger si le temps restant <= temps nécessaire + marge de 0.5h #}
-                {{ hours_remaining <= (charge_hours_needed + 0.5) }}
               {% endif %}
         sequence:
           - service: switch.turn_on
@@ -392,7 +410,7 @@ action:
           - service: persistent_notification.create
             data:
               notification_id: "battery_charge_optimized"
-              title: "⚡ Batterie - Charge Optimisée"
+              title: "⚡ Batterie - Charge {% if strategy == 'immediate' %}Immédiate{% else %}Optimisée{% endif %}"
               message: |
                 **🔋 Charge intelligente démarrée**
 
@@ -403,8 +421,9 @@ action:
                 {% endif %}
                 - Temps de charge estimé: {{ charge_time_needed }}h
                 - Fin des heures creuses: 06:30
+                - Stratégie: {% if strategy == 'immediate' %}Charge dès le début HC{% else %}Timing optimisé{% endif %}
 
-                Le système a calculé le moment optimal pour démarrer la charge.
+                {% if strategy == 'immediate' %}Charge démarrée dès le début des heures creuses.{% else %}Le système a calculé le moment optimal pour démarrer la charge.{% endif %}
 
       # CAS 3: SOC critique (< min_soc) → Charge forcée même hors heures creuses
       - conditions:
