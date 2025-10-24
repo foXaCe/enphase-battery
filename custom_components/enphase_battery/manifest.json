@@ -1,12 +1,12 @@
 {
   "domain": "enphase_battery",
   "name": "Enphase Battery IQ 5P",
-  "codeowners": [],
+  "codeowners": ["@foXaCe"],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/foXaCe/enphase-battery",
-  "iot_class": "local_polling",
+  "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/foXaCe/enphase-battery/issues",
   "requirements": [],
-  "version": "1.0.0"
+  "version": "1.1.0"
 }
