@@ -151,6 +151,9 @@ action:
             conditions:
               - condition: state
                 entity_id: !input tempo_sensor
+                state: "RED"
+              - condition: state
+                entity_id: !input tempo_sensor
                 state: "Rouge"
               - condition: state
                 entity_id: !input tempo_sensor
