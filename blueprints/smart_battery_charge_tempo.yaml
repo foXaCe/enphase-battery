@@ -139,11 +139,11 @@ blueprint:
 
     target_soc_end_offpeak:
       name: SOC Minimum Fin Heures Creuses
-      description: SOC minimum souhaité à la fin des heures creuses (%)
+      description: SOC minimum souhaité à la fin des heures creuses (%) - ajusté dynamiquement selon la prévision solaire
       default: 80
       selector:
         number:
-          min: 50
+          min: 20
           max: 100
           step: 5
           unit_of_measurement: "%"
