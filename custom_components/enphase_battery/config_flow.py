@@ -151,16 +151,10 @@ class EnphaseBatteryOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
+        # MQTT option disabled - not yet fully implemented
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema(
-                {
-                    vol.Optional(
-                        CONF_USE_MQTT,
-                        default=self.config_entry.options.get(CONF_USE_MQTT, False),
-                    ): bool,
-                }
-            ),
+            data_schema=vol.Schema({}),
         )
 
 
