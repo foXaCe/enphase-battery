@@ -1,0 +1,103 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connexion à Enphase Battery IQ 5P",
+        "description": "Entrez vos identifiants de compte Enphase Enlighten (API cloud). Le Site ID et User ID sont optionnels - laissez vides pour détection automatique.",
+        "data": {
+          "username": "Email / Nom d'utilisateur",
+          "password": "Mot de passe",
+          "site_id": "Site ID (optionnel)",
+          "user_id": "User ID (optionnel)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Ré-authentification Enphase Battery",
+        "description": "Les identifiants de votre compte Enphase doivent être mis à jour.",
+        "data": {
+          "username": "Email / Nom d'utilisateur",
+          "password": "Mot de passe"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Échec de connexion à l'API Enphase Cloud. Vérifiez votre connexion internet.",
+      "invalid_auth": "Identifiants invalides. Veuillez vérifier votre email/nom d'utilisateur et mot de passe.",
+      "unknown": "Une erreur inattendue s'est produite. Consultez les journaux pour plus de détails."
+    },
+    "abort": {
+      "already_configured": "Cette batterie Enphase est déjà configurée.",
+      "reauth_successful": "Ré-authentification réussie."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options Enphase Battery",
+        "description": "Mode de connexion : MQTT (temps réel, ~300 req/jour) ou Polling (60s, ~1440 req/jour)",
+        "data": {
+          "use_mqtt": "Activer MQTT pour mises à jour temps réel (expérimental)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery_soc": {
+        "name": "État de charge de la batterie"
+      },
+      "battery_power": {
+        "name": "Puissance de la batterie"
+      },
+      "battery_voltage": {
+        "name": "Tension de la batterie"
+      },
+      "battery_current": {
+        "name": "Courant de la batterie"
+      },
+      "battery_temperature": {
+        "name": "Température de la batterie"
+      },
+      "battery_energy_charged": {
+        "name": "Énergie chargée aujourd'hui"
+      },
+      "battery_energy_discharged": {
+        "name": "Énergie déchargée aujourd'hui"
+      },
+      "battery_capacity": {
+        "name": "Capacité de la batterie"
+      },
+      "battery_health": {
+        "name": "État de santé de la batterie"
+      }
+    },
+    "binary_sensor": {
+      "battery_charging": {
+        "name": "Batterie en charge"
+      },
+      "battery_connected": {
+        "name": "Batterie connectée"
+      }
+    },
+    "switch": {
+      "battery_backup_mode": {
+        "name": "Mode backup de la batterie"
+      }
+    },
+    "select": {
+      "battery_mode": {
+        "name": "Mode de la batterie",
+        "state": {
+          "self_consumption": "Autoconsommation",
+          "backup": "Backup uniquement",
+          "savings": "Mode économie"
+        }
+      }
+    },
+    "number": {
+      "battery_reserve": {
+        "name": "Pourcentage de réserve de la batterie"
+      }
+    }
+  }
+}

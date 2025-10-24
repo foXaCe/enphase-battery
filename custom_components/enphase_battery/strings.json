@@ -1,0 +1,33 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Enphase Battery",
+        "description": "Enter the connection details for your Enphase Envoy gateway.",
+        "data": {
+          "host": "Host (IP or hostname)",
+          "username": "Username (optional)",
+          "password": "Password (optional)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate Enphase Battery",
+        "description": "The credentials for your Enphase system need to be updated.",
+        "data": {
+          "host": "Host",
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the Enphase gateway. Check the host address and network connection.",
+      "invalid_auth": "Invalid authentication credentials. Please check your username and password.",
+      "unknown": "Unexpected error occurred. Check the logs for more details."
+    },
+    "abort": {
+      "already_configured": "This Enphase system is already configured.",
+      "reauth_successful": "Re-authentication successful."
+    }
+  }
+}
