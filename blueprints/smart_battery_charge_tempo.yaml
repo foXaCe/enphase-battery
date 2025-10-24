@@ -27,6 +27,28 @@ blueprint:
             - domain: sensor
               device_class: battery
 
+    battery_capacity:
+      name: Capacité Batterie
+      description: Capacité totale de la batterie en kWh (ex. 5 pour IQ 5P)
+      default: 5.0
+      selector:
+        number:
+          min: 1.0
+          max: 50.0
+          step: 0.1
+          unit_of_measurement: "kWh"
+
+    battery_charge_power:
+      name: Puissance de Charge
+      description: Puissance de charge depuis le réseau en kW (ex. 3.84 pour IQ 5P)
+      default: 3.84
+      selector:
+        number:
+          min: 1.0
+          max: 10.0
+          step: 0.1
+          unit_of_measurement: "kW"
+
     charge_from_grid_switch:
       name: Switch Charge depuis Réseau
       description: Switch pour activer/désactiver la charge depuis le réseau (ex. switch.enphase_battery_charge_from_grid)
@@ -118,6 +140,8 @@ blueprint:
 
 variables:
   battery_soc: !input battery_soc_sensor
+  battery_capacity_kwh: !input battery_capacity
+  charge_power_kw: !input battery_charge_power
   tempo_today: !input tempo_today_sensor
   tempo_tomorrow: !input tempo_tomorrow_sensor
   weather: !input weather_entity
@@ -125,6 +149,17 @@ variables:
   target_end_offpeak: !input target_soc_end_offpeak
   target_rouge: !input target_soc_tempo_rouge
   sunny_threshold: !input sunny_forecast_threshold
+  # Calcul du temps de charge nécessaire en heures
+  charge_time_needed: >
+    {% set current_soc = states(battery_soc) | float(0) %}
+    {% set target = target_end_offpeak | float(80) %}
+    {% set soc_to_charge = target - current_soc %}
+    {% if soc_to_charge <= 0 %}
+      0
+    {% else %}
+      {% set energy_needed = (soc_to_charge / 100) * battery_capacity_kwh %}
+      {{ (energy_needed / charge_power_kw) | round(2) }}
+    {% endif %}
 
 trigger:
   # Déclenchement à chaque changement de SOC
@@ -205,7 +240,7 @@ action:
               title: "🔴 Batterie - Charge Tempo Rouge"
               message: "Charge activée (Tempo Rouge demain) → Cible {{ target_rouge }}%"
 
-      # CAS 2: Heures creuses + SOC < cible fin heures creuses → Charge pour atteindre objectif
+      # CAS 2: Heures creuses + calcul intelligent du moment de charge
       - conditions:
           - condition: time
             after: !input heures_creuses_start
@@ -222,14 +257,42 @@ action:
               {% else %}
                 true
               {% endif %}
+          - condition: template
+            value_template: >
+              {# Toujours charger si SOC bas, sinon calcul intelligent du timing #}
+              {% set current_soc = states(battery_soc) | float(0) %}
+              {% set target = target_end_offpeak | float(80) %}
+
+              {# Si SOC très bas (< 50%), charger immédiatement #}
+              {% if current_soc < 50 %}
+                true
+              {% else %}
+                {# Calcul du temps restant - approximation simple basée sur l'heure #}
+                {% set current_hour = now().hour + (now().minute / 60) %}
+                {% set end_hour = 6.5 %}  {# 06:30 par défaut #}
+
+                {% if current_hour < end_hour %}
+                  {% set hours_remaining = end_hour - current_hour %}
+                {% else %}
+                  {% set hours_remaining = (24 - current_hour) + end_hour %}
+                {% endif %}
+
+                {# Calcul du temps de charge nécessaire #}
+                {% set soc_to_charge = target - current_soc %}
+                {% set energy_needed = (soc_to_charge / 100) * battery_capacity_kwh %}
+                {% set charge_hours_needed = (energy_needed / charge_power_kw) %}
+
+                {# Charger si le temps restant <= temps nécessaire + marge de 0.5h #}
+                {{ hours_remaining <= (charge_hours_needed + 0.5) }}
+              {% endif %}
         sequence:
           - service: switch.turn_on
             target:
               entity_id: !input charge_from_grid_switch
           - service: notify.notify
             data:
-              title: "⚡ Batterie - Charge Heures Creuses"
-              message: "Charge activée (SOC {{ states(battery_soc) }}%) → Cible fin HC {{ target_end_offpeak }}%"
+              title: "⚡ Batterie - Charge Heures Creuses Optimisée"
+              message: "Charge démarrée (SOC {{ states(battery_soc) }}%) - Temps estimé: {{ charge_time_needed }}h → {{ target_end_offpeak }}%"
 
       # CAS 3: SOC critique (< min_soc) → Charge forcée même hors heures creuses
       - conditions:
