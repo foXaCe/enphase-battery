@@ -58,15 +58,18 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         self.mqtt_client: EnphaseMQTTClient | None = None
 
         # Energy tracking for daily calculations
-        self._daily_reset_date: str | None = None
-        self._daily_charged_start: float = 0
-        self._daily_discharged_start: float = 0
-        self._consumption_24h_history: list[tuple[str, float]] = []  # (timestamp, consumption_kwh)
+        # Restore from hass.data if available (persistence across restarts)
+        stored_data = hass.data.setdefault(DOMAIN, {}).get("energy_tracking", {})
+
+        self._daily_reset_date: str | None = stored_data.get("reset_date")
+        self._daily_charged_start: float = stored_data.get("charged_start", 0)
+        self._daily_discharged_start: float = stored_data.get("discharged_start", 0)
+        self._consumption_24h_history: list[tuple[str, float]] = stored_data.get("consumption_history", [])
 
         # SOC-based energy tracking (fallback when meters don't track battery energy)
-        self._last_soc: int | None = None
-        self._daily_soc_charged: float = 0  # kWh charged based on SOC delta
-        self._daily_soc_discharged: float = 0  # kWh discharged based on SOC delta
+        self._last_soc: int | None = stored_data.get("last_soc")
+        self._daily_soc_charged: float = stored_data.get("soc_charged", 0)
+        self._daily_soc_discharged: float = stored_data.get("soc_discharged", 0)
 
         # Determine connection mode (default to cloud for backward compatibility)
         self._connection_mode = entry.data.get(CONF_CONNECTION_MODE, CONNECTION_MODE_CLOUD)
@@ -360,6 +363,17 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
             f"24h consumption: {consumption_24h:.2f}kWh, "
             f"Backup time: {backup_time_minutes}min"
         )
+
+        # Save tracking data to hass.data for persistence across restarts
+        self.hass.data.setdefault(DOMAIN, {})["energy_tracking"] = {
+            "reset_date": self._daily_reset_date,
+            "charged_start": self._daily_charged_start,
+            "discharged_start": self._daily_discharged_start,
+            "consumption_history": self._consumption_24h_history[-100:],  # Keep last 100 entries max
+            "last_soc": self._last_soc,
+            "soc_charged": self._daily_soc_charged,
+            "soc_discharged": self._daily_soc_discharged,
+        }
 
     async def async_shutdown(self) -> None:
         """Shutdown coordinator and cleanup resources."""
