@@ -657,6 +657,19 @@ class EnphaseEnvoyLocalAPI:
                 # Fallback for older format
                 battery_data["devices"] = inventory.get("devices", [])
 
+            # Get charge_from_grid setting from tariff configuration
+            try:
+                tariff_data = await self._make_request("GET", "/admin/lib/tariff", auth_required=True)
+                if tariff_data and "storage_settings" in tariff_data:
+                    battery_data["charge_from_grid"] = tariff_data["storage_settings"].get("charge_from_grid", False)
+                    _LOGGER.debug(f"charge_from_grid: {battery_data.get('charge_from_grid')}")
+                else:
+                    battery_data["charge_from_grid"] = False
+                    _LOGGER.debug("tariff configuration does not contain storage_settings, defaulting charge_from_grid to False")
+            except Exception as tariff_err:
+                _LOGGER.debug(f"Failed to get tariff data: {tariff_err}")
+                battery_data["charge_from_grid"] = False
+
             _LOGGER.info(f"Final battery data: {battery_data}")
 
             return battery_data
@@ -692,22 +705,35 @@ class EnphaseEnvoyLocalAPI:
             True if successful
 
         Note:
-            Endpoint: POST /ivp/sc/charge_from_grid
+            Endpoint: PUT /admin/lib/tariff
             Requires firmware 7.x+ with tariff configuration
+            Uses same approach as pyenphase: GET current tariff, modify, PUT back
         """
         try:
-            # Enphase local API endpoint for grid charging control
-            endpoint = "/ivp/sc/charge_from_grid"
+            # Step 1: Get current tariff configuration
+            tariff_data = await self._make_request(
+                "GET",
+                "/admin/lib/tariff",
+                auth_required=True,
+            )
 
-            # Payload format based on Enphase IQ Gateway API
-            data = {
-                "enable": enabled
-            }
+            if not tariff_data:
+                _LOGGER.error("Failed to get tariff configuration")
+                return False
 
+            # Step 2: Verify storage_settings exists
+            if "storage_settings" not in tariff_data:
+                _LOGGER.error("Tariff configuration does not contain storage_settings")
+                return False
+
+            # Step 3: Modify charge_from_grid setting
+            tariff_data["storage_settings"]["charge_from_grid"] = enabled
+
+            # Step 4: Send updated configuration back
             response = await self._make_request(
-                "POST",
-                endpoint,
-                json=data,
+                "PUT",
+                "/admin/lib/tariff",
+                json={"tariff": tariff_data},
                 auth_required=True,
             )
 
