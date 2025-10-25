@@ -120,7 +120,7 @@ class EnphaseEnvoyLocalAPI:
                     return await response.json()
                 else:
                     text = await response.text()
-                    _LOGGER.debug(f"Non-JSON response from {endpoint}: {text[:200]}")
+                    _LOGGER.debug(f"Non-JSON response from {endpoint} (length={len(text)}): {text[:200]}")
                     return {"raw": text}
 
         except aiohttp.ClientError as err:
@@ -664,9 +664,13 @@ class EnphaseEnvoyLocalAPI:
                 # Parse JSON from 'raw' key if present (firmware 8.x format)
                 if isinstance(tariff_data, dict) and "raw" in tariff_data:
                     tariff_data = json.loads(tariff_data["raw"])
-                    _LOGGER.debug("Parsed tariff_data from 'raw' key")
+                    _LOGGER.debug(f"Parsed tariff_data from 'raw' key. Keys: {list(tariff_data.keys())}")
 
-                if tariff_data and "storage_settings" in tariff_data:
+                # Check if tariff has storage_settings (it should be in tariff_data["tariff"]["storage_settings"])
+                if tariff_data and "tariff" in tariff_data and "storage_settings" in tariff_data["tariff"]:
+                    battery_data["charge_from_grid"] = tariff_data["tariff"]["storage_settings"].get("charge_from_grid", False)
+                    _LOGGER.debug(f"charge_from_grid: {battery_data.get('charge_from_grid')}")
+                elif tariff_data and "storage_settings" in tariff_data:
                     battery_data["charge_from_grid"] = tariff_data["storage_settings"].get("charge_from_grid", False)
                     _LOGGER.debug(f"charge_from_grid: {battery_data.get('charge_from_grid')}")
                 else:
@@ -731,21 +735,22 @@ class EnphaseEnvoyLocalAPI:
             import json
             if isinstance(tariff_data, dict) and "raw" in tariff_data:
                 tariff_data = json.loads(tariff_data["raw"])
-                _LOGGER.debug("Parsed tariff_data from 'raw' key for set operation")
+                _LOGGER.debug(f"Parsed tariff_data from 'raw' key for set operation. Keys: {list(tariff_data.keys())}")
 
             # Step 2: Verify storage_settings exists
-            if "storage_settings" not in tariff_data:
-                _LOGGER.error("Tariff configuration does not contain storage_settings")
+            # The structure is {"tariff": {"storage_settings": {...}}}
+            if "tariff" not in tariff_data or "storage_settings" not in tariff_data["tariff"]:
+                _LOGGER.error(f"Tariff configuration does not contain storage_settings. Keys: {list(tariff_data.keys())}")
                 return False
 
             # Step 3: Modify charge_from_grid setting
-            tariff_data["storage_settings"]["charge_from_grid"] = enabled
+            tariff_data["tariff"]["storage_settings"]["charge_from_grid"] = enabled
 
-            # Step 4: Send updated configuration back
+            # Step 4: Send updated configuration back (send the whole structure)
             response = await self._make_request(
                 "PUT",
                 "/admin/lib/tariff",
-                json={"tariff": tariff_data},
+                json=tariff_data,  # Send complete structure, not wrapped again
                 auth_required=True,
             )
 
