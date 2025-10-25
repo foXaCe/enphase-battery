@@ -518,6 +518,7 @@ class EnphaseEnvoyLocalAPI:
                 secctrl = ensemble_status.get("secctrl", {})
                 if secctrl:
                     battery_data["soc"] = secctrl.get("agg_soc", secctrl.get("ENC_agg_soc", 0))
+                    battery_data["soh"] = secctrl.get("ENC_agg_soh", 100)
                     battery_data["available_energy"] = secctrl.get("ENC_agg_avail_energy", 0)
                     battery_data["max_capacity"] = secctrl.get("Enc_max_available_capacity", 0)
                     battery_data["status"] = "grid-tied" if ensemble_status.get("relay", {}).get("Enchg_grid_mode") == "grid-tied" else "unknown"

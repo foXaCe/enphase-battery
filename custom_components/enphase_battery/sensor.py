@@ -42,6 +42,17 @@ async def async_setup_entry(
         BatteryEnergyDischargedTodaySensor(coordinator),
         BatteryConsumption24hSensor(coordinator),
         BatteryBackupTimeSensor(coordinator),
+        # Diagnostic sensors
+        BatteryTemperatureSensor(coordinator),
+        BatteryMaxCellTempSensor(coordinator),
+        BatteryHealthSensor(coordinator),
+        BatterySerialNumberSensor(coordinator),
+        BatteryPartNumberSensor(coordinator),
+        BatteryFirmwareSensor(coordinator),
+        BatteryCapacitySensor(coordinator),
+        BatteryGridModeSensor(coordinator),
+        EnvoySerialNumberSensor(coordinator),
+        EnvoyFirmwareSensor(coordinator),
     ]
 
     async_add_entities(entities)
@@ -254,3 +265,203 @@ class BatteryBackupTimeSensor(EnphaseBatterySensorBase):
         if not self.coordinator.data:
             return None
         return self.coordinator.data.get("estimated_backup_time")
+
+
+# Diagnostic Sensors
+
+class BatteryTemperatureSensor(EnphaseBatterySensorBase):
+    """Battery Temperature sensor."""
+
+    def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, "temperature", "Température Batterie")
+        self._attr_device_class = SensorDeviceClass.TEMPERATURE
+        self._attr_native_unit_of_measurement = "°C"
+        self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_icon = "mdi:thermometer"
+        self._attr_entity_category = "diagnostic"
+
+    @property
+    def native_value(self) -> int | None:
+        """Return the state of the sensor."""
+        if not self.coordinator.data:
+            return None
+        return self.coordinator.data.get("temperature")
+
+
+class BatteryMaxCellTempSensor(EnphaseBatterySensorBase):
+    """Battery Max Cell Temperature sensor."""
+
+    def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, "max_cell_temp", "Température Max Cellule")
+        self._attr_device_class = SensorDeviceClass.TEMPERATURE
+        self._attr_native_unit_of_measurement = "°C"
+        self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_icon = "mdi:thermometer-alert"
+        self._attr_entity_category = "diagnostic"
+
+    @property
+    def native_value(self) -> int | None:
+        """Return the state of the sensor."""
+        if not self.coordinator.data:
+            return None
+        return self.coordinator.data.get("max_cell_temp")
+
+
+class BatteryHealthSensor(EnphaseBatterySensorBase):
+    """Battery State of Health (SOH) sensor."""
+
+    def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, "health", "État de Santé Batterie")
+        self._attr_native_unit_of_measurement = PERCENTAGE
+        self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_icon = "mdi:heart-pulse"
+        self._attr_entity_category = "diagnostic"
+
+    @property
+    def native_value(self) -> int | None:
+        """Return the state of the sensor."""
+        if not self.coordinator.data:
+            return None
+        return self.coordinator.data.get("soh", 100)
+
+
+class BatterySerialNumberSensor(EnphaseBatterySensorBase):
+    """Battery Serial Number sensor."""
+
+    def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, "battery_serial", "Numéro de Série Batterie")
+        self._attr_icon = "mdi:identifier"
+        self._attr_entity_category = "diagnostic"
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the state of the sensor."""
+        if not self.coordinator.data:
+            return None
+        devices = self.coordinator.data.get("devices", [])
+        if devices and len(devices) > 0:
+            return devices[0].get("serial_num")
+        return None
+
+
+class BatteryPartNumberSensor(EnphaseBatterySensorBase):
+    """Battery Part Number sensor."""
+
+    def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, "battery_part_number", "Référence Batterie")
+        self._attr_icon = "mdi:barcode"
+        self._attr_entity_category = "diagnostic"
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the state of the sensor."""
+        if not self.coordinator.data:
+            return None
+        devices = self.coordinator.data.get("devices", [])
+        if devices and len(devices) > 0:
+            return devices[0].get("part_num")
+        return None
+
+
+class BatteryFirmwareSensor(EnphaseBatterySensorBase):
+    """Battery Firmware Version sensor."""
+
+    def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, "battery_firmware", "Firmware Batterie")
+        self._attr_icon = "mdi:chip"
+        self._attr_entity_category = "diagnostic"
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the state of the sensor."""
+        if not self.coordinator.data:
+            return None
+        devices = self.coordinator.data.get("devices", [])
+        if devices and len(devices) > 0:
+            return devices[0].get("img_pnum_running")
+        return None
+
+
+class BatteryCapacitySensor(EnphaseBatterySensorBase):
+    """Battery Nominal Capacity sensor."""
+
+    def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, "battery_capacity", "Capacité Nominale Batterie")
+        self._attr_device_class = SensorDeviceClass.ENERGY_STORAGE
+        self._attr_native_unit_of_measurement = UnitOfEnergy.WATT_HOUR
+        self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_icon = "mdi:battery-high"
+        self._attr_entity_category = "diagnostic"
+
+    @property
+    def native_value(self) -> int | None:
+        """Return the state of the sensor."""
+        if not self.coordinator.data:
+            return None
+        devices = self.coordinator.data.get("devices", [])
+        if devices and len(devices) > 0:
+            return devices[0].get("encharge_capacity")
+        return self.coordinator.data.get("max_capacity")
+
+
+class BatteryGridModeSensor(EnphaseBatterySensorBase):
+    """Battery Grid Mode sensor."""
+
+    def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, "grid_mode", "Mode Réseau")
+        self._attr_icon = "mdi:transmission-tower"
+        self._attr_entity_category = "diagnostic"
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the state of the sensor."""
+        if not self.coordinator.data:
+            return None
+        devices = self.coordinator.data.get("devices", [])
+        if devices and len(devices) > 0:
+            return devices[0].get("reported_enc_grid_state", "unknown")
+        return self.coordinator.data.get("status")
+
+
+class EnvoySerialNumberSensor(EnphaseBatterySensorBase):
+    """Envoy Serial Number sensor."""
+
+    def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, "envoy_serial", "Numéro de Série Envoy")
+        self._attr_icon = "mdi:identifier"
+        self._attr_entity_category = "diagnostic"
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the state of the sensor."""
+        # Get from coordinator's local_api or api
+        if self.coordinator.is_local_mode and self.coordinator.local_api:
+            return self.coordinator.local_api._serial_number
+        return None
+
+
+class EnvoyFirmwareSensor(EnphaseBatterySensorBase):
+    """Envoy Firmware Version sensor."""
+
+    def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, "envoy_firmware", "Firmware Envoy")
+        self._attr_icon = "mdi:chip"
+        self._attr_entity_category = "diagnostic"
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the state of the sensor."""
+        # Get from coordinator's local_api or api
+        if self.coordinator.is_local_mode and self.coordinator.local_api:
+            return self.coordinator.local_api._firmware_version
+        return None
