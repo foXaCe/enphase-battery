@@ -56,10 +56,11 @@
   "options": {
     "step": {
       "init": {
-        "title": "Options Enphase Battery",
-        "description": "Mode de connexion : MQTT (temps réel, ~300 req/jour) ou Polling (60s, ~1440 req/jour)",
+        "title": "Configuration des IDs",
+        "description": "Configurez site_id et user_id pour des démarrages ultra-rapides (1-2s au lieu de 7s)",
         "data": {
-          "use_mqtt": "Activer MQTT pour mises à jour temps réel (expérimental)"
+          "site_id": "Site ID",
+          "user_id": "User ID"
         }
       }
     }

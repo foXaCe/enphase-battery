@@ -297,17 +297,13 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class EnphaseBatteryOptionsFlow(config_entries.OptionsFlow):
     """Handle options flow for Enphase Battery."""
 
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Initialize options flow."""
-        self.config_entry = config_entry
-
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Manage the options."""
         if user_input is not None:
             # Update config entry with new IDs
-            new_data = {**self.config_entry.data}
+            new_data = {**self.handler.data}
 
             # Only update if values were provided
             if user_input.get(CONF_SITE_ID):
@@ -316,13 +312,13 @@ class EnphaseBatteryOptionsFlow(config_entries.OptionsFlow):
                 new_data[CONF_USER_ID] = user_input[CONF_USER_ID]
 
             self.hass.config_entries.async_update_entry(
-                self.config_entry, data=new_data
+                self.handler, data=new_data
             )
             return self.async_create_entry(title="", data={})
 
         # Get current values (auto-detected or manually configured)
-        current_site_id = self.config_entry.data.get(CONF_SITE_ID, "")
-        current_user_id = self.config_entry.data.get(CONF_USER_ID, "")
+        current_site_id = self.handler.data.get(CONF_SITE_ID, "")
+        current_user_id = self.handler.data.get(CONF_USER_ID, "")
 
         # Pre-fill with current values
         options_schema = vol.Schema(
