@@ -23,8 +23,11 @@ Vos contributions m'aident à continuer d'améliorer ce projet et à ajouter de 
 
 L'intégration officielle Enphase Envoy de Home Assistant ne gère pas correctement les batteries IQ 5P. Cette intégration custom vise à :
 
-- ✅ **Dual-mode** : Connexion locale (Envoy direct) OU cloud (Enlighten)
+- ✅ **Triple-mode** : Local, Cloud OU **Hybride** (local + cloud)
 - ✅ **Mode local** : Latence 64ms, pas de quota API, polling 10s
+- ✅ **Mode hybride** : Données locales rapides + contrôle cloud (recommandé pour firmware 8.x)
+- ✅ **Synchronisation temps réel** : États de contrôle lus depuis le cloud en mode hybride
+- ✅ **Stockage persistant** : Données d'énergie quotidienne conservées après redémarrage
 - ✅ Capturer toutes les données disponibles de l'app mobile Enphase Energy Enlighten
 - ✅ Exposer l'état de charge (SOC) en temps réel
 - ✅ Contrôler les modes de fonctionnement des batteries
@@ -59,18 +62,36 @@ L'intégration officielle Enphase Envoy de Home Assistant ne gère pas correctem
 
 ### ⚙️ Configuration
 
-#### Mode Local (Recommandé)
+#### Mode Hybride (Recommandé pour firmware 8.x)
+
+**⚡ Meilleur des deux mondes : données locales rapides + contrôle cloud fonctionnel**
 
 1. Allez dans **Configuration** → **Intégrations**
 2. Cliquez sur **+ Ajouter une intégration**
 3. Recherchez **"Enphase Battery IQ 5P"**
-4. **Choisir "Local"** (Envoy direct - rapide, pas de quota API)
-5. Entrez les informations de l'Envoy :
+4. **Choisir "Local"** (Envoy direct)
+5. Entrez les informations :
    - **Hostname ou IP** : `envoy.local` ou IP fixe (ex: `192.168.1.50`)
-   - **Username** : `installer` (par défaut)
-   - **Password** : Laisser vide (auto-généré depuis le numéro de série)
+   - **Email Enphase** : Votre email Enlighten (requis pour firmware 7.x/8.x)
+   - **Mot de passe Enphase** : Votre mot de passe Enlighten
+   - **✅ Activer le contrôle cloud (mode hybride)** : Cocher cette case
 
-#### Mode Cloud (Alternative)
+**Avantages du mode hybride :**
+- 📊 Capteurs ultra-rapides (polling local 10s, latence 64ms)
+- 🎛️ Switch et select fonctionnels (via API cloud)
+- 🔄 États de contrôle synchronisés en temps réel depuis le cloud
+- ⚡ UI réactive (changements visibles dès le prochain update ~10s max)
+- ❌ Pas de quota API pour les données (seulement pour les contrôles)
+
+> **Note firmware 8.x :** L'API locale ne supporte plus le contrôle des batteries depuis le firmware 8.2.4225. Le mode hybride est donc obligatoire pour utiliser les switch/select.
+
+#### Mode Local Pur (Capteurs uniquement)
+
+1. Même procédure que le mode hybride
+2. **Ne PAS cocher** "Activer le contrôle cloud"
+3. Les switch et select seront désactivés (limitation firmware 8.x)
+
+#### Mode Cloud Pur (Alternative)
 
 1. Même procédure, mais choisir **"Cloud"** (Enlighten)
 2. Entrez vos identifiants Enphase Enlighten :
@@ -78,6 +99,11 @@ L'intégration officielle Enphase Envoy de Home Assistant ne gère pas correctem
    - **Mot de passe** : Votre mot de passe Enphase
    - **Site ID** : (optionnel, auto-détecté)
    - **User ID** : (optionnel, auto-détecté)
+
+**Inconvénients :**
+- ⏱️ Polling lent (60s au lieu de 10s)
+- 🌐 Latence élevée (accès via serveurs Enphase)
+- 📊 Quota API consommé pour tous les appels
 
 📖 **[Documentation détaillée du mode local](docs/LOCAL_MODE.md)**
 
@@ -104,9 +130,14 @@ L'intégration officielle Enphase Envoy de Home Assistant ne gère pas correctem
 
 #### Contrôles (Controls)
 
-- `switch.battery_charge_from_grid` : Activer/désactiver la charge depuis le réseau
-- `select.battery_mode` : Sélection du mode (Autoconsommation / Optimisation IA)
-- `number.battery_stop_level` : Niveau d'arrêt de la batterie (5-25%)
+> **Important :** Les contrôles nécessitent le **mode cloud** ou **mode hybride** (firmware 8.x ne supporte plus le contrôle via API locale)
+
+- `switch.enphase_battery_iq_5p_charge_depuis_le_reseau` : Activer/désactiver la charge depuis le réseau
+  - 🔄 En mode hybride : état synchronisé en temps réel depuis le cloud (visible en ~10s max)
+- `select.enphase_battery_iq_5p_mode_de_la_batterie` : Sélection du mode de fonctionnement
+  - Autoconsommation (self-consumption)
+  - Optimisation IA (cost_savings)
+  - 🔄 En mode hybride : état synchronisé en temps réel depuis le cloud (visible en ~10s max)
 
 ### 🔍 Capture des données avec mitmdump
 
@@ -161,8 +192,11 @@ Your contributions help me continue improving this project and adding new featur
 
 The official Enphase Envoy integration in Home Assistant doesn't properly support IQ 5P batteries. This custom integration aims to:
 
-- ✅ **Dual-mode**: Local connection (direct Envoy) OR cloud (Enlighten)
+- ✅ **Triple-mode**: Local, Cloud OR **Hybrid** (local + cloud)
 - ✅ **Local mode**: 64ms latency, no API quota, 10s polling
+- ✅ **Hybrid mode**: Fast local data + cloud control (recommended for firmware 8.x)
+- ✅ **Real-time sync**: Control states read from cloud in hybrid mode
+- ✅ **Persistent storage**: Daily energy data preserved after restart
 - ✅ Capture all available data from the Enphase Energy Enlighten mobile app
 - ✅ Expose real-time state of charge (SOC)
 - ✅ Control battery operation modes
@@ -197,18 +231,36 @@ The official Enphase Envoy integration in Home Assistant doesn't properly suppor
 
 ### ⚙️ Configuration
 
-#### Local Mode (Recommended)
+#### Hybrid Mode (Recommended for firmware 8.x)
+
+**⚡ Best of both worlds: fast local data + functional cloud control**
 
 1. Go to **Settings** → **Integrations**
 2. Click **+ Add Integration**
 3. Search for **"Enphase Battery IQ 5P"**
-4. **Choose "Local"** (Envoy direct - fast, no API limits)
-5. Enter Envoy information:
+4. **Choose "Local"** (Envoy direct)
+5. Enter information:
    - **Hostname or IP**: `envoy.local` or fixed IP (e.g., `192.168.1.50`)
-   - **Username**: `installer` (default)
-   - **Password**: Leave empty (auto-generated from serial number)
+   - **Enphase Email**: Your Enlighten email (required for firmware 7.x/8.x)
+   - **Enphase Password**: Your Enlighten password
+   - **✅ Enable cloud control (hybrid mode)**: Check this box
 
-#### Cloud Mode (Alternative)
+**Hybrid mode benefits:**
+- 📊 Ultra-fast sensors (10s local polling, 64ms latency)
+- 🎛️ Functional switch and select (via cloud API)
+- 🔄 Control states synced in real-time from cloud
+- ⚡ Responsive UI (changes visible within next update ~10s max)
+- ❌ No API quota for data (only for controls)
+
+> **Firmware 8.x note:** Local API no longer supports battery control since firmware 8.2.4225. Hybrid mode is required to use switch/select.
+
+#### Pure Local Mode (Sensors only)
+
+1. Same procedure as hybrid mode
+2. **Do NOT check** "Enable cloud control"
+3. Switch and select will be disabled (firmware 8.x limitation)
+
+#### Pure Cloud Mode (Alternative)
 
 1. Same procedure, but choose **"Cloud"** (Enlighten)
 2. Enter your Enphase Enlighten credentials:
@@ -216,6 +268,11 @@ The official Enphase Envoy integration in Home Assistant doesn't properly suppor
    - **Password**: Your Enphase password
    - **Site ID**: (optional, auto-detected)
    - **User ID**: (optional, auto-detected)
+
+**Disadvantages:**
+- ⏱️ Slow polling (60s instead of 10s)
+- 🌐 High latency (access via Enphase servers)
+- 📊 API quota consumed for all calls
 
 📖 **[Detailed local mode documentation](docs/LOCAL_MODE.md)**
 
@@ -242,9 +299,14 @@ The official Enphase Envoy integration in Home Assistant doesn't properly suppor
 
 #### Controls
 
-- `switch.battery_charge_from_grid`: Enable/disable charging from grid
-- `select.battery_mode`: Mode selection (Self Consumption / AI Optimization)
-- `number.battery_stop_level`: Battery minimum discharge level (5-25%)
+> **Important:** Controls require **cloud mode** or **hybrid mode** (firmware 8.x no longer supports control via local API)
+
+- `switch.enphase_battery_iq_5p_charge_depuis_le_reseau`: Enable/disable charging from grid
+  - 🔄 In hybrid mode: state synced in real-time from cloud (visible within ~10s max)
+- `select.enphase_battery_iq_5p_mode_de_la_batterie`: Battery operation mode selection
+  - Self Consumption (self-consumption)
+  - AI Optimization (cost_savings)
+  - 🔄 In hybrid mode: state synced in real-time from cloud (visible within ~10s max)
 
 ### 🔍 Data Capture with mitmdump
 
