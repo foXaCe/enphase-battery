@@ -305,22 +305,48 @@ class EnphaseBatteryOptionsFlow(config_entries.OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Manage the options."""
-        # Get current connection mode
-        connection_mode = self.config_entry.data.get(CONF_CONNECTION_MODE, CONNECTION_MODE_CLOUD)
+        if user_input is not None:
+            # Update config entry with new IDs
+            new_data = {**self.config_entry.data}
 
-        # Local mode has no configurable options
-        if connection_mode == CONNECTION_MODE_LOCAL:
-            # No options for local mode
+            # Only update if values were provided
+            if user_input.get(CONF_SITE_ID):
+                new_data[CONF_SITE_ID] = user_input[CONF_SITE_ID]
+            if user_input.get(CONF_USER_ID):
+                new_data[CONF_USER_ID] = user_input[CONF_USER_ID]
+
+            self.hass.config_entries.async_update_entry(
+                self.config_entry, data=new_data
+            )
             return self.async_create_entry(title="", data={})
 
-        # Cloud mode options (MQTT, etc.)
-        if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+        # Get current values (auto-detected or manually configured)
+        current_site_id = self.config_entry.data.get(CONF_SITE_ID, "")
+        current_user_id = self.config_entry.data.get(CONF_USER_ID, "")
 
-        # For now, no cloud options either (MQTT not fully implemented)
+        # Pre-fill with current values
+        options_schema = vol.Schema(
+            {
+                vol.Optional(
+                    CONF_SITE_ID,
+                    description={"suggested_value": current_site_id},
+                    default=current_site_id
+                ): str,
+                vol.Optional(
+                    CONF_USER_ID,
+                    description={"suggested_value": current_user_id},
+                    default=current_user_id
+                ): str,
+            }
+        )
+
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema({}),
+            data_schema=options_schema,
+            description_placeholders={
+                "site_id": current_site_id or "Auto-detected at startup",
+                "user_id": current_user_id or "Auto-detected at startup",
+            },
         )
 
 
