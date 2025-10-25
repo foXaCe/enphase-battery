@@ -119,10 +119,6 @@ class BatteryModeSelect(CoordinatorEntity, SelectEntity):
             await self.coordinator.api.set_battery_mode(api_mode)
             await self.coordinator.async_request_refresh()
 
-        except NotImplementedError:
-            _LOGGER.warning(
-                "Changing battery mode not yet implemented. "
-                "Need to capture POST endpoint from app."
-            )
         except Exception as err:
             _LOGGER.error(f"Failed to change battery mode: {err}")
+            raise
