@@ -40,11 +40,8 @@ STEP_MODE_SCHEMA = vol.Schema(
 STEP_LOCAL_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_ENVOY_HOST, default="envoy.local"): str,
-        vol.Optional(CONF_USERNAME, default="installer"): str,
-        vol.Optional(
-            CONF_PASSWORD,
-            description={"suggested_value": ""},
-        ): str,
+        vol.Optional(CONF_USERNAME, description={"suggested_value": ""}): str,
+        vol.Optional(CONF_PASSWORD, description={"suggested_value": ""}): str,
     }
 )
 
