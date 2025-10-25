@@ -111,10 +111,16 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
     async def _async_setup(self) -> None:
         """Set up the coordinator based on connection mode."""
         session = async_get_clientsession(self.hass)
+        enable_cloud_control = self.entry.data.get("enable_cloud_control", False)
 
         if self._connection_mode == CONNECTION_MODE_LOCAL:
             # Local mode: Initialize Envoy local API
             await self._setup_local_api(session)
+
+            # Hybrid mode: Also initialize cloud API for control if enabled
+            if enable_cloud_control:
+                _LOGGER.info("Hybrid mode enabled: initializing cloud API for control")
+                await self._setup_cloud_api_from_local_creds(session)
         else:
             # Cloud mode: Initialize cloud API
             await self._setup_cloud_api(session)
@@ -177,6 +183,35 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         except EnphaseBatteryApiError as err:
             _LOGGER.error("Failed to authenticate with cloud: %s", err)
             raise
+
+    async def _setup_cloud_api_from_local_creds(self, session) -> None:
+        """Set up cloud API using credentials from local mode config (hybrid mode)."""
+        cloud_username = self.entry.data.get("cloud_username")
+        cloud_password = self.entry.data.get("cloud_password")
+
+        if not cloud_username or not cloud_password:
+            _LOGGER.error("Cloud credentials not found in local mode config. Cannot enable cloud control.")
+            return
+
+        _LOGGER.info("Setting up cloud API for control (hybrid mode)")
+
+        # Initialize API client
+        self.api = EnphaseBatteryAPI(
+            session=session,
+            username=cloud_username,
+            password=cloud_password,
+            site_id=None,  # Will be auto-detected
+            user_id=None,
+        )
+
+        # Authenticate
+        try:
+            await self.api.authenticate()
+            _LOGGER.info("✅ Successfully authenticated with Enphase cloud for control")
+        except EnphaseBatteryApiError as err:
+            _LOGGER.error("Failed to authenticate with cloud for control: %s", err)
+            # Don't raise - allow local mode to continue without control
+            self.api = None
 
     async def _setup_mqtt(self) -> None:
         """Set up MQTT connection for real-time updates."""

@@ -42,6 +42,7 @@ STEP_LOCAL_DATA_SCHEMA = vol.Schema(
         vol.Required(CONF_ENVOY_HOST, default="envoy.local"): str,
         vol.Required("cloud_username"): str,
         vol.Required("cloud_password"): str,
+        vol.Optional("enable_cloud_control", default=False): bool,
     }
 )
 

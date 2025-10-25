@@ -24,11 +24,27 @@ async def async_setup_entry(
     """Set up Enphase Battery switch platform."""
     coordinator: EnphaseBatteryDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
 
-    entities = [
-        ChargeFromGridSwitch(coordinator),
-    ]
+    entities = []
 
-    async_add_entities(entities)
+    # Charge From Grid switch available in:
+    # 1. Cloud mode (always)
+    # 2. Local mode with cloud control enabled (hybrid mode)
+    # Local API no longer supports this since firmware 8.2.4225 (confirmed by Home Assistant docs)
+    enable_cloud_control = entry.data.get("enable_cloud_control", False)
+
+    if not coordinator.is_local_mode or enable_cloud_control:
+        entities.append(ChargeFromGridSwitch(coordinator))
+        mode_desc = "Cloud mode" if not coordinator.is_local_mode else "Hybrid mode (Local data + Cloud control)"
+        _LOGGER.info(f"Charge From Grid switch enabled ({mode_desc})")
+    else:
+        _LOGGER.warning(
+            "Charge From Grid switch disabled. "
+            "Envoy firmware 8.x no longer supports battery control via local API. "
+            "Enable 'Cloud Control' option in integration settings or use Enphase app."
+        )
+
+    if entities:
+        async_add_entities(entities)
 
 
 class ChargeFromGridSwitch(CoordinatorEntity, SwitchEntity):
@@ -63,11 +79,10 @@ class ChargeFromGridSwitch(CoordinatorEntity, SwitchEntity):
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
         try:
-            # Use appropriate API based on connection mode
-            if self.coordinator.is_local_mode:
-                await self.coordinator.local_api.set_charge_from_grid(True)
-            else:
-                await self.coordinator.api.set_charge_from_grid(True)
+            # Always use cloud API (pure cloud mode or hybrid mode)
+            if not self.coordinator.api:
+                raise Exception("Cloud API not initialized. Enable cloud control in settings.")
+            await self.coordinator.api.set_charge_from_grid(True)
             await self.coordinator.async_request_refresh()
         except Exception as err:
             _LOGGER.error(f"Failed to enable Charge From Grid: {err}")
@@ -76,11 +91,10 @@ class ChargeFromGridSwitch(CoordinatorEntity, SwitchEntity):
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
         try:
-            # Use appropriate API based on connection mode
-            if self.coordinator.is_local_mode:
-                await self.coordinator.local_api.set_charge_from_grid(False)
-            else:
-                await self.coordinator.api.set_charge_from_grid(False)
+            # Always use cloud API (pure cloud mode or hybrid mode)
+            if not self.coordinator.api:
+                raise Exception("Cloud API not initialized. Enable cloud control in settings.")
+            await self.coordinator.api.set_charge_from_grid(False)
             await self.coordinator.async_request_refresh()
         except Exception as err:
             _LOGGER.error(f"Failed to disable Charge From Grid: {err}")

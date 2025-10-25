@@ -12,6 +12,7 @@ CONF_USER_ID: Final = "user_id"  # ID utilisateur Enphase (optionnel)
 CONF_USE_MQTT: Final = "use_mqtt"  # Option pour activer MQTT
 CONF_CONNECTION_MODE: Final = "connection_mode"  # Mode de connexion (local/cloud)
 CONF_ENVOY_HOST: Final = "envoy_host"  # Hostname/IP Envoy pour mode local
+CONF_ENABLE_CLOUD_CONTROL: Final = "enable_cloud_control"  # Activer contrôle cloud en mode local
 
 # API Endpoints
 API_BASE_URL: Final = "https://enlighten.enphaseenergy.com"
