@@ -46,7 +46,9 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Enphase Battery from a config entry."""
-    _LOGGER.info("🔋 Configuration de l'intégration Enphase Battery IQ 5P")
+    import time
+    start_time = time.time()
+    _LOGGER.info("Starting Enphase Battery setup")
 
     # Migrate old entries if needed
     await async_migrate_entry(hass, entry)
@@ -58,24 +60,41 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Setup coordinator (auth + optional MQTT)
     try:
+        setup_start = time.time()
         await coordinator._async_setup()
+        _LOGGER.info(f"Coordinator setup completed in {time.time() - setup_start:.2f}s")
     except Exception as err:
         _LOGGER.error("Failed to setup coordinator: %s", err)
         return False
 
-    # Fetch initial data
-    await coordinator.async_config_entry_first_refresh()
-
-    # Store coordinator
+    # Store coordinator first
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
     # Setup platforms
+    platform_start = time.time()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    _LOGGER.info(f"Platform setup completed in {time.time() - platform_start:.2f}s")
+
+    # Schedule first refresh in background (non-blocking startup)
+    # This allows Home Assistant to start faster while data loads asynchronously
+    async def _async_first_refresh():
+        refresh_start = time.time()
+        try:
+            await coordinator.async_refresh()
+            _LOGGER.info(f"First data refresh completed in {time.time() - refresh_start:.2f}s")
+        except Exception as err:
+            _LOGGER.error(f"First data refresh failed: {err}")
+
+    # Schedule it immediately but don't wait for it
+    entry.async_on_unload(
+        hass.async_create_background_task(_async_first_refresh(), "enphase_battery_first_refresh")
+    )
 
     # Listen for options updates (MQTT enable/disable)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
-    _LOGGER.info("Enphase Battery IQ 5P integration configured successfully")
+    total_time = time.time() - start_time
+    _LOGGER.info(f"Enphase Battery setup completed in {total_time:.2f}s")
 
     return True
 
