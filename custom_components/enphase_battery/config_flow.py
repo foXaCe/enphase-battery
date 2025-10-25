@@ -303,12 +303,12 @@ class EnphaseBatteryOptionsFlow(config_entries.OptionsFlow):
         """Manage the options."""
         if user_input is not None:
             # Update config entry with new IDs
-            new_data = {**self.config_entry.data}
+            new_data = dict(self.config_entry.data)
 
-            # Only update if values were provided
-            if user_input.get(CONF_SITE_ID):
+            # Update IDs if provided
+            if CONF_SITE_ID in user_input and user_input[CONF_SITE_ID]:
                 new_data[CONF_SITE_ID] = user_input[CONF_SITE_ID]
-            if user_input.get(CONF_USER_ID):
+            if CONF_USER_ID in user_input and user_input[CONF_USER_ID]:
                 new_data[CONF_USER_ID] = user_input[CONF_USER_ID]
 
             self.hass.config_entries.async_update_entry(
@@ -316,26 +316,28 @@ class EnphaseBatteryOptionsFlow(config_entries.OptionsFlow):
             )
             return self.async_create_entry(title="", data={})
 
-        # Get current values (auto-detected or manually configured)
+        # Get current values
         current_site_id = self.config_entry.data.get(CONF_SITE_ID, "")
         current_user_id = self.config_entry.data.get(CONF_USER_ID, "")
 
-        # Simple schema with suggested values
-        return self.async_show_form(
-            step_id="init",
-            data_schema=self.add_suggested_values_to_schema(
-                vol.Schema(
-                    {
-                        vol.Optional(CONF_SITE_ID): str,
-                        vol.Optional(CONF_USER_ID): str,
-                    }
-                ),
-                {
-                    CONF_SITE_ID: current_site_id,
-                    CONF_USER_ID: current_user_id,
-                }
-            ),
-        )
+        # Build suggested values dict only if values exist
+        suggested_values = {}
+        if current_site_id:
+            suggested_values[CONF_SITE_ID] = current_site_id
+        if current_user_id:
+            suggested_values[CONF_USER_ID] = current_user_id
+
+        # Create schema
+        schema = vol.Schema({
+            vol.Optional(CONF_SITE_ID): str,
+            vol.Optional(CONF_USER_ID): str,
+        })
+
+        # Add suggested values if any
+        if suggested_values:
+            schema = self.add_suggested_values_to_schema(schema, suggested_values)
+
+        return self.async_show_form(step_id="init", data_schema=schema)
 
 
 class CannotConnect(Exception):
