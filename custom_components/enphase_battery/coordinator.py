@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -56,6 +56,12 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         self.api: EnphaseBatteryAPI | None = None
         self.local_api: EnphaseEnvoyLocalAPI | None = None
         self.mqtt_client: EnphaseMQTTClient | None = None
+
+        # Energy tracking for daily calculations
+        self._daily_reset_date: str | None = None
+        self._daily_charged_start: float = 0
+        self._daily_discharged_start: float = 0
+        self._consumption_24h_history: list[tuple[str, float]] = []  # (timestamp, consumption_kwh)
 
         # Determine connection mode (default to cloud for backward compatibility)
         self._connection_mode = entry.data.get(CONF_CONNECTION_MODE, CONNECTION_MODE_CLOUD)
@@ -241,12 +247,90 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
                         _LOGGER.warning("MQTT data is stale, reconnecting...")
                         await self._setup_mqtt()
 
+            # Calculate daily energy and 24h consumption
+            self._calculate_daily_values(data)
+
             return data
 
         except UpdateFailed:
             raise
         except Exception as err:
             raise UpdateFailed(f"Unexpected error fetching data: {err}") from err
+
+    def _calculate_daily_values(self, data: dict[str, Any]) -> None:
+        """Calculate daily energy values and 24h consumption.
+
+        Args:
+            data: Battery data dictionary to update with calculated values
+        """
+        from datetime import datetime
+
+        now = datetime.now()
+        today_str = now.strftime("%Y-%m-%d")
+
+        # Get cumulative energy values from data
+        total_charged = data.get("total_energy_charged", 0)  # kWh
+        total_discharged = data.get("total_energy_discharged", 0)  # kWh
+        total_consumption = data.get("total_consumption", 0)  # kWh
+
+        # Reset daily counters at midnight
+        if self._daily_reset_date != today_str:
+            _LOGGER.debug(f"Resetting daily counters (new day: {today_str})")
+            self._daily_reset_date = today_str
+            self._daily_charged_start = total_charged
+            self._daily_discharged_start = total_discharged
+
+        # Calculate daily energy (delta from midnight)
+        energy_charged_today = max(0, total_charged - self._daily_charged_start)
+        energy_discharged_today = max(0, total_discharged - self._daily_discharged_start)
+
+        data["energy_charged_today"] = round(energy_charged_today, 2)
+        data["energy_discharged_today"] = round(energy_discharged_today, 2)
+
+        # 24h rolling consumption calculation
+        timestamp_str = now.isoformat()
+        self._consumption_24h_history.append((timestamp_str, total_consumption))
+
+        # Remove entries older than 24h
+        cutoff_time = now - timedelta(hours=24)
+        self._consumption_24h_history = [
+            (ts, cons) for ts, cons in self._consumption_24h_history
+            if datetime.fromisoformat(ts) > cutoff_time
+        ]
+
+        # Calculate 24h consumption (delta between oldest and newest)
+        if len(self._consumption_24h_history) >= 2:
+            oldest_consumption = self._consumption_24h_history[0][1]
+            consumption_24h = max(0, total_consumption - oldest_consumption)
+        else:
+            consumption_24h = 0
+
+        data["consumption_24h"] = round(consumption_24h, 2)
+
+        # Calculate estimated backup time (minutes)
+        # Based on: available_energy (Wh) / current consumption rate (W) * 60
+        available_energy_wh = data.get("available_energy", 0)
+        discharge_power = abs(data.get("power", 0))  # Current power draw
+
+        if discharge_power > 0:
+            # Battery is discharging, calculate based on current rate
+            backup_time_minutes = int((available_energy_wh / discharge_power) * 60)
+        elif consumption_24h > 0 and len(self._consumption_24h_history) >= 2:
+            # Use average consumption from 24h
+            hours_tracked = (now - datetime.fromisoformat(self._consumption_24h_history[0][0])).total_seconds() / 3600
+            avg_power = (consumption_24h * 1000) / hours_tracked  # Convert kWh to W
+            backup_time_minutes = int((available_energy_wh / avg_power) * 60) if avg_power > 0 else 0
+        else:
+            backup_time_minutes = 0
+
+        data["estimated_backup_time"] = backup_time_minutes
+
+        _LOGGER.debug(
+            f"Daily values - Charged: {energy_charged_today:.2f}kWh, "
+            f"Discharged: {energy_discharged_today:.2f}kWh, "
+            f"24h consumption: {consumption_24h:.2f}kWh, "
+            f"Backup time: {backup_time_minutes}min"
+        )
 
     async def async_shutdown(self) -> None:
         """Shutdown coordinator and cleanup resources."""

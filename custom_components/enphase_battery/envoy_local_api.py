@@ -531,21 +531,50 @@ class EnphaseEnvoyLocalAPI:
 
                 _LOGGER.debug(f"Parsed SOC: {battery_data.get('soc')}%, Status: {battery_data.get('status')}, Available: {battery_data.get('available_energy')}Wh")
 
-            # Power from meters (battery meter)
+            # Power and energy from meters (battery meter)
+            # In firmware 8.x, meters is a list with multiple EIDs:
+            # - 704643328 (0x2A00FE00): Net consumption meter
+            # - 704643584 (0x2A010000): Production meter
+            # - 1023410688 (0x3D00FE00): Storage/Battery meter (look for this one)
             if meters and isinstance(meters, list):
-                # Firmware 8.x: meters is a list, need to identify battery meter
-                # EID 704643584 seems to be production, 704643328 is consumption
-                # We need the one with eid matching battery - usually last one or specific eid
-                for meter in meters:
-                    # Look for meter with non-zero power and reasonable values
-                    active_power = meter.get("activePower", 0)
-                    # Battery meter is usually the one that can be negative (charging)
-                    # For now, use the second meter (index 1) which typically is production/battery
-                    pass
+                battery_power = 0
+                production_power = 0
+                consumption_power = 0
+                battery_energy_discharged = 0  # actEnergyDlvd
+                battery_energy_charged = 0  # actEnergyRcvd
+                consumption_energy = 0
 
-                # Simpler approach: check inventory for actual battery power
-                # For now, we'll skip power from meters and get it from inventory
-                _LOGGER.debug(f"Meters data available but power extraction needs refinement")
+                for meter in meters:
+                    eid = meter.get("eid")
+                    active_power = meter.get("activePower", 0)
+
+                    # Storage meter (EID starts with 0x3D)
+                    if eid and (eid & 0xFF000000) == 0x3D000000:
+                        battery_power = active_power
+                        battery_energy_discharged = meter.get("actEnergyDlvd", 0) / 1000  # Convert Wh to kWh
+                        battery_energy_charged = meter.get("actEnergyRcvd", 0) / 1000
+                        _LOGGER.debug(f"Battery meter (EID {eid}): {active_power}W, Discharged: {battery_energy_discharged:.2f}kWh, Charged: {battery_energy_charged:.2f}kWh")
+                    # Production meter (EID 0x2A010000 range)
+                    elif eid == 704643584:
+                        production_power = active_power
+                        _LOGGER.debug(f"Production meter: {active_power}W")
+                    # Consumption meter (EID 0x2A00FE00 range)
+                    elif eid == 704643328:
+                        consumption_power = active_power
+                        consumption_energy = meter.get("actEnergyDlvd", 0) / 1000  # kWh
+                        _LOGGER.debug(f"Consumption meter: {active_power}W, Energy: {consumption_energy:.2f}kWh")
+
+                # Power convention: negative = charging, positive = discharging
+                battery_data["power"] = int(battery_power)
+                battery_data["charge_power"] = int(abs(battery_power)) if battery_power < 0 else 0
+                battery_data["discharge_power"] = int(battery_power) if battery_power > 0 else 0
+
+                # Store cumulative energy values (will be used by coordinator for daily calc)
+                battery_data["total_energy_discharged"] = battery_energy_discharged
+                battery_data["total_energy_charged"] = battery_energy_charged
+                battery_data["total_consumption"] = consumption_energy
+
+                _LOGGER.debug(f"Battery power: {battery_power}W (charge: {battery_data['charge_power']}W, discharge: {battery_data['discharge_power']}W)")
 
             # Device inventory
             if inventory and isinstance(inventory, list):
