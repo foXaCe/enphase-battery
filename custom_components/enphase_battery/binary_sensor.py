@@ -34,7 +34,6 @@ async def async_setup_entry(
         # Diagnostic binary sensors
         BatteryGridTiedBinarySensor(coordinator),
         BatteryHealthyBinarySensor(coordinator),
-        BatteryCommunicatingBinarySensor(coordinator),
         EnvoyConnectedBinarySensor(coordinator),
     ]
 
@@ -182,36 +181,6 @@ class BatteryHealthyBinarySensor(EnphaseBatteryBinarySensorBase):
         if self.is_on:  # Problem detected
             return "mdi:alert-circle"
         return "mdi:check-circle"
-
-
-class BatteryCommunicatingBinarySensor(EnphaseBatteryBinarySensorBase):
-    """Battery Communication Status binary sensor."""
-
-    def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
-        """Initialize the sensor."""
-        super().__init__(coordinator, "communicating", "Batterie communique")
-        self._attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
-        self._attr_entity_category = EntityCategory.DIAGNOSTIC
-
-    @property
-    def is_on(self) -> bool | None:
-        """Return true if battery is communicating."""
-        if not self.coordinator.data:
-            return None
-
-        devices = self.coordinator.data.get("devices", [])
-        if devices and len(devices) > 0:
-            return devices[0].get("communicating", False)
-
-        # Fallback: if we have recent data, battery is communicating
-        return True
-
-    @property
-    def icon(self) -> str:
-        """Return icon based on communication state."""
-        if self.is_on:
-            return "mdi:access-point-check"
-        return "mdi:access-point-off"
 
 
 class EnvoyConnectedBinarySensor(EnphaseBatteryBinarySensorBase):

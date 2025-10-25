@@ -29,7 +29,6 @@ enphase_battery_diagnostic:
 
     # États
     - binary_sensor.enphase_battery_grid_tied
-    - binary_sensor.enphase_battery_communicating
     - binary_sensor.enphase_battery_envoy_connected
 
 # Groupe État Batterie - Vue d'ensemble
