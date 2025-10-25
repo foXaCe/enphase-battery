@@ -668,18 +668,14 @@ class EnphaseEnvoyLocalAPI:
                     # Log complete tariff JSON for debugging
                     _LOGGER.debug(f"COMPLETE TARIFF JSON: {json.dumps(tariff_data, indent=2)}")
 
-                # Read charge_from_grid from schedule (the actual effective value)
-                # Note: tariff has TWO charge_from_grid fields, schedule is the one that matters
-                if tariff_data and "schedule" in tariff_data and isinstance(tariff_data["schedule"], dict):
-                    battery_data["charge_from_grid"] = tariff_data["schedule"].get("charge_from_grid", False)
-                    _LOGGER.debug(f"charge_from_grid from schedule: {battery_data.get('charge_from_grid')}")
-                # Fallback to storage_settings if schedule not available
-                elif tariff_data and "tariff" in tariff_data and "storage_settings" in tariff_data["tariff"]:
+                # Read charge_from_grid from tariff.storage_settings (the modifiable value)
+                # Note: schedule.charge_from_grid appears to be read-only and always returns false
+                if tariff_data and "tariff" in tariff_data and "storage_settings" in tariff_data["tariff"]:
                     battery_data["charge_from_grid"] = tariff_data["tariff"]["storage_settings"].get("charge_from_grid", False)
-                    _LOGGER.debug(f"charge_from_grid from tariff.storage_settings (fallback): {battery_data.get('charge_from_grid')}")
+                    _LOGGER.debug(f"charge_from_grid from tariff.storage_settings: {battery_data.get('charge_from_grid')}")
                 else:
                     battery_data["charge_from_grid"] = False
-                    _LOGGER.debug("tariff configuration does not contain schedule or storage_settings, defaulting charge_from_grid to False")
+                    _LOGGER.debug("tariff configuration does not contain storage_settings, defaulting charge_from_grid to False")
             except Exception as tariff_err:
                 _LOGGER.debug(f"Failed to get tariff data: {tariff_err}")
                 battery_data["charge_from_grid"] = False
@@ -747,16 +743,10 @@ class EnphaseEnvoyLocalAPI:
                 _LOGGER.error(f"Tariff configuration does not contain storage_settings. Keys: {list(tariff_data.keys())}")
                 return False
 
-            # Step 3: Modify charge_from_grid setting in BOTH locations
-            # The tariff has two charge_from_grid fields that must be synchronized:
-            # 1. tariff.storage_settings.charge_from_grid
-            # 2. schedule.charge_from_grid
+            # Step 3: Modify charge_from_grid setting in tariff.storage_settings
+            # Note: schedule.charge_from_grid is read-only and managed by the Envoy
             tariff_data["tariff"]["storage_settings"]["charge_from_grid"] = enabled
-
-            # Also update in schedule if it exists
-            if "schedule" in tariff_data and isinstance(tariff_data["schedule"], dict):
-                tariff_data["schedule"]["charge_from_grid"] = enabled
-                _LOGGER.debug(f"Updated both tariff.storage_settings and schedule charge_from_grid to {enabled}")
+            _LOGGER.debug(f"Updated tariff.storage_settings.charge_from_grid to {enabled}")
 
             # Step 4: Send updated configuration back (send the whole structure)
             response = await self._make_request(
