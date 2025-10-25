@@ -348,10 +348,6 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
                         # Override local values with cloud values for these control fields
                         data["charge_from_grid"] = cloud_settings.get("chargeFromGrid", data.get("charge_from_grid", False))
                         data["mode"] = cloud_settings.get("profile", data.get("mode", "unknown"))
-                        _LOGGER.debug(
-                            f"Hybrid mode: Updated control states from cloud API "
-                            f"(charge_from_grid={data['charge_from_grid']}, mode={data['mode']})"
-                        )
                     except Exception as err:
                         _LOGGER.warning(f"Hybrid mode: Failed to fetch cloud control states, using local values: {err}")
 
@@ -428,12 +424,6 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
                     elif avg_power > 0:
                         # Battery discharging (positive power)
                         self._daily_power_discharged += energy_delta_kwh
-
-                    _LOGGER.debug(
-                        f"Power integration: {self._last_power:.0f}W → {current_power:.0f}W "
-                        f"over {time_delta_hours*3600:.1f}s = {energy_delta_kwh:.4f}kWh "
-                        f"(total: charged={self._daily_power_charged:.3f}kWh, discharged={self._daily_power_discharged:.3f}kWh)"
-                    )
                 except (ValueError, TypeError) as e:
                     _LOGGER.warning(f"Error in power integration: {e}")
 
@@ -488,13 +478,6 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
             backup_time_minutes = 0
 
         data["estimated_backup_time"] = backup_time_minutes
-
-        _LOGGER.debug(
-            f"Daily values - Charged: {energy_charged_today:.2f}kWh, "
-            f"Discharged: {energy_discharged_today:.2f}kWh, "
-            f"24h consumption: {consumption_24h:.2f}kWh, "
-            f"Backup time: {backup_time_minutes}min"
-        )
 
         # Save tracking data to persistent storage (async, non-blocking)
         self.hass.async_create_task(self._save_energy_tracking())
