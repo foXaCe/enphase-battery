@@ -192,6 +192,18 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         try:
             await self.api.authenticate()
             _LOGGER.info("Successfully authenticated with Enphase cloud")
+
+            # Save auto-detected IDs to config to avoid re-detection on next startup
+            if self.api._site_id and self.api._user_id:
+                if not site_id or not user_id:
+                    _LOGGER.info("Saving auto-detected IDs: site_id=%s, user_id=%s",
+                                self.api._site_id, self.api._user_id)
+                    new_data = {
+                        **self.entry.data,
+                        CONF_SITE_ID: str(self.api._site_id),
+                        CONF_USER_ID: str(self.api._user_id),
+                    }
+                    self.hass.config_entries.async_update_entry(self.entry, data=new_data)
         except EnphaseBatteryApiError as err:
             _LOGGER.error("Failed to authenticate with cloud: %s", err)
             raise

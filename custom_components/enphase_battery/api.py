@@ -84,8 +84,9 @@ class EnphaseBatteryAPI:
             # Étape 2: Récupérer site_id et user_id de l'utilisateur (si pas déjà fourni)
             # Skip auto-detection if both IDs are already provided (saves 5-10 seconds at startup)
             if self._site_id and self._user_id:
-                _LOGGER.info("Using provided site_id and user_id (skipping auto-detection)")
+                _LOGGER.info("Using provided site_id=%s and user_id=%s", self._site_id, self._user_id)
             elif not self._site_id or not self._user_id:
+                _LOGGER.info("Auto-detecting site_id and user_id (this takes 5-7 seconds)...")
                 try:
                     detected_site_id, detected_user_id = await self._get_user_sites()
 
