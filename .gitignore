@@ -1,7 +1,41 @@
+# APK extraction & analysis
 apk_extracted/
 extracted_icons/
 brands/
+*.apk
+
+# Captured data from MITM proxy (contains sensitive tokens, serials, IDs)
 captured_data/
 scripts/captured_data/
 scripts/__pycache__/
-*.apk
+
+# Blueprint traces (contains user site IDs, entity IDs, and automation details)
+blueprints/trace*.json
+blueprints/*trace*.json
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment and secrets
+.env
+.env.local
+secrets.yaml
+*.key
+*.pem
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Home Assistant test files
+test_config/
+*.log
