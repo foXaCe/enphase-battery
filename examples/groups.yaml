@@ -50,7 +50,6 @@ enphase_battery_status:
 
     # États binaires
     - binary_sensor.enphase_battery_charging
-    - binary_sensor.enphase_battery_connected
 
     # Contrôle
     - switch.enphase_battery_iq_5p_charge_from_grid
@@ -65,5 +64,4 @@ enphase_battery_monitoring:
     - sensor.enphase_battery_iq_5p_temperature_batterie
     - sensor.enphase_battery_iq_5p_etat_de_sante_batterie
     - binary_sensor.enphase_battery_charging
-    - binary_sensor.enphase_battery_connected
     - binary_sensor.enphase_battery_healthy

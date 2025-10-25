@@ -30,7 +30,6 @@ async def async_setup_entry(
 
     entities = [
         BatteryChargingBinarySensor(coordinator),
-        BatteryConnectedBinarySensor(coordinator),
         # Diagnostic binary sensors
         BatteryGridTiedBinarySensor(coordinator),
         BatteryHealthyBinarySensor(coordinator),
@@ -88,32 +87,6 @@ class BatteryChargingBinarySensor(EnphaseBatteryBinarySensorBase):
         if self.is_on:
             return "mdi:battery-charging"
         return "mdi:battery"
-
-
-class BatteryConnectedBinarySensor(EnphaseBatteryBinarySensorBase):
-    """Battery Connected binary sensor."""
-
-    def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
-        """Initialize the sensor."""
-        super().__init__(coordinator, "connected", "Batterie connectée")
-        self._attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
-
-    @property
-    def is_on(self) -> bool | None:
-        """Return true if battery is connected."""
-        if not self.coordinator.data:
-            return None
-
-        # Battery is connected if we have valid SOC data
-        soc = self.coordinator.data.get("soc")
-        return soc is not None and soc > 0
-
-    @property
-    def icon(self) -> str:
-        """Return icon based on connection state."""
-        if self.is_on:
-            return "mdi:battery-check"
-        return "mdi:battery-alert"
 
 
 # Diagnostic Binary Sensors
