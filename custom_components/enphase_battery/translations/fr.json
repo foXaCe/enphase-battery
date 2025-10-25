@@ -53,18 +53,6 @@
       "reauth_successful": "Ré-authentification réussie."
     }
   },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Configuration des IDs",
-        "description": "Configurez site_id et user_id pour des démarrages ultra-rapides (1-2s au lieu de 7s)",
-        "data": {
-          "site_id": "Site ID",
-          "user_id": "User ID"
-        }
-      }
-    }
-  },
   "entity": {
     "sensor": {
       "battery_soc": {

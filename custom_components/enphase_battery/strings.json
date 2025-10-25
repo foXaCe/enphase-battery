@@ -49,30 +49,6 @@
       "reauth_successful": "Re-authentication successful."
     }
   },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Configure IDs",
-        "description": "Configure site_id and user_id for ultra-fast startups (1-2s instead of 7s)",
-        "data": {
-          "site_id": "Site ID",
-          "user_id": "User ID"
-        }
-      }
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Configure IDs",
-        "description": "Configure site_id and user_id for ultra-fast startups (1-2s instead of 7s)",
-        "data": {
-          "site_id": "Site ID",
-          "user_id": "User ID"
-        }
-      }
-    }
-  },
   "entity": {
     "sensor": {
       "battery_state": {

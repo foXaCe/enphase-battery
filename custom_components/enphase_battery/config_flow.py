@@ -154,11 +154,6 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Initialize config flow."""
         self._connection_mode: str | None = None
 
-    @staticmethod
-    def async_get_options_flow(config_entry):
-        """Get the options flow for this handler."""
-        return EnphaseBatteryOptionsFlow(config_entry)
-
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -292,52 +287,6 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=STEP_USER_DATA_SCHEMA,
             errors=errors,
         )
-
-
-class EnphaseBatteryOptionsFlow(config_entries.OptionsFlow):
-    """Handle options flow for Enphase Battery."""
-
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Manage the options."""
-        if user_input is not None:
-            # Update config entry with new IDs
-            new_data = dict(self.config_entry.data)
-
-            # Update IDs if provided
-            if CONF_SITE_ID in user_input and user_input[CONF_SITE_ID]:
-                new_data[CONF_SITE_ID] = user_input[CONF_SITE_ID]
-            if CONF_USER_ID in user_input and user_input[CONF_USER_ID]:
-                new_data[CONF_USER_ID] = user_input[CONF_USER_ID]
-
-            self.hass.config_entries.async_update_entry(
-                self.config_entry, data=new_data
-            )
-            return self.async_create_entry(title="", data={})
-
-        # Get current values
-        current_site_id = self.config_entry.data.get(CONF_SITE_ID, "")
-        current_user_id = self.config_entry.data.get(CONF_USER_ID, "")
-
-        # Build suggested values dict only if values exist
-        suggested_values = {}
-        if current_site_id:
-            suggested_values[CONF_SITE_ID] = current_site_id
-        if current_user_id:
-            suggested_values[CONF_USER_ID] = current_user_id
-
-        # Create schema
-        schema = vol.Schema({
-            vol.Optional(CONF_SITE_ID): str,
-            vol.Optional(CONF_USER_ID): str,
-        })
-
-        # Add suggested values if any
-        if suggested_values:
-            schema = self.add_suggested_values_to_schema(schema, suggested_values)
-
-        return self.async_show_form(step_id="init", data_schema=schema)
 
 
 class CannotConnect(Exception):
