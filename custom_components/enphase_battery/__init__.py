@@ -7,8 +7,8 @@ from __future__ import annotations
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.const import Platform, EVENT_HOMEASSISTANT_STARTED
+from homeassistant.core import HomeAssistant, Event
 
 from .const import DOMAIN, CONF_CONNECTION_MODE, CONNECTION_MODE_CLOUD
 from .coordinator import EnphaseBatteryDataUpdateCoordinator
@@ -75,9 +75,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _LOGGER.info(f"Platform setup completed in {time.time() - platform_start:.2f}s")
 
-    # Schedule first refresh in background (non-blocking startup)
-    # This allows Home Assistant to start faster while data loads asynchronously
-    async def _async_first_refresh():
+    # Wait for Home Assistant to finish startup before making API calls
+    # This prevents blocking HA startup while still getting data quickly
+    async def _async_first_refresh(event: Event = None):
+        """Fetch first data after HA has started."""
         refresh_start = time.time()
         try:
             await coordinator.async_refresh()
@@ -85,10 +86,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except Exception as err:
             _LOGGER.error(f"First data refresh failed: {err}")
 
-    # Schedule it immediately but don't wait for it
-    entry.async_on_unload(
-        hass.async_create_background_task(_async_first_refresh(), "enphase_battery_first_refresh")
-    )
+    # If HA is already started, fetch data immediately
+    # Otherwise, wait for HA to finish starting
+    if hass.is_running:
+        _LOGGER.info("Home Assistant already running, fetching data now")
+        entry.async_on_unload(
+            hass.async_create_background_task(_async_first_refresh(), "enphase_battery_first_refresh")
+        )
+    else:
+        _LOGGER.info("Waiting for Home Assistant startup to complete before fetching data")
+        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _async_first_refresh)
 
     # Listen for options updates (MQTT enable/disable)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
