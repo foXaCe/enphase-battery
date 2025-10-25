@@ -743,8 +743,16 @@ class EnphaseEnvoyLocalAPI:
                 _LOGGER.error(f"Tariff configuration does not contain storage_settings. Keys: {list(tariff_data.keys())}")
                 return False
 
-            # Step 3: Modify charge_from_grid setting
+            # Step 3: Modify charge_from_grid setting in BOTH locations
+            # The tariff has two charge_from_grid fields that must be synchronized:
+            # 1. tariff.storage_settings.charge_from_grid
+            # 2. schedule.charge_from_grid
             tariff_data["tariff"]["storage_settings"]["charge_from_grid"] = enabled
+
+            # Also update in schedule if it exists
+            if "schedule" in tariff_data and isinstance(tariff_data["schedule"], dict):
+                tariff_data["schedule"]["charge_from_grid"] = enabled
+                _LOGGER.debug(f"Updated both tariff.storage_settings and schedule charge_from_grid to {enabled}")
 
             # Step 4: Send updated configuration back (send the whole structure)
             response = await self._make_request(
