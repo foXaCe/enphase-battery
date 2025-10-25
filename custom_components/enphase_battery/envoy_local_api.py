@@ -522,6 +522,9 @@ class EnphaseEnvoyLocalAPI:
                     battery_data["available_energy"] = secctrl.get("ENC_agg_avail_energy", 0)
                     battery_data["max_capacity"] = secctrl.get("Enc_max_available_capacity", 0)
                     battery_data["status"] = "grid-tied" if ensemble_status.get("relay", {}).get("Enchg_grid_mode") == "grid-tied" else "unknown"
+
+                    # DEBUG: Log all secctrl fields to find power field
+                    _LOGGER.debug(f"secctrl keys available: {list(secctrl.keys())}")
                 else:
                     # Fallback to direct fields (older firmware)
                     battery_data["soc"] = ensemble_status.get("percentage", 0)
