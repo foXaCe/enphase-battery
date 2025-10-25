@@ -204,6 +204,7 @@ variables:
   sunny_threshold: !input sunny_forecast_threshold
   strategy: !input charge_strategy
   debug_mode: !input debug_notifications
+  heures_creuses_end_time: !input heures_creuses_end
   # Calcul du SOC cible dynamique basé sur la prévision solaire
   target_end_offpeak: >
     {% if solar_forecast == "" or solar_low == 0 %}
@@ -358,9 +359,8 @@ action:
           - condition: time
             after: !input heures_creuses_start
             before: !input heures_creuses_end
-          - condition: numeric_state
-            entity_id: !input battery_soc_sensor
-            below: !input target_soc_end_offpeak
+          - condition: template
+            value_template: "{{ states(battery_soc) | float(0) < target_end_offpeak | float(80) }}"
           - condition: template
             value_template: >
               {% set forecast = state_attr(weather, 'forecast') %}
@@ -386,7 +386,8 @@ action:
                 {% else %}
                   {# Calcul du temps restant - approximation simple basée sur l'heure #}
                   {% set current_hour = now().hour + (now().minute / 60) %}
-                  {% set end_hour = 6.5 %}  {# 06:30 par défaut #}
+                  {# Extraction de l'heure de fin des HC depuis la variable #}
+                  {% set end_hour = heures_creuses_end_time.split(':')[0] | int + (heures_creuses_end_time.split(':')[1] | int / 60) %}
 
                   {% if current_hour < end_hour %}
                     {% set hours_remaining = end_hour - current_hour %}
@@ -420,7 +421,7 @@ action:
                 - Production prévue demain: {{ states(solar_forecast) }} kWh
                 {% endif %}
                 - Temps de charge estimé: {{ charge_time_needed }}h
-                - Fin des heures creuses: 06:30
+                - Fin des heures creuses: {{ heures_creuses_end_time }}
                 - Stratégie: {% if strategy == 'immediate' %}Charge dès le début HC{% else %}Timing optimisé{% endif %}
 
                 {% if strategy == 'immediate' %}Charge démarrée dès le début des heures creuses.{% else %}Le système a calculé le moment optimal pour démarrer la charge.{% endif %}
@@ -458,9 +459,8 @@ action:
                   - condition: time
                     after: !input heures_creuses_start
                     before: !input heures_creuses_end
-              - condition: numeric_state
-                entity_id: !input battery_soc_sensor
-                above: !input target_soc_end_offpeak
+              - condition: template
+                value_template: "{{ states(battery_soc) | float(0) >= target_end_offpeak | float(80) }}"
         sequence:
           - service: switch.turn_off
             target:

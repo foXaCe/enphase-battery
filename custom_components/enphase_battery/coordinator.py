@@ -108,6 +108,8 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         host = self.entry.data.get(CONF_ENVOY_HOST, "envoy.local")
         username = self.entry.data.get(CONF_USERNAME, "installer")
         password = self.entry.data.get(CONF_PASSWORD)
+        cloud_username = self.entry.data.get("cloud_username")
+        cloud_password = self.entry.data.get("cloud_password")
 
         _LOGGER.info("Setting up local Envoy API connection to %s", host)
 
@@ -116,6 +118,8 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
             host=host,
             username=username,
             password=password,
+            cloud_username=cloud_username,
+            cloud_password=cloud_password,
         )
 
         # Authenticate

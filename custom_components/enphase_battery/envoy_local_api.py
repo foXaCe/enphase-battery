@@ -5,6 +5,7 @@ import logging
 from typing import Any
 from datetime import datetime
 import hashlib
+import jwt
 
 import aiohttp
 from aiohttp import ClientSession, ClientTimeout
@@ -14,6 +15,10 @@ _LOGGER = logging.getLogger(__name__)
 # Local API defaults
 DEFAULT_ENVOY_HOST = "envoy.local"
 DEFAULT_TIMEOUT = 10  # Local network - faster timeout
+
+# Enphase Cloud endpoints for token retrieval (firmware 7.x+)
+ENLIGHTEN_LOGIN_URL = "https://enlighten.enphaseenergy.com/login/login.json"
+ENTREZ_TOKEN_URL = "https://entrez.enphaseenergy.com/tokens"
 
 
 class EnvoyLocalApiError(Exception):
@@ -37,22 +42,31 @@ class EnphaseEnvoyLocalAPI:
         host: str = DEFAULT_ENVOY_HOST,
         username: str = "installer",
         password: str | None = None,
+        cloud_username: str | None = None,
+        cloud_password: str | None = None,
+        token: str | None = None,
     ) -> None:
         """Initialize the local Envoy API client.
 
         Args:
             session: aiohttp ClientSession
             host: Envoy hostname or IP (default: envoy.local)
-            username: Username for local auth (default: installer)
-            password: Password for local auth (optional, can be derived from serial)
+            username: Local username (default: installer, for firmware < 7.0)
+            password: Local password (optional, derived from serial for < 7.0)
+            cloud_username: Enlighten cloud email (for firmware >= 7.0 token)
+            cloud_password: Enlighten cloud password (for firmware >= 7.0 token)
+            token: Pre-existing JWT token (optional, will fetch if not provided)
         """
         self._session = session
         self._host = host
         self._username = username
         self._password = password
+        self._cloud_username = cloud_username
+        self._cloud_password = cloud_password
         self._base_url = f"https://{host}"
-        self._jwt_token: str | None = None
+        self._jwt_token: str | None = token
         self._serial_number: str | None = None
+        self._firmware_version: str | None = None
 
     async def _make_request(
         self,
@@ -145,30 +159,70 @@ class EnphaseEnvoyLocalAPI:
 
             _LOGGER.info(f"✅ Envoy serial number: {self._serial_number}")
 
-            # Step 2: Generate password from serial if not provided
-            if not self._password:
-                self._password = self._generate_installer_password(self._serial_number)
-                _LOGGER.debug("Generated installer password from serial")
-
-            # Step 3: Authenticate to get JWT token
-            auth_data = {
-                "username": self._username,
-                "password": self._password,
-            }
-
-            response = await self._make_request(
-                "POST",
-                "/auth/check_jwt",
-                auth_required=False,
-                json=auth_data,
+            # Step 2: Extract firmware version from info
+            self._firmware_version = (
+                info.get("device", {}).get("software") or
+                info.get("software") or
+                info.get("fw_version") or
+                info.get("version")
             )
 
-            if response and "token" in response:
-                self._jwt_token = response["token"]
-                _LOGGER.info("✅ Successfully authenticated with local Envoy")
-                return True
+            if self._firmware_version:
+                _LOGGER.info(f"Envoy firmware version: {self._firmware_version}")
 
-            raise EnvoyAuthError("No JWT token received from Envoy")
+            # Step 3: Determine authentication method based on firmware
+            if self._is_firmware_7_or_higher():
+                _LOGGER.info("Firmware 7.x+ detected, using cloud token authentication")
+
+                # Try to use existing token or obtain new one
+                if not self._jwt_token:
+                    if self._cloud_username and self._cloud_password:
+                        self._jwt_token = await self._obtain_cloud_token()
+                    else:
+                        raise EnvoyAuthError(
+                            "Firmware 7.x+ requires cloud credentials (Enlighten email/password) "
+                            "to obtain authentication token. Please reconfigure with cloud credentials."
+                        )
+
+                # Validate token with local Envoy
+                try:
+                    test_response = await self._make_request(
+                        "GET",
+                        "/auth/check_jwt",
+                        auth_required=True,
+                    )
+                    _LOGGER.info("✅ Token validated with local Envoy")
+                    return True
+                except Exception as err:
+                    raise EnvoyAuthError(f"Token validation failed: {err}") from err
+
+            else:
+                # Firmware < 7.0: Use installer username/password
+                _LOGGER.info("Firmware < 7.0 detected, using installer password authentication")
+
+                if not self._password:
+                    self._password = self._generate_installer_password(self._serial_number)
+                    _LOGGER.debug("Generated installer password from serial")
+
+                # Authenticate to get JWT token
+                auth_data = {
+                    "username": self._username,
+                    "password": self._password,
+                }
+
+                response = await self._make_request(
+                    "POST",
+                    "/auth/check_jwt",
+                    auth_required=False,
+                    json=auth_data,
+                )
+
+                if response and "token" in response:
+                    self._jwt_token = response["token"]
+                    _LOGGER.info("✅ Successfully authenticated with local Envoy")
+                    return True
+
+                raise EnvoyAuthError("No JWT token received from Envoy")
 
         except Exception as err:
             _LOGGER.error(f"Authentication failed: {err}")
@@ -189,6 +243,110 @@ class EnphaseEnvoyLocalAPI:
         # Password is typically last 6 digits of serial number
         return serial_number[-6:]
 
+    def _is_firmware_7_or_higher(self) -> bool:
+        """Check if firmware version is 7.0 or higher.
+
+        Returns:
+            True if firmware >= 7.0, False otherwise or if unknown
+        """
+        if not self._firmware_version:
+            return False
+
+        try:
+            # Extract version number (e.g., "D7.3.466" -> "7.3")
+            import re
+            match = re.search(r'[dD]?(\d+)\.(\d+)', self._firmware_version)
+            if match:
+                major = int(match.group(1))
+                return major >= 7
+        except Exception:
+            pass
+
+        return False
+
+    async def _obtain_cloud_token(self) -> str:
+        """Obtain JWT token from Enphase cloud for firmware 7.x+ authentication.
+
+        Returns:
+            JWT token string
+
+        Raises:
+            EnvoyAuthError: Failed to obtain token
+        """
+        if not self._cloud_username or not self._cloud_password:
+            raise EnvoyAuthError(
+                "Cloud credentials required for firmware 7.x+ authentication. "
+                "Please provide cloud_username and cloud_password."
+            )
+
+        if not self._serial_number:
+            raise EnvoyAuthError("Serial number must be retrieved before obtaining token")
+
+        _LOGGER.info("Obtaining cloud token for firmware 7.x+ authentication...")
+
+        try:
+            # Step 1: Login to Enlighten to get session ID
+            login_data = {
+                "user[email]": self._cloud_username,
+                "user[password]": self._cloud_password,
+            }
+
+            async with self._session.post(
+                ENLIGHTEN_LOGIN_URL,
+                data=login_data,
+                timeout=ClientTimeout(total=10),
+            ) as response:
+                response.raise_for_status()
+                login_response = await response.json()
+
+                session_id = login_response.get("session_id")
+                if not session_id:
+                    raise EnvoyAuthError(
+                        f"No session_id in login response. Keys: {list(login_response.keys())}"
+                    )
+
+                _LOGGER.debug(f"✅ Enlighten login successful, session_id obtained")
+
+            # Step 2: Request token from Entrez using session ID
+            token_data = {
+                "session_id": session_id,
+                "serial_num": self._serial_number,
+                "username": self._cloud_username,
+            }
+
+            async with self._session.post(
+                ENTREZ_TOKEN_URL,
+                json=token_data,
+                timeout=ClientTimeout(total=10),
+            ) as response:
+                response.raise_for_status()
+                token = await response.text()
+
+                # Response is plain text JWT token
+                if not token or len(token) < 50:
+                    raise EnvoyAuthError(f"Invalid token received: {token[:50]}")
+
+                _LOGGER.info("✅ Cloud token obtained successfully")
+
+                # Decode token to check expiration (without verification)
+                try:
+                    decoded = jwt.decode(token, options={"verify_signature": False})
+                    exp = decoded.get("exp")
+                    if exp:
+                        exp_date = datetime.fromtimestamp(exp)
+                        _LOGGER.info(f"Token expires: {exp_date}")
+                except Exception as err:
+                    _LOGGER.warning(f"Could not decode token expiration: {err}")
+
+                return token
+
+        except aiohttp.ClientError as err:
+            _LOGGER.error(f"Cloud token request failed: {err}")
+            raise EnvoyAuthError(f"Failed to obtain cloud token: {err}") from err
+        except Exception as err:
+            _LOGGER.error(f"Unexpected error obtaining token: {err}")
+            raise EnvoyAuthError(f"Token retrieval error: {err}") from err
+
     async def _get_info(self) -> dict[str, Any]:
         """Get Envoy info (no authentication required).
 
@@ -197,12 +355,18 @@ class EnphaseEnvoyLocalAPI:
         """
         try:
             response = await self._make_request("GET", "/info", auth_required=False)
-            _LOGGER.debug(f"Envoy /info response: {response}")
+            _LOGGER.debug(f"Envoy /info response type: {type(response)}")
 
             # Handle different response formats
+            xml_content = None
+
             if isinstance(response, dict):
+                # Check if response contains XML in 'raw' key (common in newer firmware)
+                if "raw" in response and isinstance(response["raw"], str):
+                    xml_content = response["raw"]
+                    _LOGGER.debug("Found XML content in 'raw' key")
                 # Try different possible locations for device info
-                if "device" in response:
+                elif "device" in response:
                     return response
                 elif "serial_num" in response or "sn" in response:
                     # Wrap in expected format
@@ -212,14 +376,37 @@ class EnphaseEnvoyLocalAPI:
                     _LOGGER.warning(f"Unexpected /info structure: {list(response.keys())}")
                     return response
             elif isinstance(response, str):
-                # Handle text/xml response
-                _LOGGER.warning(f"/info returned non-JSON: {response[:200]}")
-                # Try to extract serial from XML/text
+                xml_content = response
+                _LOGGER.debug("Response is string, treating as XML")
+
+            # Parse XML if we have it
+            if xml_content:
+                _LOGGER.info(f"Full response: {response}")
                 import re
-                serial_match = re.search(r'<sn>(\d+)</sn>|serial[_\s]*(?:num|number)["\s:]+(\w+)', response, re.IGNORECASE)
-                if serial_match:
-                    serial = serial_match.group(1) or serial_match.group(2)
-                    return {"device": {"sn": serial}}
+
+                # Extract serial number
+                serial_match = re.search(r'<sn>(\d+)</sn>', xml_content)
+                serial = serial_match.group(1) if serial_match else None
+
+                # Extract firmware version
+                software_match = re.search(r'<software>([\w.]+)</software>', xml_content)
+                software = software_match.group(1) if software_match else None
+
+                # Extract part number
+                pn_match = re.search(r'<device>.*?<pn>([\w-]+)</pn>', xml_content, re.DOTALL)
+                part_num = pn_match.group(1) if pn_match else None
+
+                if serial:
+                    _LOGGER.debug(f"Extracted from XML - Serial: {serial}, Software: {software}, PN: {part_num}")
+                    return {
+                        "device": {
+                            "sn": serial,
+                            "software": software,
+                            "pn": part_num,
+                        }
+                    }
+                else:
+                    _LOGGER.error(f"Cannot find serial in /info response. Keys found: {list(response.keys()) if isinstance(response, dict) else 'string'}")
 
             return response or {}
         except Exception as err:
