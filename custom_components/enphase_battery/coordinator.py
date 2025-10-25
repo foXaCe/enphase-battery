@@ -340,6 +340,24 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
                     data = await self.local_api.get_battery_data()
                 except EnvoyLocalApiError as err:
                     raise UpdateFailed(f"Error fetching local data: {err}") from err
+
+                # Hybrid mode: Merge control states from cloud API
+                # In hybrid mode, control changes (switch/select) are made via cloud API,
+                # but local API may not immediately reflect these changes.
+                # Read charge_from_grid and mode from cloud to show real-time UI updates.
+                if self.api:  # Cloud API is initialized (hybrid mode)
+                    try:
+                        cloud_settings = await self.api.get_battery_settings()
+                        # Override local values with cloud values for these control fields
+                        data["charge_from_grid"] = cloud_settings.get("chargeFromGrid", data.get("charge_from_grid", False))
+                        data["mode"] = cloud_settings.get("profile", data.get("mode", "unknown"))
+                        _LOGGER.debug(
+                            f"Hybrid mode: Updated control states from cloud API "
+                            f"(charge_from_grid={data['charge_from_grid']}, mode={data['mode']})"
+                        )
+                    except Exception as err:
+                        _LOGGER.warning(f"Hybrid mode: Failed to fetch cloud control states, using local values: {err}")
+
             else:
                 # Cloud mode: Get data from Enlighten API
                 try:
