@@ -665,6 +665,8 @@ class EnphaseEnvoyLocalAPI:
                 if isinstance(tariff_data, dict) and "raw" in tariff_data:
                     tariff_data = json.loads(tariff_data["raw"])
                     _LOGGER.debug(f"Parsed tariff_data from 'raw' key. Keys: {list(tariff_data.keys())}")
+                    # Log complete tariff JSON for debugging
+                    _LOGGER.debug(f"COMPLETE TARIFF JSON: {json.dumps(tariff_data, indent=2)}")
 
                 # Read charge_from_grid from schedule (the actual effective value)
                 # Note: tariff has TWO charge_from_grid fields, schedule is the one that matters
