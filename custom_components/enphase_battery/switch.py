@@ -57,7 +57,6 @@ class ChargeFromGridSwitch(CoordinatorEntity, SwitchEntity):
         self._attr_unique_id = f"{DOMAIN}_charge_from_grid"
         self._attr_has_entity_name = True
         self._attr_icon = "mdi:transmission-tower-import"
-        self._attr_assumed_state = True  # Enable optimistic state updates
 
     @property
     def device_info(self) -> dict[str, Any]:

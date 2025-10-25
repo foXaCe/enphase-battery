@@ -63,7 +63,6 @@ class BatteryModeSelect(CoordinatorEntity, SelectEntity):
         self._attr_unique_id = f"{DOMAIN}_battery_mode"
         self._attr_has_entity_name = True
         self._attr_icon = "mdi:battery-sync"
-        self._attr_assumed_state = True  # Enable optimistic state updates
 
         # Options basées sur les modes disponibles dans l'app Enphase
         # Note: backup_only et expert sont souvent cachés selon la configuration
