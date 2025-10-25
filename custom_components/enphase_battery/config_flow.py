@@ -303,7 +303,7 @@ class EnphaseBatteryOptionsFlow(config_entries.OptionsFlow):
         """Manage the options."""
         if user_input is not None:
             # Update config entry with new IDs
-            new_data = {**self.handler.data}
+            new_data = {**self.config_entry.data}
 
             # Only update if values were provided
             if user_input.get(CONF_SITE_ID):
@@ -312,13 +312,13 @@ class EnphaseBatteryOptionsFlow(config_entries.OptionsFlow):
                 new_data[CONF_USER_ID] = user_input[CONF_USER_ID]
 
             self.hass.config_entries.async_update_entry(
-                self.handler, data=new_data
+                self.config_entry, data=new_data
             )
             return self.async_create_entry(title="", data={})
 
         # Get current values (auto-detected or manually configured)
-        current_site_id = self.handler.data.get(CONF_SITE_ID, "")
-        current_user_id = self.handler.data.get(CONF_USER_ID, "")
+        current_site_id = self.config_entry.data.get(CONF_SITE_ID, "")
+        current_user_id = self.config_entry.data.get(CONF_USER_ID, "")
 
         # Pre-fill with current values
         options_schema = vol.Schema(
