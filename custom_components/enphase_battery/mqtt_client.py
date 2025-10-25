@@ -54,7 +54,6 @@ class EnphaseMQTTClient:
     async def connect(self) -> bool:
         """Connect to AWS IoT MQTT broker."""
         try:
-            _LOGGER.info(f"Connecting to MQTT endpoint: {self._endpoint}")
 
             # TODO: Implémenter la connexion AWS IoT avec custom authorizer
             # Note: L'app Enphase utilise aws-lambda-authoriser-prod
@@ -72,7 +71,6 @@ class EnphaseMQTTClient:
         """Disconnect from MQTT broker."""
         if self._connection and self._connected:
             try:
-                _LOGGER.info("Disconnecting from MQTT")
                 # await self._connection.disconnect()
                 self._connected = False
             except Exception as err:
@@ -87,7 +85,6 @@ class EnphaseMQTTClient:
             self._last_message = message
             self._last_update = datetime.now()
 
-            _LOGGER.debug(f"Received MQTT message on {topic}: {message}")
 
             if self._on_message_callback:
                 self._on_message_callback(message)

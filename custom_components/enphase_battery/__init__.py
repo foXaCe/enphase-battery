@@ -38,7 +38,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.config_entries.async_update_entry(entry, data=new_data)
 
         _LOGGER.info(
-            "✅ Migration successful: Added connection_mode='cloud' to existing config"
+            "Migration successful: Added connection_mode='cloud' to existing config"
         )
 
     return True
@@ -75,7 +75,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Listen for options updates (MQTT enable/disable)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
-    _LOGGER.info("✅ Enphase Battery IQ 5P integration configured successfully")
+    _LOGGER.info("Enphase Battery IQ 5P integration configured successfully")
 
     return True
 

@@ -35,7 +35,6 @@ async def async_setup_entry(
     if not coordinator.is_local_mode or enable_cloud_control:
         entities.append(ChargeFromGridSwitch(coordinator))
         mode_desc = "Cloud mode" if not coordinator.is_local_mode else "Hybrid mode (Local data + Cloud control)"
-        _LOGGER.info(f"Charge From Grid switch enabled ({mode_desc})")
     else:
         _LOGGER.warning(
             "Charge From Grid switch disabled. "

@@ -230,15 +230,19 @@ class BatteryPowerSensor(EnphaseBatterySensorBase):
         """Initialize the sensor."""
         super().__init__(coordinator, "power", "Puissance")
         self._attr_device_class = SensorDeviceClass.POWER
-        self._attr_native_unit_of_measurement = UnitOfPower.WATT
+        self._attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
         self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_suggested_display_precision = 2
 
     @property
-    def native_value(self) -> int | None:
-        """Return the state of the sensor."""
+    def native_value(self) -> float | None:
+        """Return the state of the sensor in kW."""
         if not self.coordinator.data:
             return None
-        return self.coordinator.data.get("power")
+        power_w = self.coordinator.data.get("power")
+        if power_w is None:
+            return None
+        return round(power_w / 1000, 2)
 
     @property
     def icon(self) -> str:
@@ -259,16 +263,18 @@ class BatteryChargePowerSensor(EnphaseBatterySensorBase):
         """Initialize the sensor."""
         super().__init__(coordinator, "charge_power", "Puissance de charge")
         self._attr_device_class = SensorDeviceClass.POWER
-        self._attr_native_unit_of_measurement = UnitOfPower.WATT
+        self._attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
         self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_suggested_display_precision = 2
         self._attr_icon = "mdi:battery-charging"
 
     @property
-    def native_value(self) -> int | None:
-        """Return the state of the sensor."""
+    def native_value(self) -> float | None:
+        """Return the state of the sensor in kW."""
         if not self.coordinator.data:
             return None
-        return self.coordinator.data.get("charge_power", 0)
+        power_w = self.coordinator.data.get("charge_power", 0)
+        return round(power_w / 1000, 2)
 
 
 class BatteryDischargePowerSensor(EnphaseBatterySensorBase):
@@ -278,16 +284,18 @@ class BatteryDischargePowerSensor(EnphaseBatterySensorBase):
         """Initialize the sensor."""
         super().__init__(coordinator, "discharge_power", "Puissance de décharge")
         self._attr_device_class = SensorDeviceClass.POWER
-        self._attr_native_unit_of_measurement = UnitOfPower.WATT
+        self._attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
         self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_suggested_display_precision = 2
         self._attr_icon = "mdi:battery-arrow-down"
 
     @property
-    def native_value(self) -> int | None:
-        """Return the state of the sensor."""
+    def native_value(self) -> float | None:
+        """Return the state of the sensor in kW."""
         if not self.coordinator.data:
             return None
-        return self.coordinator.data.get("discharge_power", 0)
+        power_w = self.coordinator.data.get("discharge_power", 0)
+        return round(power_w / 1000, 2)
 
 
 class BatteryAvailableEnergySensor(EnphaseBatterySensorBase):

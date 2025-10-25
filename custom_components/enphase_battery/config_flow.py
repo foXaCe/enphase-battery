@@ -212,7 +212,7 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
             description_placeholders={
                 "mode": "Local",
-                "benefits": "✅ Réactivité maximale\n✅ Pas de quota API\n✅ Identifiants Enlighten requis pour firmware 7.x/8.x",
+                "benefits": "Réactivité maximale\n✅ Pas de quota API\n✅ Identifiants Enlighten requis pour firmware 7.x/8.x",
             },
         )
 
@@ -251,7 +251,7 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
             description_placeholders={
                 "mode": "Cloud",
-                "benefits": "✅ Accès à distance\n⚠️ Quota API limité\n⚠️ Latence plus élevée",
+                "benefits": "Accès à distance\n⚠️ Quota API limité\n⚠️ Latence plus élevée",
             },
         )
 

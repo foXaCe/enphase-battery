@@ -163,7 +163,7 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         # Authenticate
         try:
             await self.local_api.authenticate()
-            _LOGGER.info("✅ Successfully authenticated with local Envoy at %s", host)
+            _LOGGER.info("Successfully authenticated with local Envoy at %s", host)
         except EnvoyLocalApiError as err:
             _LOGGER.error("Failed to authenticate with local Envoy: %s", err)
             raise
@@ -191,7 +191,7 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         # Authenticate
         try:
             await self.api.authenticate()
-            _LOGGER.info("✅ Successfully authenticated with Enphase cloud")
+            _LOGGER.info("Successfully authenticated with Enphase cloud")
         except EnphaseBatteryApiError as err:
             _LOGGER.error("Failed to authenticate with cloud: %s", err)
             raise
@@ -219,7 +219,7 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         # Authenticate
         try:
             await self.api.authenticate()
-            _LOGGER.info("✅ Successfully authenticated with Enphase cloud for control")
+            _LOGGER.info("Successfully authenticated with Enphase cloud for control")
         except EnphaseBatteryApiError as err:
             _LOGGER.error("Failed to authenticate with cloud for control: %s", err)
             # Don't raise - allow local mode to continue without control
@@ -261,7 +261,6 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
 
     def _handle_mqtt_message(self, message: dict[str, Any]) -> None:
         """Handle incoming MQTT message with battery updates."""
-        _LOGGER.debug("Received MQTT update: %s", message)
 
         # Update coordinator data immediately
         self.async_set_updated_data(message)
@@ -270,7 +269,6 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         """Load energy tracking data from persistent storage."""
         try:
             self._stored_data = await self._store.async_load() or {}
-            _LOGGER.debug(f"Loaded energy tracking data from storage: {list(self._stored_data.keys())}")
 
             # Restore variables from storage
             self._daily_reset_date = self._stored_data.get("reset_date")
@@ -307,7 +305,6 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
                 "power_discharged": self._daily_power_discharged,
             }
             await self._store.async_save(data)
-            _LOGGER.debug("Saved energy tracking data to persistent storage")
         except Exception as err:
             _LOGGER.error(f"Failed to save energy tracking data: {err}")
 
@@ -399,7 +396,6 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
 
         # Reset daily counters at midnight
         if self._daily_reset_date != today_str:
-            _LOGGER.debug(f"Resetting daily counters (new day: {today_str})")
             self._daily_reset_date = today_str
             self._daily_charged_start = total_charged
             self._daily_discharged_start = total_discharged

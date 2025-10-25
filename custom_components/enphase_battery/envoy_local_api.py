@@ -120,7 +120,6 @@ class EnphaseEnvoyLocalAPI:
                     return await response.json()
                 else:
                     text = await response.text()
-                    _LOGGER.debug(f"Non-JSON response from {endpoint} (length={len(text)}): {text[:200]}")
                     return {"raw": text}
 
         except aiohttp.ClientError as err:
@@ -151,13 +150,12 @@ class EnphaseEnvoyLocalAPI:
 
             if not self._serial_number:
                 _LOGGER.error(f"Cannot find serial in /info response. Keys found: {list(info.keys())}")
-                _LOGGER.error(f"Full response: {info}")
                 raise EnvoyAuthError(
                     f"Could not retrieve Envoy serial number from /info endpoint. "
                     f"Response keys: {list(info.keys())}"
                 )
 
-            _LOGGER.info(f"✅ Envoy serial number: {self._serial_number}")
+            _LOGGER.info(f"Envoy serial number: {self._serial_number}")
 
             # Step 2: Extract firmware version from info
             self._firmware_version = (
@@ -166,9 +164,6 @@ class EnphaseEnvoyLocalAPI:
                 info.get("fw_version") or
                 info.get("version")
             )
-
-            if self._firmware_version:
-                _LOGGER.info(f"Envoy firmware version: {self._firmware_version}")
 
             # Step 3: Determine authentication method based on firmware
             if self._is_firmware_7_or_higher():
@@ -191,18 +186,15 @@ class EnphaseEnvoyLocalAPI:
                         "/auth/check_jwt",
                         auth_required=True,
                     )
-                    _LOGGER.info("✅ Token validated with local Envoy")
+                    _LOGGER.info("Token validated with local Envoy")
                     return True
                 except Exception as err:
                     raise EnvoyAuthError(f"Token validation failed: {err}") from err
 
             else:
                 # Firmware < 7.0: Use installer username/password
-                _LOGGER.info("Firmware < 7.0 detected, using installer password authentication")
-
                 if not self._password:
                     self._password = self._generate_installer_password(self._serial_number)
-                    _LOGGER.debug("Generated installer password from serial")
 
                 # Authenticate to get JWT token
                 auth_data = {
@@ -219,7 +211,7 @@ class EnphaseEnvoyLocalAPI:
 
                 if response and "token" in response:
                     self._jwt_token = response["token"]
-                    _LOGGER.info("✅ Successfully authenticated with local Envoy")
+                    _LOGGER.info("Successfully authenticated with local Envoy")
                     return True
 
                 raise EnvoyAuthError("No JWT token received from Envoy")
@@ -282,8 +274,6 @@ class EnphaseEnvoyLocalAPI:
         if not self._serial_number:
             raise EnvoyAuthError("Serial number must be retrieved before obtaining token")
 
-        _LOGGER.info("Obtaining cloud token for firmware 7.x+ authentication...")
-
         try:
             # Step 1: Login to Enlighten to get session ID
             login_data = {
@@ -305,8 +295,6 @@ class EnphaseEnvoyLocalAPI:
                         f"No session_id in login response. Keys: {list(login_response.keys())}"
                     )
 
-                _LOGGER.debug(f"✅ Enlighten login successful, session_id obtained")
-
             # Step 2: Request token from Entrez using session ID
             token_data = {
                 "session_id": session_id,
@@ -326,17 +314,7 @@ class EnphaseEnvoyLocalAPI:
                 if not token or len(token) < 50:
                     raise EnvoyAuthError(f"Invalid token received: {token[:50]}")
 
-                _LOGGER.info("✅ Cloud token obtained successfully")
-
-                # Decode token to check expiration (without verification)
-                try:
-                    decoded = jwt.decode(token, options={"verify_signature": False})
-                    exp = decoded.get("exp")
-                    if exp:
-                        exp_date = datetime.fromtimestamp(exp)
-                        _LOGGER.info(f"Token expires: {exp_date}")
-                except Exception as err:
-                    _LOGGER.warning(f"Could not decode token expiration: {err}")
+                _LOGGER.info("Cloud token obtained successfully")
 
                 return token
 
@@ -355,7 +333,6 @@ class EnphaseEnvoyLocalAPI:
         """
         try:
             response = await self._make_request("GET", "/info", auth_required=False)
-            _LOGGER.debug(f"Envoy /info response type: {type(response)}")
 
             # Handle different response formats
             xml_content = None
@@ -364,7 +341,6 @@ class EnphaseEnvoyLocalAPI:
                 # Check if response contains XML in 'raw' key (common in newer firmware)
                 if "raw" in response and isinstance(response["raw"], str):
                     xml_content = response["raw"]
-                    _LOGGER.debug("Found XML content in 'raw' key")
                 # Try different possible locations for device info
                 elif "device" in response:
                     return response
@@ -373,15 +349,12 @@ class EnphaseEnvoyLocalAPI:
                     return {"device": response}
                 else:
                     # Log full response to debug
-                    _LOGGER.warning(f"Unexpected /info structure: {list(response.keys())}")
                     return response
             elif isinstance(response, str):
                 xml_content = response
-                _LOGGER.debug("Response is string, treating as XML")
 
             # Parse XML if we have it
             if xml_content:
-                _LOGGER.info(f"Full response: {response}")
                 import re
 
                 # Extract serial number
@@ -397,7 +370,6 @@ class EnphaseEnvoyLocalAPI:
                 part_num = pn_match.group(1) if pn_match else None
 
                 if serial:
-                    _LOGGER.debug(f"Extracted from XML - Serial: {serial}, Software: {software}, PN: {part_num}")
                     return {
                         "device": {
                             "sn": serial,
@@ -439,7 +411,6 @@ class EnphaseEnvoyLocalAPI:
         except EnvoyConnectionError as err:
             # If 404, try /production.json (firmware 8.x)
             if "404" in str(err):
-                _LOGGER.debug("/api/v1/production.json not found (404), trying /production.json")
                 return await self._make_request("GET", "/production.json")
             raise
 
@@ -520,29 +491,21 @@ class EnphaseEnvoyLocalAPI:
             ensemble_power = results[3] if not isinstance(results[3], Exception) else {}
 
             # Debug: Log raw responses
-            _LOGGER.debug(f"Ensemble status response: {ensemble_status}")
-            _LOGGER.debug(f"Meters response: {meters}")
-            _LOGGER.debug(f"Inventory response: {inventory}")
-            _LOGGER.debug(f"Ensemble power response: {ensemble_power}")
 
             # Parse JSON from 'raw' key if present (firmware 8.x format)
             import json
 
             if isinstance(ensemble_status, dict) and "raw" in ensemble_status:
                 ensemble_status = json.loads(ensemble_status["raw"])
-                _LOGGER.debug("Parsed ensemble_status from 'raw' key")
 
             if isinstance(meters, dict) and "raw" in meters:
                 meters = json.loads(meters["raw"])
-                _LOGGER.debug("Parsed meters from 'raw' key")
 
             if isinstance(inventory, dict) and "raw" in inventory:
                 inventory = json.loads(inventory["raw"])
-                _LOGGER.debug("Parsed inventory from 'raw' key")
 
             if isinstance(ensemble_power, dict) and "raw" in ensemble_power:
                 ensemble_power = json.loads(ensemble_power["raw"])
-                _LOGGER.debug("Parsed ensemble_power from 'raw' key")
 
             # Parse battery data from responses
             battery_data = {
@@ -562,7 +525,6 @@ class EnphaseEnvoyLocalAPI:
                     battery_data["status"] = "grid-tied" if ensemble_status.get("relay", {}).get("Enchg_grid_mode") == "grid-tied" else "unknown"
 
                     # DEBUG: Log all secctrl fields to find power field
-                    _LOGGER.debug(f"secctrl keys available: {list(secctrl.keys())}")
                 else:
                     # Fallback to direct fields (older firmware)
                     battery_data["soc"] = ensemble_status.get("percentage", 0)
@@ -570,7 +532,6 @@ class EnphaseEnvoyLocalAPI:
                     battery_data["available_energy"] = ensemble_status.get("available_energy", 0)
                     battery_data["max_capacity"] = ensemble_status.get("max_available_capacity", 0)
 
-                _LOGGER.debug(f"Parsed SOC: {battery_data.get('soc')}%, Status: {battery_data.get('status')}, Available: {battery_data.get('available_energy')}Wh")
 
             # Power and energy from meters (battery meter)
             # In firmware 8.x, meters is a list with multiple EIDs:
@@ -595,17 +556,14 @@ class EnphaseEnvoyLocalAPI:
                         battery_power = active_power
                         battery_energy_discharged = meter.get("actEnergyDlvd", 0) / 1000  # Convert Wh to kWh
                         battery_energy_charged = meter.get("actEnergyRcvd", 0) / 1000
-                        _LOGGER.debug(f"Battery meter (EID {eid}): {active_power}W, Discharged: {battery_energy_discharged:.2f}kWh, Charged: {battery_energy_charged:.2f}kWh")
                     # Production meter (EID 0x2A010000 range)
                     elif eid == 704643584:
                         production_power = active_power
                         production_energy = meter.get("actEnergyDlvd", 0) / 1000  # kWh
-                        _LOGGER.debug(f"Production meter: {active_power}W, Energy: {production_energy:.2f}kWh")
                     # Consumption meter (EID 0x2A00FE00 range)
                     elif eid == 704643328:
                         consumption_power = active_power
                         consumption_energy = meter.get("actEnergyDlvd", 0) / 1000  # kWh
-                        _LOGGER.debug(f"Consumption meter: {active_power}W, Energy: {consumption_energy:.2f}kWh")
 
                 # If battery meter doesn't report power (value = 0), use /ivp/ensemble/power
                 # This endpoint has the accurate real_power_mw field (same as official Enphase addon)
@@ -615,12 +573,10 @@ class EnphaseEnvoyLocalAPI:
                         # real_power_mw is in milliwatts, convert to watts
                         real_power_mw = devices[0].get("real_power_mw", 0)
                         battery_power = real_power_mw / 1000  # Convert mW to W
-                        _LOGGER.debug(f"Battery power from /ivp/ensemble/power: {battery_power}W (real_power_mw: {real_power_mw}mW)")
 
                 # Final fallback: calculate from production - consumption (least accurate)
                 if battery_power == 0 and (production_power != 0 or consumption_power != 0):
                     battery_power = production_power - consumption_power
-                    _LOGGER.debug(f"Battery power calculated from meters (fallback): {production_power}W (production) - {consumption_power}W (consumption) = {battery_power}W")
 
                 # Power convention: negative = charging, positive = discharging
                 battery_data["power"] = int(battery_power)
@@ -634,7 +590,6 @@ class EnphaseEnvoyLocalAPI:
                 battery_data["total_consumption"] = consumption_energy
                 battery_data["total_production"] = production_energy
 
-                _LOGGER.debug(f"Battery power: {battery_power}W (charge: {battery_data['charge_power']}W, discharge: {battery_data['discharge_power']}W)")
 
             # Device inventory
             if inventory and isinstance(inventory, list):
@@ -651,7 +606,6 @@ class EnphaseEnvoyLocalAPI:
                                 battery_data["soc"] = device.get("percentFull", battery_data.get("soc", 0))
                             battery_data["temperature"] = device.get("temperature")
                             battery_data["max_cell_temp"] = device.get("maxCellTemp")
-                            _LOGGER.debug(f"Device SOC: {device.get('percentFull')}%, Temp: {device.get('temperature')}°C")
                         break
             elif inventory:
                 # Fallback for older format
@@ -664,23 +618,17 @@ class EnphaseEnvoyLocalAPI:
                 # Parse JSON from 'raw' key if present (firmware 8.x format)
                 if isinstance(tariff_data, dict) and "raw" in tariff_data:
                     tariff_data = json.loads(tariff_data["raw"])
-                    _LOGGER.debug(f"Parsed tariff_data from 'raw' key. Keys: {list(tariff_data.keys())}")
                     # Log complete tariff JSON for debugging
-                    _LOGGER.debug(f"COMPLETE TARIFF JSON: {json.dumps(tariff_data, indent=2)}")
 
                 # Read charge_from_grid from tariff.storage_settings (the modifiable value)
                 # Note: schedule.charge_from_grid appears to be read-only and always returns false
                 if tariff_data and "tariff" in tariff_data and "storage_settings" in tariff_data["tariff"]:
                     battery_data["charge_from_grid"] = tariff_data["tariff"]["storage_settings"].get("charge_from_grid", False)
-                    _LOGGER.debug(f"charge_from_grid from tariff.storage_settings: {battery_data.get('charge_from_grid')}")
                 else:
                     battery_data["charge_from_grid"] = False
-                    _LOGGER.debug("tariff configuration does not contain storage_settings, defaulting charge_from_grid to False")
             except Exception as tariff_err:
-                _LOGGER.debug(f"Failed to get tariff data: {tariff_err}")
                 battery_data["charge_from_grid"] = False
 
-            _LOGGER.info(f"Final battery data: {battery_data}")
 
             return battery_data
 
@@ -735,7 +683,6 @@ class EnphaseEnvoyLocalAPI:
             import json
             if isinstance(tariff_data, dict) and "raw" in tariff_data:
                 tariff_data = json.loads(tariff_data["raw"])
-                _LOGGER.debug(f"Parsed tariff_data from 'raw' key for set operation. Keys: {list(tariff_data.keys())}")
 
             # Step 2: Verify storage_settings exists
             # The structure is {"tariff": {"storage_settings": {...}}}
@@ -746,7 +693,6 @@ class EnphaseEnvoyLocalAPI:
             # Step 3: Modify charge_from_grid setting in tariff.storage_settings
             # Note: schedule.charge_from_grid is read-only and managed by the Envoy
             tariff_data["tariff"]["storage_settings"]["charge_from_grid"] = enabled
-            _LOGGER.debug(f"Updated tariff.storage_settings.charge_from_grid to {enabled}")
 
             # Step 4: Send updated configuration back (send the whole structure)
             response = await self._make_request(
@@ -756,7 +702,6 @@ class EnphaseEnvoyLocalAPI:
                 auth_required=True,
             )
 
-            _LOGGER.info(f"Set charge_from_grid to {enabled}: {response}")
             return True
 
         except Exception as err:
@@ -793,4 +738,3 @@ class EnphaseEnvoyLocalAPI:
     async def close(self) -> None:
         """Close the API client (session managed externally)."""
         self._jwt_token = None
-        _LOGGER.debug("Local Envoy API client closed")
