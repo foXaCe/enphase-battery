@@ -304,10 +304,19 @@ class EnphaseBatteryOptionsFlow(config_entries.OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Manage the options."""
+        # Get current connection mode
+        connection_mode = self.config_entry.data.get(CONF_CONNECTION_MODE, CONNECTION_MODE_CLOUD)
+
+        # Local mode has no configurable options
+        if connection_mode == CONNECTION_MODE_LOCAL:
+            # No options for local mode
+            return self.async_create_entry(title="", data={})
+
+        # Cloud mode options (MQTT, etc.)
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        # MQTT option disabled - not yet fully implemented
+        # For now, no cloud options either (MQTT not fully implemented)
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema({}),
