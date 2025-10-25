@@ -666,16 +666,18 @@ class EnphaseEnvoyLocalAPI:
                     tariff_data = json.loads(tariff_data["raw"])
                     _LOGGER.debug(f"Parsed tariff_data from 'raw' key. Keys: {list(tariff_data.keys())}")
 
-                # Check if tariff has storage_settings (it should be in tariff_data["tariff"]["storage_settings"])
-                if tariff_data and "tariff" in tariff_data and "storage_settings" in tariff_data["tariff"]:
+                # Read charge_from_grid from schedule (the actual effective value)
+                # Note: tariff has TWO charge_from_grid fields, schedule is the one that matters
+                if tariff_data and "schedule" in tariff_data and isinstance(tariff_data["schedule"], dict):
+                    battery_data["charge_from_grid"] = tariff_data["schedule"].get("charge_from_grid", False)
+                    _LOGGER.debug(f"charge_from_grid from schedule: {battery_data.get('charge_from_grid')}")
+                # Fallback to storage_settings if schedule not available
+                elif tariff_data and "tariff" in tariff_data and "storage_settings" in tariff_data["tariff"]:
                     battery_data["charge_from_grid"] = tariff_data["tariff"]["storage_settings"].get("charge_from_grid", False)
-                    _LOGGER.debug(f"charge_from_grid: {battery_data.get('charge_from_grid')}")
-                elif tariff_data and "storage_settings" in tariff_data:
-                    battery_data["charge_from_grid"] = tariff_data["storage_settings"].get("charge_from_grid", False)
-                    _LOGGER.debug(f"charge_from_grid: {battery_data.get('charge_from_grid')}")
+                    _LOGGER.debug(f"charge_from_grid from tariff.storage_settings (fallback): {battery_data.get('charge_from_grid')}")
                 else:
                     battery_data["charge_from_grid"] = False
-                    _LOGGER.debug("tariff configuration does not contain storage_settings, defaulting charge_from_grid to False")
+                    _LOGGER.debug("tariff configuration does not contain schedule or storage_settings, defaulting charge_from_grid to False")
             except Exception as tariff_err:
                 _LOGGER.debug(f"Failed to get tariff data: {tariff_err}")
                 battery_data["charge_from_grid"] = False
