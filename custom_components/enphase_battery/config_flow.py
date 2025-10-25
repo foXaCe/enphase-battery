@@ -320,29 +320,21 @@ class EnphaseBatteryOptionsFlow(config_entries.OptionsFlow):
         current_site_id = self.config_entry.data.get(CONF_SITE_ID, "")
         current_user_id = self.config_entry.data.get(CONF_USER_ID, "")
 
-        # Pre-fill with current values
-        options_schema = vol.Schema(
-            {
-                vol.Optional(
-                    CONF_SITE_ID,
-                    description={"suggested_value": current_site_id},
-                    default=current_site_id
-                ): str,
-                vol.Optional(
-                    CONF_USER_ID,
-                    description={"suggested_value": current_user_id},
-                    default=current_user_id
-                ): str,
-            }
-        )
-
+        # Simple schema with suggested values
         return self.async_show_form(
             step_id="init",
-            data_schema=options_schema,
-            description_placeholders={
-                "site_id": current_site_id or "Auto-detected at startup",
-                "user_id": current_user_id or "Auto-detected at startup",
-            },
+            data_schema=self.add_suggested_values_to_schema(
+                vol.Schema(
+                    {
+                        vol.Optional(CONF_SITE_ID): str,
+                        vol.Optional(CONF_USER_ID): str,
+                    }
+                ),
+                {
+                    CONF_SITE_ID: current_site_id,
+                    CONF_USER_ID: current_user_id,
+                }
+            ),
         )
 
 
