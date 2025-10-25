@@ -40,6 +40,7 @@ async def async_setup_entry(
         BatteryPowerSensor(coordinator),
         BatteryChargePowerSensor(coordinator),
         BatteryDischargePowerSensor(coordinator),
+        BatteryAvailableEnergySensor(coordinator),
         BatteryEnergyChargedTodaySensor(coordinator),
         BatteryEnergyDischargedTodaySensor(coordinator),
         BatteryConsumption24hSensor(coordinator),
@@ -287,6 +288,25 @@ class BatteryDischargePowerSensor(EnphaseBatterySensorBase):
         if not self.coordinator.data:
             return None
         return self.coordinator.data.get("discharge_power", 0)
+
+
+class BatteryAvailableEnergySensor(EnphaseBatterySensorBase):
+    """Battery Available Energy sensor."""
+
+    def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, "available_energy", "Énergie disponible de la batterie")
+        self._attr_device_class = SensorDeviceClass.ENERGY
+        self._attr_native_unit_of_measurement = UnitOfEnergy.WATT_HOUR
+        self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_icon = "mdi:battery-heart-variant"
+
+    @property
+    def native_value(self) -> int | None:
+        """Return the state of the sensor."""
+        if not self.coordinator.data:
+            return None
+        return self.coordinator.data.get("available_energy", 0)
 
 
 class BatteryEnergyChargedTodaySensor(EnphaseBatterySensorBase):
