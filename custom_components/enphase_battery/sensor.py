@@ -298,7 +298,7 @@ class BatteryAvailableEnergySensor(EnphaseBatterySensorBase):
         super().__init__(coordinator, "available_energy", "Énergie disponible de la batterie")
         self._attr_device_class = SensorDeviceClass.ENERGY
         self._attr_native_unit_of_measurement = UnitOfEnergy.WATT_HOUR
-        self._attr_state_class = SensorStateClass.MEASUREMENT
+        # No state_class for available energy (not cumulative, fluctuates)
         self._attr_icon = "mdi:battery-heart-variant"
 
     @property

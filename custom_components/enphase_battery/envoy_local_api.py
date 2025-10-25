@@ -660,6 +660,12 @@ class EnphaseEnvoyLocalAPI:
             # Get charge_from_grid setting from tariff configuration
             try:
                 tariff_data = await self._make_request("GET", "/admin/lib/tariff", auth_required=True)
+
+                # Parse JSON from 'raw' key if present (firmware 8.x format)
+                if isinstance(tariff_data, dict) and "raw" in tariff_data:
+                    tariff_data = json.loads(tariff_data["raw"])
+                    _LOGGER.debug("Parsed tariff_data from 'raw' key")
+
                 if tariff_data and "storage_settings" in tariff_data:
                     battery_data["charge_from_grid"] = tariff_data["storage_settings"].get("charge_from_grid", False)
                     _LOGGER.debug(f"charge_from_grid: {battery_data.get('charge_from_grid')}")
@@ -720,6 +726,12 @@ class EnphaseEnvoyLocalAPI:
             if not tariff_data:
                 _LOGGER.error("Failed to get tariff configuration")
                 return False
+
+            # Parse JSON from 'raw' key if present (firmware 8.x format)
+            import json
+            if isinstance(tariff_data, dict) and "raw" in tariff_data:
+                tariff_data = json.loads(tariff_data["raw"])
+                _LOGGER.debug("Parsed tariff_data from 'raw' key for set operation")
 
             # Step 2: Verify storage_settings exists
             if "storage_settings" not in tariff_data:
