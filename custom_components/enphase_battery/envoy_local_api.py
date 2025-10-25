@@ -486,6 +486,11 @@ class EnphaseEnvoyLocalAPI:
             meters = results[1] if not isinstance(results[1], Exception) else {}
             inventory = results[2] if not isinstance(results[2], Exception) else {}
 
+            # Debug: Log raw responses
+            _LOGGER.debug(f"Ensemble status response: {ensemble_status}")
+            _LOGGER.debug(f"Meters response: {meters}")
+            _LOGGER.debug(f"Inventory response: {inventory}")
+
             # Parse battery data from responses
             battery_data = {
                 "timestamp": datetime.now().isoformat(),
@@ -499,6 +504,8 @@ class EnphaseEnvoyLocalAPI:
                 battery_data["available_energy"] = ensemble_status.get("available_energy", 0)
                 battery_data["max_capacity"] = ensemble_status.get("max_available_capacity", 0)
 
+                _LOGGER.debug(f"Parsed SOC: {battery_data.get('soc')}, Status: {battery_data.get('status')}")
+
             # Power from meters (battery meter)
             if meters and isinstance(meters, list):
                 for meter in meters:
@@ -506,11 +513,14 @@ class EnphaseEnvoyLocalAPI:
                         battery_data["power"] = meter.get("activePower", 0)
                         battery_data["apparent_power"] = meter.get("apparentPower", 0)
                         battery_data["voltage"] = meter.get("voltage", 0)
+                        _LOGGER.debug(f"Found storage meter - Power: {battery_data.get('power')}W")
                         break
 
             # Device inventory
             if inventory:
                 battery_data["devices"] = inventory.get("devices", [])
+
+            _LOGGER.info(f"Final battery data: {battery_data}")
 
             return battery_data
 
