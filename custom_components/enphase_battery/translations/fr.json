@@ -16,8 +16,12 @@
         "description": "{benefits}",
         "data": {
           "envoy_host": "Hostname ou IP de l'Envoy",
-          "username": "Nom d'utilisateur (par défaut : installer)",
-          "password": "Mot de passe (optionnel, auto-généré depuis le numéro de série)"
+          "cloud_username": "Email du compte Enphase (requis pour firmware 7.x/8.x)",
+          "cloud_password": "Mot de passe du compte Enphase",
+          "enable_cloud_control": "Activer le contrôle cloud (mode hybride)"
+        },
+        "data_description": {
+          "enable_cloud_control": "Mode hybride : données locales (rapide) + contrôle cloud (switch/select). Requis car le firmware 8.x ne supporte plus le contrôle via API locale."
         }
       },
       "cloud": {

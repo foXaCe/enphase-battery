@@ -2,13 +2,36 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect to Enphase Battery IQ 5P",
-        "description": "Enter your Enphase Enlighten account credentials (Cloud API). Site ID and User ID are optional - leave empty for automatic detection.",
+        "title": "Enphase Battery Connection Mode",
+        "description": "Choose how to connect to your Enphase system.",
         "data": {
-          "username": "Email / Username",
-          "password": "Password",
-          "site_id": "Site ID (optional)",
-          "user_id": "User ID (optional)"
+          "connection_mode": "Connection Mode"
+        },
+        "data_description": {
+          "connection_mode": "Local: Direct Envoy connection (fast, no API limit)\nCloud: Enlighten Cloud (remote access, API limit)"
+        }
+      },
+      "local": {
+        "title": "Local Envoy Connection",
+        "description": "{benefits}",
+        "data": {
+          "envoy_host": "Envoy Hostname or IP",
+          "cloud_username": "Enphase account email (required for firmware 7.x/8.x)",
+          "cloud_password": "Enphase account password",
+          "enable_cloud_control": "Enable cloud control (hybrid mode)"
+        },
+        "data_description": {
+          "enable_cloud_control": "Hybrid mode: local data (fast) + cloud control (switch/select). Required because firmware 8.x no longer supports control via local API."
+        }
+      },
+      "cloud": {
+        "title": "Cloud Enlighten Connection",
+        "description": "{benefits}",
+        "data": {
+          "username": "Enphase account email",
+          "password": "Enphase account password",
+          "site_id": "Site ID (optional, auto-detected)",
+          "user_id": "User ID (optional, auto-detected)"
         }
       },
       "reauth_confirm": {
