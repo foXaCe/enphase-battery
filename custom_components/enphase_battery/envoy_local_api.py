@@ -424,14 +424,24 @@ class EnphaseEnvoyLocalAPI:
         return await self._make_request("GET", "/production.json")
 
     async def get_production_v1(self) -> dict[str, Any]:
-        """Get production data from /api/v1/production.json.
+        """Get production data from /api/v1/production.json or /production.json.
 
         This endpoint includes ACB battery power via storage.wNow field.
+        Firmware 7.x uses /api/v1/production.json
+        Firmware 8.x uses /production.json
 
         Returns:
             Production data including battery power (wNow)
         """
-        return await self._make_request("GET", "/api/v1/production.json")
+        # Try /api/v1/production.json first (firmware 7.x)
+        try:
+            return await self._make_request("GET", "/api/v1/production.json")
+        except EnvoyConnectionError as err:
+            # If 404, try /production.json (firmware 8.x)
+            if "404" in str(err):
+                _LOGGER.debug("/api/v1/production.json not found (404), trying /production.json")
+                return await self._make_request("GET", "/production.json")
+            raise
 
     async def get_meters_readings(self) -> dict[str, Any]:
         """Get real-time meter readings (FAST - ~64ms vs 2500ms).
