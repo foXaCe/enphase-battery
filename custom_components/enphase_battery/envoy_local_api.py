@@ -423,6 +423,16 @@ class EnphaseEnvoyLocalAPI:
         """
         return await self._make_request("GET", "/production.json")
 
+    async def get_production_v1(self) -> dict[str, Any]:
+        """Get production data from /api/v1/production.json.
+
+        This endpoint includes ACB battery power via storage.wNow field.
+
+        Returns:
+            Production data including battery power (wNow)
+        """
+        return await self._make_request("GET", "/api/v1/production.json")
+
     async def get_meters_readings(self) -> dict[str, Any]:
         """Get real-time meter readings (FAST - ~64ms vs 2500ms).
 
@@ -479,17 +489,20 @@ class EnphaseEnvoyLocalAPI:
                 self.get_ensemble_status(),
                 self.get_meters_readings(),
                 self.get_ensemble_inventory(),
+                self.get_production_v1(),
                 return_exceptions=True,
             )
 
             ensemble_status = results[0] if not isinstance(results[0], Exception) else {}
             meters = results[1] if not isinstance(results[1], Exception) else {}
             inventory = results[2] if not isinstance(results[2], Exception) else {}
+            production = results[3] if not isinstance(results[3], Exception) else {}
 
             # Debug: Log raw responses
             _LOGGER.debug(f"Ensemble status response: {ensemble_status}")
             _LOGGER.debug(f"Meters response: {meters}")
             _LOGGER.debug(f"Inventory response: {inventory}")
+            _LOGGER.debug(f"Production v1 response: {production}")
 
             # Parse JSON from 'raw' key if present (firmware 8.x format)
             import json
@@ -505,6 +518,10 @@ class EnphaseEnvoyLocalAPI:
             if isinstance(inventory, dict) and "raw" in inventory:
                 inventory = json.loads(inventory["raw"])
                 _LOGGER.debug("Parsed inventory from 'raw' key")
+
+            if isinstance(production, dict) and "raw" in production:
+                production = json.loads(production["raw"])
+                _LOGGER.debug("Parsed production from 'raw' key")
 
             # Parse battery data from responses
             battery_data = {
@@ -569,11 +586,23 @@ class EnphaseEnvoyLocalAPI:
                         consumption_energy = meter.get("actEnergyDlvd", 0) / 1000  # kWh
                         _LOGGER.debug(f"Consumption meter: {active_power}W, Energy: {consumption_energy:.2f}kWh")
 
-                # If battery meter doesn't report power (value = 0), calculate from production - consumption
-                # This is an approximation: Battery = Production - Consumption
-                if battery_power == 0 and (production_power != 0 or consumption_power != 0):
-                    battery_power = production_power - consumption_power
-                    _LOGGER.debug(f"Battery power calculated from meters: {production_power}W (production) - {consumption_power}W (consumption) = {battery_power}W")
+                # If battery meter doesn't report power (value = 0), use /api/v1/production.json
+                # This endpoint has the accurate power in storage.wNow field
+                if battery_power == 0:
+                    # Try to get power from /api/v1/production.json (storage.wNow)
+                    if production and isinstance(production, dict):
+                        storage = production.get("storage", [])
+                        if isinstance(storage, list) and len(storage) > 0:
+                            battery_power = storage[0].get("wNow", 0)
+                            _LOGGER.debug(f"Battery power from /api/v1/production.json: {battery_power}W (wNow)")
+                        elif isinstance(storage, dict):
+                            battery_power = storage.get("wNow", 0)
+                            _LOGGER.debug(f"Battery power from /api/v1/production.json: {battery_power}W (wNow)")
+
+                    # Fallback: calculate from production - consumption (less accurate)
+                    if battery_power == 0 and (production_power != 0 or consumption_power != 0):
+                        battery_power = production_power - consumption_power
+                        _LOGGER.debug(f"Battery power calculated from meters (fallback): {production_power}W (production) - {consumption_power}W (consumption) = {battery_power}W")
 
                 # Power convention: negative = charging, positive = discharging
                 battery_data["power"] = int(battery_power)
