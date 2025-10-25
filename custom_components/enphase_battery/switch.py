@@ -63,7 +63,11 @@ class ChargeFromGridSwitch(CoordinatorEntity, SwitchEntity):
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
         try:
-            await self.coordinator.api.set_charge_from_grid(True)
+            # Use appropriate API based on connection mode
+            if self.coordinator.is_local_mode:
+                await self.coordinator.local_api.set_charge_from_grid(True)
+            else:
+                await self.coordinator.api.set_charge_from_grid(True)
             await self.coordinator.async_request_refresh()
         except Exception as err:
             _LOGGER.error(f"Failed to enable Charge From Grid: {err}")
@@ -72,7 +76,11 @@ class ChargeFromGridSwitch(CoordinatorEntity, SwitchEntity):
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
         try:
-            await self.coordinator.api.set_charge_from_grid(False)
+            # Use appropriate API based on connection mode
+            if self.coordinator.is_local_mode:
+                await self.coordinator.local_api.set_charge_from_grid(False)
+            else:
+                await self.coordinator.api.set_charge_from_grid(False)
             await self.coordinator.async_request_refresh()
         except Exception as err:
             _LOGGER.error(f"Failed to disable Charge From Grid: {err}")
