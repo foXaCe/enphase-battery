@@ -469,6 +469,17 @@ class EnphaseEnvoyLocalAPI:
         """
         return await self._make_request("GET", "/ivp/ensemble/status")
 
+    async def get_ensemble_power(self) -> dict[str, Any]:
+        """Get ensemble (battery) real-time power data.
+
+        Returns real_power_mw and apparent_power_mva for each battery device.
+        This is the accurate power reading used by the official Enphase integration.
+
+        Returns:
+            Battery power data (real_power_mw in milliwatts, apparent_power_mva, soc)
+        """
+        return await self._make_request("GET", "/ivp/ensemble/power")
+
     async def get_home_json(self) -> dict[str, Any]:
         """Get gateway summary status.
 
@@ -499,20 +510,20 @@ class EnphaseEnvoyLocalAPI:
                 self.get_ensemble_status(),
                 self.get_meters_readings(),
                 self.get_ensemble_inventory(),
-                self.get_production_v1(),
+                self.get_ensemble_power(),
                 return_exceptions=True,
             )
 
             ensemble_status = results[0] if not isinstance(results[0], Exception) else {}
             meters = results[1] if not isinstance(results[1], Exception) else {}
             inventory = results[2] if not isinstance(results[2], Exception) else {}
-            production = results[3] if not isinstance(results[3], Exception) else {}
+            ensemble_power = results[3] if not isinstance(results[3], Exception) else {}
 
             # Debug: Log raw responses
             _LOGGER.debug(f"Ensemble status response: {ensemble_status}")
             _LOGGER.debug(f"Meters response: {meters}")
             _LOGGER.debug(f"Inventory response: {inventory}")
-            _LOGGER.debug(f"Production v1 response: {production}")
+            _LOGGER.debug(f"Ensemble power response: {ensemble_power}")
 
             # Parse JSON from 'raw' key if present (firmware 8.x format)
             import json
@@ -529,9 +540,9 @@ class EnphaseEnvoyLocalAPI:
                 inventory = json.loads(inventory["raw"])
                 _LOGGER.debug("Parsed inventory from 'raw' key")
 
-            if isinstance(production, dict) and "raw" in production:
-                production = json.loads(production["raw"])
-                _LOGGER.debug("Parsed production from 'raw' key")
+            if isinstance(ensemble_power, dict) and "raw" in ensemble_power:
+                ensemble_power = json.loads(ensemble_power["raw"])
+                _LOGGER.debug("Parsed ensemble_power from 'raw' key")
 
             # Parse battery data from responses
             battery_data = {
@@ -596,23 +607,20 @@ class EnphaseEnvoyLocalAPI:
                         consumption_energy = meter.get("actEnergyDlvd", 0) / 1000  # kWh
                         _LOGGER.debug(f"Consumption meter: {active_power}W, Energy: {consumption_energy:.2f}kWh")
 
-                # If battery meter doesn't report power (value = 0), use /api/v1/production.json
-                # This endpoint has the accurate power in storage.wNow field
-                if battery_power == 0:
-                    # Try to get power from /api/v1/production.json (storage.wNow)
-                    if production and isinstance(production, dict):
-                        storage = production.get("storage", [])
-                        if isinstance(storage, list) and len(storage) > 0:
-                            battery_power = storage[0].get("wNow", 0)
-                            _LOGGER.debug(f"Battery power from /api/v1/production.json: {battery_power}W (wNow)")
-                        elif isinstance(storage, dict):
-                            battery_power = storage.get("wNow", 0)
-                            _LOGGER.debug(f"Battery power from /api/v1/production.json: {battery_power}W (wNow)")
+                # If battery meter doesn't report power (value = 0), use /ivp/ensemble/power
+                # This endpoint has the accurate real_power_mw field (same as official Enphase addon)
+                if battery_power == 0 and ensemble_power and isinstance(ensemble_power, dict):
+                    devices = ensemble_power.get("devices:", [])
+                    if devices and len(devices) > 0:
+                        # real_power_mw is in milliwatts, convert to watts
+                        real_power_mw = devices[0].get("real_power_mw", 0)
+                        battery_power = real_power_mw / 1000  # Convert mW to W
+                        _LOGGER.debug(f"Battery power from /ivp/ensemble/power: {battery_power}W (real_power_mw: {real_power_mw}mW)")
 
-                    # Fallback: calculate from production - consumption (less accurate)
-                    if battery_power == 0 and (production_power != 0 or consumption_power != 0):
-                        battery_power = production_power - consumption_power
-                        _LOGGER.debug(f"Battery power calculated from meters (fallback): {production_power}W (production) - {consumption_power}W (consumption) = {battery_power}W")
+                # Final fallback: calculate from production - consumption (least accurate)
+                if battery_power == 0 and (production_power != 0 or consumption_power != 0):
+                    battery_power = production_power - consumption_power
+                    _LOGGER.debug(f"Battery power calculated from meters (fallback): {production_power}W (production) - {consumption_power}W (consumption) = {battery_power}W")
 
                 # Power convention: negative = charging, positive = discharging
                 battery_data["power"] = int(battery_power)
