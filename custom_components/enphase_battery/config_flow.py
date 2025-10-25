@@ -36,7 +36,7 @@ STEP_MODE_SCHEMA = vol.Schema(
     }
 )
 
-# Schéma pour mode LOCAL
+# Schéma pour mode LOCAL - demande aussi credentials cloud pour firmware 7.x+
 STEP_LOCAL_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_ENVOY_HOST, default="envoy.local"): str,
@@ -45,6 +45,14 @@ STEP_LOCAL_DATA_SCHEMA = vol.Schema(
             CONF_PASSWORD,
             description={"suggested_value": ""},
         ): str,
+    }
+)
+
+# Schéma pour mode LOCAL avec credentials cloud (firmware 7.x+)
+STEP_LOCAL_CLOUD_CREDS_SCHEMA = vol.Schema(
+    {
+        vol.Required("cloud_username"): str,
+        vol.Required("cloud_password"): str,
     }
 )
 
@@ -65,32 +73,53 @@ async def validate_local_input(
     """Validate local Envoy connection.
 
     Data has the keys from STEP_LOCAL_DATA_SCHEMA with values provided by the user.
+    May also include cloud_username/cloud_password for firmware 7.x+.
     """
     from .envoy_local_api import EnphaseEnvoyLocalAPI, EnvoyAuthError, EnvoyConnectionError
 
     host = data[CONF_ENVOY_HOST]
     username = data.get(CONF_USERNAME, "installer")
     password = data.get(CONF_PASSWORD)
+    cloud_username = data.get("cloud_username")
+    cloud_password = data.get("cloud_password")
 
     # Create temporary session for validation
     import aiohttp
 
     async with aiohttp.ClientSession() as session:
-        api = EnphaseEnvoyLocalAPI(session, host, username, password)
+        api = EnphaseEnvoyLocalAPI(
+            session,
+            host,
+            username,
+            password,
+            cloud_username=cloud_username,
+            cloud_password=cloud_password,
+        )
 
         try:
             await api.authenticate()
 
             # Get basic info
             info = await api._get_info()
-            serial = info.get("device", {}).get("sn", "UNKNOWN")
+            serial = (
+                info.get("device", {}).get("sn") or
+                info.get("sn") or
+                api._serial_number or
+                "UNKNOWN"
+            )
 
             return {
                 "title": f"Enphase Battery Local ({host})",
                 "serial": serial,
+                "firmware": api._firmware_version,
             }
 
         except EnvoyAuthError as err:
+            error_msg = str(err)
+            # Check if it's a firmware 7.x credentials error
+            if "cloud credentials" in error_msg.lower() or "firmware 7" in error_msg.lower():
+                # Need to ask for cloud credentials
+                raise NeedCloudCredentials(error_msg)
             _LOGGER.error(f"Authentication failed: {err}")
             raise InvalidAuth from err
         except EnvoyConnectionError as err:
@@ -99,6 +128,10 @@ async def validate_local_input(
         except Exception as err:
             _LOGGER.exception("Unexpected error during validation")
             raise CannotConnect from err
+
+
+class NeedCloudCredentials(Exception):
+    """Error to indicate cloud credentials are needed for firmware 7.x+."""
 
 
 async def validate_cloud_input(
@@ -141,6 +174,7 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         """Initialize config flow."""
         self._connection_mode: str | None = None
+        self._local_data: dict[str, Any] | None = None  # Store local config temporarily
 
     @staticmethod
     def async_get_options_flow(config_entry):
@@ -177,6 +211,11 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             try:
                 info = await validate_local_input(self.hass, user_input)
+            except NeedCloudCredentials as err:
+                # Firmware 7.x+ detected, need cloud credentials
+                _LOGGER.info(f"Firmware 7.x+ detected: {err}")
+                self._local_data = user_input  # Store for later
+                return await self.async_step_local_cloud_creds()
             except CannotConnect:
                 errors["base"] = "cannot_connect"
             except InvalidAuth:
@@ -201,6 +240,46 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders={
                 "mode": "Local",
                 "benefits": "✅ Réactivité maximale\n✅ Pas de quota API\n✅ Fonctionne sans Internet",
+            },
+        )
+
+    async def async_step_local_cloud_creds(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Ask for cloud credentials for firmware 7.x+ local authentication."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            # Merge cloud credentials with local config
+            full_data = {**self._local_data, **user_input}
+            full_data[CONF_CONNECTION_MODE] = CONNECTION_MODE_LOCAL
+
+            try:
+                info = await validate_local_input(self.hass, full_data)
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except InvalidAuth:
+                errors["base"] = "invalid_auth"
+            except Exception:  # pylint: disable=broad-except
+                _LOGGER.exception("Unexpected exception")
+                errors["base"] = "unknown"
+            else:
+                # Créer une entrée unique basée sur le serial
+                await self.async_set_unique_id(info["serial"])
+                self._abort_if_unique_id_configured()
+
+                return self.async_create_entry(
+                    title=info["title"],
+                    data=full_data,
+                )
+
+        return self.async_show_form(
+            step_id="local_cloud_creds",
+            data_schema=STEP_LOCAL_CLOUD_CREDS_SCHEMA,
+            errors=errors,
+            description_placeholders={
+                "firmware_info": "Firmware 7.x+ détecté sur votre Envoy",
+                "requirement": "Credentials Enphase Enlighten requis pour obtenir le token d'authentification",
             },
         )
 
