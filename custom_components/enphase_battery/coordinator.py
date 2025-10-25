@@ -71,6 +71,12 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         self._daily_soc_charged: float = stored_data.get("soc_charged", 0)
         self._daily_soc_discharged: float = stored_data.get("soc_discharged", 0)
 
+        # Power integration energy tracking (most accurate method)
+        self._last_power: float | None = stored_data.get("last_power")
+        self._last_update_time: str | None = stored_data.get("last_update_time")
+        self._daily_power_charged: float = stored_data.get("power_charged", 0)
+        self._daily_power_discharged: float = stored_data.get("power_discharged", 0)
+
         # Determine connection mode (default to cloud for backward compatibility)
         self._connection_mode = entry.data.get(CONF_CONNECTION_MODE, CONNECTION_MODE_CLOUD)
         self._use_mqtt = entry.options.get(CONF_USE_MQTT, False) and self._connection_mode == CONNECTION_MODE_CLOUD
@@ -289,32 +295,52 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
             self._daily_discharged_start = total_discharged
             self._daily_soc_charged = 0
             self._daily_soc_discharged = 0
+            self._daily_power_charged = 0
+            self._daily_power_discharged = 0
 
         # Calculate daily energy from meters (if available)
         energy_charged_today = max(0, total_charged - self._daily_charged_start)
         energy_discharged_today = max(0, total_discharged - self._daily_discharged_start)
 
-        # Fallback: If meters don't track battery energy (= 0), use SOC-based estimation
-        current_soc = data.get("soc", 0)
-        max_capacity_wh = data.get("max_capacity", 5000)
+        # Fallback: If meters don't track battery energy (= 0), use power integration
+        if energy_charged_today == 0 and energy_discharged_today == 0:
+            current_power = data.get("power", 0)  # W (negative=charging, positive=discharging)
 
-        if energy_charged_today == 0 and energy_discharged_today == 0 and self._last_soc is not None:
-            # Calculate energy from SOC delta
-            soc_delta = current_soc - self._last_soc
-            energy_delta_kwh = (soc_delta * max_capacity_wh) / 100 / 1000  # Convert to kWh
+            # Power integration: energy = ∫ power × time
+            if self._last_power is not None and self._last_update_time is not None:
+                try:
+                    last_time = datetime.fromisoformat(self._last_update_time)
+                    time_delta_hours = (now - last_time).total_seconds() / 3600  # Convert to hours
 
-            if soc_delta > 0:
-                # Battery charged
-                self._daily_soc_charged += energy_delta_kwh
-            elif soc_delta < 0:
-                # Battery discharged
-                self._daily_soc_discharged += abs(energy_delta_kwh)
+                    # Use average power over the interval (trapezoidal integration)
+                    avg_power = (current_power + self._last_power) / 2  # W
+                    energy_delta_kwh = (avg_power * time_delta_hours) / 1000  # Convert Wh to kWh
 
-            energy_charged_today = self._daily_soc_charged
-            energy_discharged_today = self._daily_soc_discharged
-            _LOGGER.debug(f"Using SOC-based energy tracking: SOC {self._last_soc}% → {current_soc}% (delta: {soc_delta}%, {energy_delta_kwh:.3f}kWh)")
+                    if avg_power < 0:
+                        # Battery charging (negative power)
+                        self._daily_power_charged += abs(energy_delta_kwh)
+                    elif avg_power > 0:
+                        # Battery discharging (positive power)
+                        self._daily_power_discharged += energy_delta_kwh
 
-        self._last_soc = current_soc
+                    _LOGGER.debug(
+                        f"Power integration: {self._last_power:.0f}W → {current_power:.0f}W "
+                        f"over {time_delta_hours*3600:.1f}s = {energy_delta_kwh:.4f}kWh "
+                        f"(total: charged={self._daily_power_charged:.3f}kWh, discharged={self._daily_power_discharged:.3f}kWh)"
+                    )
+                except (ValueError, TypeError) as e:
+                    _LOGGER.warning(f"Error in power integration: {e}")
+
+            # Update tracking variables for next iteration
+            self._last_power = current_power
+            self._last_update_time = now.isoformat()
+
+            energy_charged_today = self._daily_power_charged
+            energy_discharged_today = self._daily_power_discharged
+
+            # SOC tracking for backup reference
+            current_soc = data.get("soc", 0)
+            self._last_soc = current_soc
 
         data["energy_charged_today"] = round(energy_charged_today, 2)
         data["energy_discharged_today"] = round(energy_discharged_today, 2)
@@ -373,6 +399,11 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
             "last_soc": self._last_soc,
             "soc_charged": self._daily_soc_charged,
             "soc_discharged": self._daily_soc_discharged,
+            # Power integration tracking (most accurate)
+            "last_power": self._last_power,
+            "last_update_time": self._last_update_time,
+            "power_charged": self._daily_power_charged,
+            "power_discharged": self._daily_power_discharged,
         }
 
     async def async_shutdown(self) -> None:
