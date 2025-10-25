@@ -13,6 +13,7 @@ from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
 )
+from homeassistant.helpers.storage import Store
 
 from .api import EnphaseBatteryAPI, EnphaseBatteryApiError
 from .envoy_local_api import EnphaseEnvoyLocalAPI, EnvoyLocalApiError
@@ -37,6 +38,10 @@ except ImportError:
 
 _LOGGER = logging.getLogger(__name__)
 
+# Storage version and key for persistent energy tracking
+STORAGE_VERSION = 1
+STORAGE_KEY = "enphase_battery_energy_tracking"
+
 
 class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching Enphase Battery data.
@@ -57,9 +62,13 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         self.local_api: EnphaseEnvoyLocalAPI | None = None
         self.mqtt_client: EnphaseMQTTClient | None = None
 
+        # Initialize persistent storage for energy tracking
+        self._store = Store(hass, STORAGE_VERSION, f"{STORAGE_KEY}_{entry.entry_id}")
+        self._stored_data: dict[str, Any] = {}
+
         # Energy tracking for daily calculations
-        # Restore from hass.data if available (persistence across restarts)
-        stored_data = hass.data.setdefault(DOMAIN, {}).get("energy_tracking", {})
+        # Will be loaded from persistent storage in async_setup
+        stored_data: dict[str, Any] = {}
 
         self._daily_reset_date: str | None = stored_data.get("reset_date")
         self._daily_charged_start: float = stored_data.get("charged_start", 0)
@@ -110,6 +119,9 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _async_setup(self) -> None:
         """Set up the coordinator based on connection mode."""
+        # Load persistent energy tracking data
+        await self._load_energy_tracking()
+
         session = async_get_clientsession(self.hass)
         enable_cloud_control = self.entry.data.get("enable_cloud_control", False)
 
@@ -253,6 +265,51 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
 
         # Update coordinator data immediately
         self.async_set_updated_data(message)
+
+    async def _load_energy_tracking(self) -> None:
+        """Load energy tracking data from persistent storage."""
+        try:
+            self._stored_data = await self._store.async_load() or {}
+            _LOGGER.debug(f"Loaded energy tracking data from storage: {list(self._stored_data.keys())}")
+
+            # Restore variables from storage
+            self._daily_reset_date = self._stored_data.get("reset_date")
+            self._daily_charged_start = self._stored_data.get("charged_start", 0)
+            self._daily_discharged_start = self._stored_data.get("discharged_start", 0)
+            self._consumption_24h_history = self._stored_data.get("consumption_history", [])
+            self._last_soc = self._stored_data.get("last_soc")
+            self._daily_soc_charged = self._stored_data.get("soc_charged", 0)
+            self._daily_soc_discharged = self._stored_data.get("soc_discharged", 0)
+            self._last_power = self._stored_data.get("last_power")
+            self._last_update_time = self._stored_data.get("last_update_time")
+            self._daily_power_charged = self._stored_data.get("power_charged", 0)
+            self._daily_power_discharged = self._stored_data.get("power_discharged", 0)
+
+            if self._daily_reset_date:
+                _LOGGER.info(f"Restored energy tracking from {self._daily_reset_date}")
+        except Exception as err:
+            _LOGGER.error(f"Failed to load energy tracking data: {err}")
+
+    async def _save_energy_tracking(self) -> None:
+        """Save energy tracking data to persistent storage."""
+        try:
+            data = {
+                "reset_date": self._daily_reset_date,
+                "charged_start": self._daily_charged_start,
+                "discharged_start": self._daily_discharged_start,
+                "consumption_history": self._consumption_24h_history[-100:],
+                "last_soc": self._last_soc,
+                "soc_charged": self._daily_soc_charged,
+                "soc_discharged": self._daily_soc_discharged,
+                "last_power": self._last_power,
+                "last_update_time": self._last_update_time,
+                "power_charged": self._daily_power_charged,
+                "power_discharged": self._daily_power_discharged,
+            }
+            await self._store.async_save(data)
+            _LOGGER.debug("Saved energy tracking data to persistent storage")
+        except Exception as err:
+            _LOGGER.error(f"Failed to save energy tracking data: {err}")
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from API.
@@ -425,24 +482,15 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
             f"Backup time: {backup_time_minutes}min"
         )
 
-        # Save tracking data to hass.data for persistence across restarts
-        self.hass.data.setdefault(DOMAIN, {})["energy_tracking"] = {
-            "reset_date": self._daily_reset_date,
-            "charged_start": self._daily_charged_start,
-            "discharged_start": self._daily_discharged_start,
-            "consumption_history": self._consumption_24h_history[-100:],  # Keep last 100 entries max
-            "last_soc": self._last_soc,
-            "soc_charged": self._daily_soc_charged,
-            "soc_discharged": self._daily_soc_discharged,
-            # Power integration tracking (most accurate)
-            "last_power": self._last_power,
-            "last_update_time": self._last_update_time,
-            "power_charged": self._daily_power_charged,
-            "power_discharged": self._daily_power_discharged,
-        }
+        # Save tracking data to persistent storage (async, non-blocking)
+        self.hass.async_create_task(self._save_energy_tracking())
 
     async def async_shutdown(self) -> None:
         """Shutdown coordinator and cleanup resources."""
+        # Save energy tracking data before shutdown
+        await self._save_energy_tracking()
+        _LOGGER.info("Energy tracking data saved on shutdown")
+
         if self.mqtt_client:
             await self.mqtt_client.disconnect()
             _LOGGER.info("MQTT client disconnected")
