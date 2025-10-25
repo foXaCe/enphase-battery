@@ -535,7 +535,7 @@ class EnphaseEnvoyLocalAPI:
             # In firmware 8.x, meters is a list with multiple EIDs:
             # - 704643328 (0x2A00FE00): Net consumption meter
             # - 704643584 (0x2A010000): Production meter
-            # - 1023410688 (0x3D00FE00): Storage/Battery meter (look for this one)
+            # - 1023410688 (0x3D00FE00): Storage/Battery meter (but often returns 0 for energy)
             if meters and isinstance(meters, list):
                 battery_power = 0
                 production_power = 0
@@ -543,6 +543,7 @@ class EnphaseEnvoyLocalAPI:
                 battery_energy_discharged = 0  # actEnergyDlvd
                 battery_energy_charged = 0  # actEnergyRcvd
                 consumption_energy = 0
+                production_energy = 0
 
                 for meter in meters:
                     eid = meter.get("eid")
@@ -557,12 +558,19 @@ class EnphaseEnvoyLocalAPI:
                     # Production meter (EID 0x2A010000 range)
                     elif eid == 704643584:
                         production_power = active_power
-                        _LOGGER.debug(f"Production meter: {active_power}W")
+                        production_energy = meter.get("actEnergyDlvd", 0) / 1000  # kWh
+                        _LOGGER.debug(f"Production meter: {active_power}W, Energy: {production_energy:.2f}kWh")
                     # Consumption meter (EID 0x2A00FE00 range)
                     elif eid == 704643328:
                         consumption_power = active_power
                         consumption_energy = meter.get("actEnergyDlvd", 0) / 1000  # kWh
                         _LOGGER.debug(f"Consumption meter: {active_power}W, Energy: {consumption_energy:.2f}kWh")
+
+                # If battery meter doesn't report power (value = 0), calculate from production - consumption
+                # This is an approximation: Battery = Production - Consumption
+                if battery_power == 0 and (production_power != 0 or consumption_power != 0):
+                    battery_power = production_power - consumption_power
+                    _LOGGER.debug(f"Battery power calculated from meters: {production_power}W (production) - {consumption_power}W (consumption) = {battery_power}W")
 
                 # Power convention: negative = charging, positive = discharging
                 battery_data["power"] = int(battery_power)
@@ -570,9 +578,11 @@ class EnphaseEnvoyLocalAPI:
                 battery_data["discharge_power"] = int(battery_power) if battery_power > 0 else 0
 
                 # Store cumulative energy values (will be used by coordinator for daily calc)
-                battery_data["total_energy_discharged"] = battery_energy_discharged
-                battery_data["total_energy_charged"] = battery_energy_charged
+                # If battery meter doesn't track energy, use production/consumption energies as proxy
+                battery_data["total_energy_discharged"] = battery_energy_discharged if battery_energy_discharged > 0 else 0
+                battery_data["total_energy_charged"] = battery_energy_charged if battery_energy_charged > 0 else 0
                 battery_data["total_consumption"] = consumption_energy
+                battery_data["total_production"] = production_energy
 
                 _LOGGER.debug(f"Battery power: {battery_power}W (charge: {battery_data['charge_power']}W, discharge: {battery_data['discharge_power']}W)")
 

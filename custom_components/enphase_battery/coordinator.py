@@ -63,6 +63,11 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         self._daily_discharged_start: float = 0
         self._consumption_24h_history: list[tuple[str, float]] = []  # (timestamp, consumption_kwh)
 
+        # SOC-based energy tracking (fallback when meters don't track battery energy)
+        self._last_soc: int | None = None
+        self._daily_soc_charged: float = 0  # kWh charged based on SOC delta
+        self._daily_soc_discharged: float = 0  # kWh discharged based on SOC delta
+
         # Determine connection mode (default to cloud for backward compatibility)
         self._connection_mode = entry.data.get(CONF_CONNECTION_MODE, CONNECTION_MODE_CLOUD)
         self._use_mqtt = entry.options.get(CONF_USE_MQTT, False) and self._connection_mode == CONNECTION_MODE_CLOUD
@@ -279,10 +284,34 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
             self._daily_reset_date = today_str
             self._daily_charged_start = total_charged
             self._daily_discharged_start = total_discharged
+            self._daily_soc_charged = 0
+            self._daily_soc_discharged = 0
 
-        # Calculate daily energy (delta from midnight)
+        # Calculate daily energy from meters (if available)
         energy_charged_today = max(0, total_charged - self._daily_charged_start)
         energy_discharged_today = max(0, total_discharged - self._daily_discharged_start)
+
+        # Fallback: If meters don't track battery energy (= 0), use SOC-based estimation
+        current_soc = data.get("soc", 0)
+        max_capacity_wh = data.get("max_capacity", 5000)
+
+        if energy_charged_today == 0 and energy_discharged_today == 0 and self._last_soc is not None:
+            # Calculate energy from SOC delta
+            soc_delta = current_soc - self._last_soc
+            energy_delta_kwh = (soc_delta * max_capacity_wh) / 100 / 1000  # Convert to kWh
+
+            if soc_delta > 0:
+                # Battery charged
+                self._daily_soc_charged += energy_delta_kwh
+            elif soc_delta < 0:
+                # Battery discharged
+                self._daily_soc_discharged += abs(energy_delta_kwh)
+
+            energy_charged_today = self._daily_soc_charged
+            energy_discharged_today = self._daily_soc_discharged
+            _LOGGER.debug(f"Using SOC-based energy tracking: SOC {self._last_soc}% → {current_soc}% (delta: {soc_delta}%, {energy_delta_kwh:.3f}kWh)")
+
+        self._last_soc = current_soc
 
         data["energy_charged_today"] = round(energy_charged_today, 2)
         data["energy_discharged_today"] = round(energy_discharged_today, 2)

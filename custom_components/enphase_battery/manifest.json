@@ -9,5 +9,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/foXaCe/enphase-battery/issues",
   "requirements": ["PyJWT"],
-  "version": "2.6.0"
+  "version": "2.6.1"
 }
