@@ -11,12 +11,45 @@ from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 
-from .const import DOMAIN, CONF_USE_MQTT, CONF_SITE_ID, CONF_USER_ID
+from .const import (
+    DOMAIN,
+    CONF_USE_MQTT,
+    CONF_SITE_ID,
+    CONF_USER_ID,
+    CONF_CONNECTION_MODE,
+    CONF_ENVOY_HOST,
+    CONNECTION_MODE_LOCAL,
+    CONNECTION_MODE_CLOUD,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
-# Schéma de configuration - Authentification Cloud Enphase
-STEP_USER_DATA_SCHEMA = vol.Schema(
+# Schéma de configuration - Choix du mode de connexion
+STEP_MODE_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_CONNECTION_MODE, default=CONNECTION_MODE_LOCAL): vol.In(
+            {
+                CONNECTION_MODE_LOCAL: "Local (Envoy direct - rapide, pas de quota API)",
+                CONNECTION_MODE_CLOUD: "Cloud (Enlighten - plus lent, quota API)",
+            }
+        ),
+    }
+)
+
+# Schéma pour mode LOCAL
+STEP_LOCAL_DATA_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_ENVOY_HOST, default="envoy.local"): str,
+        vol.Optional(CONF_USERNAME, default="installer"): str,
+        vol.Optional(
+            CONF_PASSWORD,
+            description={"suggested_value": ""},
+        ): str,
+    }
+)
+
+# Schéma pour mode CLOUD
+STEP_CLOUD_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_USERNAME): str,
         vol.Required(CONF_PASSWORD): str,
@@ -26,10 +59,54 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 )
 
 
-async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
-    """Validate the user input allows us to connect.
+async def validate_local_input(
+    hass: HomeAssistant, data: dict[str, Any]
+) -> dict[str, Any]:
+    """Validate local Envoy connection.
 
-    Data has the keys from STEP_USER_DATA_SCHEMA with values provided by the user.
+    Data has the keys from STEP_LOCAL_DATA_SCHEMA with values provided by the user.
+    """
+    from .envoy_local_api import EnphaseEnvoyLocalAPI, EnvoyAuthError, EnvoyConnectionError
+
+    host = data[CONF_ENVOY_HOST]
+    username = data.get(CONF_USERNAME, "installer")
+    password = data.get(CONF_PASSWORD)
+
+    # Create temporary session for validation
+    import aiohttp
+
+    async with aiohttp.ClientSession() as session:
+        api = EnphaseEnvoyLocalAPI(session, host, username, password)
+
+        try:
+            await api.authenticate()
+
+            # Get basic info
+            info = await api._get_info()
+            serial = info.get("device", {}).get("sn", "UNKNOWN")
+
+            return {
+                "title": f"Enphase Battery Local ({host})",
+                "serial": serial,
+            }
+
+        except EnvoyAuthError as err:
+            _LOGGER.error(f"Authentication failed: {err}")
+            raise InvalidAuth from err
+        except EnvoyConnectionError as err:
+            _LOGGER.error(f"Connection failed: {err}")
+            raise CannotConnect from err
+        except Exception as err:
+            _LOGGER.exception("Unexpected error during validation")
+            raise CannotConnect from err
+
+
+async def validate_cloud_input(
+    hass: HomeAssistant, data: dict[str, Any]
+) -> dict[str, Any]:
+    """Validate cloud Enlighten connection.
+
+    Data has the keys from STEP_CLOUD_DATA_SCHEMA with values provided by the user.
     """
     # TODO: Implémenter la validation avec l'API Cloud Enphase
     # 1. Authenticate with username/password
@@ -51,7 +128,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
 
     # Retourner les infos pour créer l'entrée
     return {
-        "title": f"Enphase Battery ({username})",
+        "title": f"Enphase Battery Cloud ({username})",
         "serial": "TEMP_SERIAL",  # TODO: récupérer le vrai serial depuis l'API
     }
 
@@ -61,6 +138,10 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    def __init__(self) -> None:
+        """Initialize config flow."""
+        self._connection_mode: str | None = None
+
     @staticmethod
     def async_get_options_flow(config_entry):
         """Get the options flow for this handler."""
@@ -69,12 +150,33 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Handle the initial step."""
+        """Handle the initial step - select connection mode."""
+        if user_input is not None:
+            self._connection_mode = user_input[CONF_CONNECTION_MODE]
+
+            # Redirect to appropriate config step
+            if self._connection_mode == CONNECTION_MODE_LOCAL:
+                return await self.async_step_local()
+            else:
+                return await self.async_step_cloud()
+
+        return self.async_show_form(
+            step_id="user",
+            data_schema=STEP_MODE_SCHEMA,
+        )
+
+    async def async_step_local(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle local Envoy configuration."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
+            # Add connection mode to data
+            user_input[CONF_CONNECTION_MODE] = CONNECTION_MODE_LOCAL
+
             try:
-                info = await validate_input(self.hass, user_input)
+                info = await validate_local_input(self.hass, user_input)
             except CannotConnect:
                 errors["base"] = "cannot_connect"
             except InvalidAuth:
@@ -93,9 +195,52 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
 
         return self.async_show_form(
-            step_id="user",
-            data_schema=STEP_USER_DATA_SCHEMA,
+            step_id="local",
+            data_schema=STEP_LOCAL_DATA_SCHEMA,
             errors=errors,
+            description_placeholders={
+                "mode": "Local",
+                "benefits": "✅ Réactivité maximale\n✅ Pas de quota API\n✅ Fonctionne sans Internet",
+            },
+        )
+
+    async def async_step_cloud(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle cloud Enlighten configuration."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            # Add connection mode to data
+            user_input[CONF_CONNECTION_MODE] = CONNECTION_MODE_CLOUD
+
+            try:
+                info = await validate_cloud_input(self.hass, user_input)
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except InvalidAuth:
+                errors["base"] = "invalid_auth"
+            except Exception:  # pylint: disable=broad-except
+                _LOGGER.exception("Unexpected exception")
+                errors["base"] = "unknown"
+            else:
+                # Créer une entrée unique basée sur le serial
+                await self.async_set_unique_id(info["serial"])
+                self._abort_if_unique_id_configured()
+
+                return self.async_create_entry(
+                    title=info["title"],
+                    data=user_input,
+                )
+
+        return self.async_show_form(
+            step_id="cloud",
+            data_schema=STEP_CLOUD_DATA_SCHEMA,
+            errors=errors,
+            description_placeholders={
+                "mode": "Cloud",
+                "benefits": "✅ Accès à distance\n⚠️ Quota API limité\n⚠️ Latence plus élevée",
+            },
         )
 
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> FlowResult:

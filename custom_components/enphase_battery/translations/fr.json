@@ -2,31 +2,50 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connexion à Enphase Battery IQ 5P",
-        "description": "Entrez vos identifiants de compte Enphase Enlighten (API cloud). Le Site ID et User ID sont optionnels - laissez vides pour détection automatique.",
+        "title": "Mode de Connexion Enphase Battery",
+        "description": "Choisissez comment vous connecter à votre système Enphase.",
         "data": {
-          "username": "Email / Nom d'utilisateur",
-          "password": "Mot de passe",
-          "site_id": "Site ID (optionnel)",
-          "user_id": "User ID (optionnel)"
+          "connection_mode": "Mode de connexion"
+        },
+        "data_description": {
+          "connection_mode": "Local : Connexion directe à l'Envoy (rapide, pas de limite API)\nCloud : Cloud Enlighten (accès distant, limite API)"
+        }
+      },
+      "local": {
+        "title": "Connexion Locale à l'Envoy",
+        "description": "{benefits}",
+        "data": {
+          "envoy_host": "Hostname ou IP de l'Envoy",
+          "username": "Nom d'utilisateur (par défaut : installer)",
+          "password": "Mot de passe (optionnel, auto-généré depuis le numéro de série)"
+        }
+      },
+      "cloud": {
+        "title": "Connexion Cloud Enlighten",
+        "description": "{benefits}",
+        "data": {
+          "username": "Email du compte Enphase",
+          "password": "Mot de passe du compte Enphase",
+          "site_id": "Site ID (optionnel, auto-détecté)",
+          "user_id": "User ID (optionnel, auto-détecté)"
         }
       },
       "reauth_confirm": {
         "title": "Ré-authentification Enphase Battery",
-        "description": "Les identifiants de votre compte Enphase doivent être mis à jour.",
+        "description": "Les identifiants de votre système Enphase doivent être mis à jour.",
         "data": {
-          "username": "Email / Nom d'utilisateur",
+          "username": "Nom d'utilisateur",
           "password": "Mot de passe"
         }
       }
     },
     "error": {
-      "cannot_connect": "Échec de connexion à l'API Enphase Cloud. Vérifiez votre connexion internet.",
-      "invalid_auth": "Identifiants invalides. Veuillez vérifier votre email/nom d'utilisateur et mot de passe.",
+      "cannot_connect": "Échec de connexion. Vérifiez l'adresse et la connexion réseau.",
+      "invalid_auth": "Identifiants invalides. Veuillez vérifier votre nom d'utilisateur et mot de passe.",
       "unknown": "Une erreur inattendue s'est produite. Consultez les journaux pour plus de détails."
     },
     "abort": {
-      "already_configured": "Cette batterie Enphase est déjà configurée.",
+      "already_configured": "Ce système Enphase est déjà configuré.",
       "reauth_successful": "Ré-authentification réussie."
     }
   },

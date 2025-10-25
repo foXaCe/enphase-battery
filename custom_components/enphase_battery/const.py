@@ -10,14 +10,22 @@ CONF_PASSWORD: Final = "password"
 CONF_SITE_ID: Final = "site_id"  # ID du site Enphase
 CONF_USER_ID: Final = "user_id"  # ID utilisateur Enphase (optionnel)
 CONF_USE_MQTT: Final = "use_mqtt"  # Option pour activer MQTT
+CONF_CONNECTION_MODE: Final = "connection_mode"  # Mode de connexion (local/cloud)
+CONF_ENVOY_HOST: Final = "envoy_host"  # Hostname/IP Envoy pour mode local
 
 # API Endpoints
 API_BASE_URL: Final = "https://enlighten.enphaseenergy.com"
 API_AUTH_URL: Final = "https://entrez.enphaseenergy.com"
 API_TIMEOUT: Final = 30  # secondes
 
+# Connection modes
+CONNECTION_MODE_CLOUD: Final = "cloud"
+CONNECTION_MODE_LOCAL: Final = "local"
+CONNECTION_MODES: Final = [CONNECTION_MODE_LOCAL, CONNECTION_MODE_CLOUD]
+
 # Update intervals
-DEFAULT_SCAN_INTERVAL: Final = 60  # secondes (mode polling)
+DEFAULT_SCAN_INTERVAL: Final = 60  # secondes (mode polling cloud)
+LOCAL_SCAN_INTERVAL: Final = 10  # secondes (mode local - plus rapide)
 MQTT_SCAN_INTERVAL: Final = 300  # secondes (backup avec MQTT)
 MQTT_RECONNECT_INTERVAL: Final = 900  # 15 minutes (durée token MQTT)
 

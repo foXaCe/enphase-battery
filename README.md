@@ -23,6 +23,8 @@ Vos contributions m'aident à continuer d'améliorer ce projet et à ajouter de 
 
 L'intégration officielle Enphase Envoy de Home Assistant ne gère pas correctement les batteries IQ 5P. Cette intégration custom vise à :
 
+- ✅ **Dual-mode** : Connexion locale (Envoy direct) OU cloud (Enlighten)
+- ✅ **Mode local** : Latence 64ms, pas de quota API, polling 10s
 - ✅ Capturer toutes les données disponibles de l'app mobile Enphase Energy Enlighten
 - ✅ Exposer l'état de charge (SOC) en temps réel
 - ✅ Contrôler les modes de fonctionnement des batteries
@@ -57,14 +59,27 @@ L'intégration officielle Enphase Envoy de Home Assistant ne gère pas correctem
 
 ### ⚙️ Configuration
 
+#### Mode Local (Recommandé)
+
 1. Allez dans **Configuration** → **Intégrations**
 2. Cliquez sur **+ Ajouter une intégration**
 3. Recherchez **"Enphase Battery IQ 5P"**
-4. Entrez vos identifiants Enphase Enlighten :
-   - **Nom d'utilisateur** : Votre email Enphase
+4. **Choisir "Local"** (Envoy direct - rapide, pas de quota API)
+5. Entrez les informations de l'Envoy :
+   - **Hostname ou IP** : `envoy.local` ou IP fixe (ex: `192.168.1.50`)
+   - **Username** : `installer` (par défaut)
+   - **Password** : Laisser vide (auto-généré depuis le numéro de série)
+
+#### Mode Cloud (Alternative)
+
+1. Même procédure, mais choisir **"Cloud"** (Enlighten)
+2. Entrez vos identifiants Enphase Enlighten :
+   - **Email** : Votre email Enphase
    - **Mot de passe** : Votre mot de passe Enphase
-   - **Site ID** : (optionnel, auto-détecté) ID de votre site
-   - **User ID** : (optionnel, auto-détecté) ID de votre compte
+   - **Site ID** : (optionnel, auto-détecté)
+   - **User ID** : (optionnel, auto-détecté)
+
+📖 **[Documentation détaillée du mode local](docs/LOCAL_MODE.md)**
 
 ### 📊 Entités disponibles
 
@@ -146,6 +161,8 @@ Your contributions help me continue improving this project and adding new featur
 
 The official Enphase Envoy integration in Home Assistant doesn't properly support IQ 5P batteries. This custom integration aims to:
 
+- ✅ **Dual-mode**: Local connection (direct Envoy) OR cloud (Enlighten)
+- ✅ **Local mode**: 64ms latency, no API quota, 10s polling
 - ✅ Capture all available data from the Enphase Energy Enlighten mobile app
 - ✅ Expose real-time state of charge (SOC)
 - ✅ Control battery operation modes
@@ -180,14 +197,27 @@ The official Enphase Envoy integration in Home Assistant doesn't properly suppor
 
 ### ⚙️ Configuration
 
+#### Local Mode (Recommended)
+
 1. Go to **Settings** → **Integrations**
 2. Click **+ Add Integration**
 3. Search for **"Enphase Battery IQ 5P"**
-4. Enter your Enphase Enlighten credentials:
-   - **Username**: Your Enphase email
+4. **Choose "Local"** (Envoy direct - fast, no API limits)
+5. Enter Envoy information:
+   - **Hostname or IP**: `envoy.local` or fixed IP (e.g., `192.168.1.50`)
+   - **Username**: `installer` (default)
+   - **Password**: Leave empty (auto-generated from serial number)
+
+#### Cloud Mode (Alternative)
+
+1. Same procedure, but choose **"Cloud"** (Enlighten)
+2. Enter your Enphase Enlighten credentials:
+   - **Email**: Your Enphase email
    - **Password**: Your Enphase password
-   - **Site ID**: (optional, auto-detected) Your site ID
-   - **User ID**: (optional, auto-detected) Your account ID
+   - **Site ID**: (optional, auto-detected)
+   - **User ID**: (optional, auto-detected)
+
+📖 **[Detailed local mode documentation](docs/LOCAL_MODE.md)**
 
 ### 📊 Available Entities
 

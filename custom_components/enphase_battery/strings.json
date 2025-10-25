@@ -2,26 +2,45 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect to Enphase Battery",
-        "description": "Enter the connection details for your Enphase Envoy gateway.",
+        "title": "Enphase Battery Connection Mode",
+        "description": "Choose how to connect to your Enphase system.",
         "data": {
-          "host": "Host (IP or hostname)",
-          "username": "Username (optional)",
-          "password": "Password (optional)"
+          "connection_mode": "Connection Mode"
+        },
+        "data_description": {
+          "connection_mode": "Local: Direct connection to Envoy (fast, no API limits)\nCloud: Enlighten cloud (remote access, API limits)"
+        }
+      },
+      "local": {
+        "title": "Local Envoy Connection",
+        "description": "{benefits}",
+        "data": {
+          "envoy_host": "Envoy Hostname or IP",
+          "username": "Username (default: installer)",
+          "password": "Password (optional, auto-generated from serial)"
+        }
+      },
+      "cloud": {
+        "title": "Cloud Enlighten Connection",
+        "description": "{benefits}",
+        "data": {
+          "username": "Enphase Account Email",
+          "password": "Enphase Account Password",
+          "site_id": "Site ID (optional, auto-detected)",
+          "user_id": "User ID (optional, auto-detected)"
         }
       },
       "reauth_confirm": {
         "title": "Re-authenticate Enphase Battery",
         "description": "The credentials for your Enphase system need to be updated.",
         "data": {
-          "host": "Host",
           "username": "Username",
           "password": "Password"
         }
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect to the Enphase gateway. Check the host address and network connection.",
+      "cannot_connect": "Failed to connect. Check the host address and network connection.",
       "invalid_auth": "Invalid authentication credentials. Please check your username and password.",
       "unknown": "Unexpected error occurred. Check the logs for more details."
     },
