@@ -10,6 +10,7 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -125,7 +126,7 @@ class BatteryGridTiedBinarySensor(EnphaseBatteryBinarySensorBase):
         """Initialize the sensor."""
         super().__init__(coordinator, "grid_tied", "Connecté au réseau")
         self._attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
-        self._attr_entity_category = "diagnostic"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def is_on(self) -> bool | None:
@@ -156,7 +157,7 @@ class BatteryHealthyBinarySensor(EnphaseBatteryBinarySensorBase):
         """Initialize the sensor."""
         super().__init__(coordinator, "healthy", "Batterie en bonne santé")
         self._attr_device_class = BinarySensorDeviceClass.PROBLEM
-        self._attr_entity_category = "diagnostic"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def is_on(self) -> bool | None:
@@ -190,7 +191,7 @@ class BatteryCommunicatingBinarySensor(EnphaseBatteryBinarySensorBase):
         """Initialize the sensor."""
         super().__init__(coordinator, "communicating", "Batterie communique")
         self._attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
-        self._attr_entity_category = "diagnostic"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def is_on(self) -> bool | None:
@@ -220,7 +221,7 @@ class EnvoyConnectedBinarySensor(EnphaseBatteryBinarySensorBase):
         """Initialize the sensor."""
         super().__init__(coordinator, "envoy_connected", "Envoy connecté")
         self._attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
-        self._attr_entity_category = "diagnostic"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def is_on(self) -> bool | None:

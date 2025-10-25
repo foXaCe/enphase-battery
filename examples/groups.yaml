@@ -1,0 +1,70 @@
+# Exemples de groupes pour Enphase Battery
+# À copier dans votre configuration.yaml
+
+# Groupe Diagnostic Batterie - Toutes les infos techniques
+enphase_battery_diagnostic:
+  name: "Diagnostic Batterie Enphase"
+  icon: mdi:battery-heart-variant
+  entities:
+    # Températures
+    - sensor.enphase_battery_iq_5p_temperature_batterie
+    - sensor.enphase_battery_iq_5p_temperature_max_cellule
+
+    # Santé
+    - sensor.enphase_battery_iq_5p_etat_de_sante_batterie
+    - binary_sensor.enphase_battery_healthy
+
+    # Identifiants
+    - sensor.enphase_battery_iq_5p_numero_de_serie_batterie
+    - sensor.enphase_battery_iq_5p_reference_batterie
+
+    # Firmware
+    - sensor.enphase_battery_iq_5p_firmware_batterie
+    - sensor.enphase_battery_iq_5p_numero_de_serie_envoy
+    - sensor.enphase_battery_iq_5p_firmware_envoy
+
+    # Capacité & Mode
+    - sensor.enphase_battery_iq_5p_capacite_nominale_batterie
+    - sensor.enphase_battery_iq_5p_mode_reseau
+
+    # États
+    - binary_sensor.enphase_battery_grid_tied
+    - binary_sensor.enphase_battery_communicating
+    - binary_sensor.enphase_battery_envoy_connected
+
+# Groupe État Batterie - Vue d'ensemble
+enphase_battery_status:
+  name: "État Batterie Enphase"
+  icon: mdi:battery-charging-80
+  entities:
+    # Principal
+    - sensor.enphase_battery_iq_5p_etat_de_charge
+    - sensor.enphase_battery_iq_5p_puissance
+
+    # Charge/Décharge
+    - sensor.enphase_battery_iq_5p_puissance_charge
+    - sensor.enphase_battery_iq_5p_puissance_decharge
+
+    # Énergies
+    - sensor.enphase_battery_iq_5p_energie_chargee_aujourdhui
+    - sensor.enphase_battery_iq_5p_energie_dechargee_aujourdhui
+
+    # États binaires
+    - binary_sensor.enphase_battery_charging
+    - binary_sensor.enphase_battery_connected
+
+    # Contrôle
+    - switch.enphase_battery_iq_5p_charge_from_grid
+
+# Groupe Monitoring - Pour dashboard
+enphase_battery_monitoring:
+  name: "Monitoring Batterie"
+  icon: mdi:chart-line
+  entities:
+    - sensor.enphase_battery_iq_5p_etat_de_charge
+    - sensor.enphase_battery_iq_5p_puissance
+    - sensor.enphase_battery_iq_5p_temperature_batterie
+    - sensor.enphase_battery_iq_5p_etat_de_sante_batterie
+    - binary_sensor.enphase_battery_charging
+    - binary_sensor.enphase_battery_connected
+    - binary_sensor.enphase_battery_healthy

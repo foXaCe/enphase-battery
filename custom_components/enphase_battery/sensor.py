@@ -16,6 +16,7 @@ from homeassistant.const import (
     UnitOfPower,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -279,7 +280,7 @@ class BatteryTemperatureSensor(EnphaseBatterySensorBase):
         self._attr_native_unit_of_measurement = "°C"
         self._attr_state_class = SensorStateClass.MEASUREMENT
         self._attr_icon = "mdi:thermometer"
-        self._attr_entity_category = "diagnostic"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def native_value(self) -> int | None:
@@ -299,7 +300,7 @@ class BatteryMaxCellTempSensor(EnphaseBatterySensorBase):
         self._attr_native_unit_of_measurement = "°C"
         self._attr_state_class = SensorStateClass.MEASUREMENT
         self._attr_icon = "mdi:thermometer-alert"
-        self._attr_entity_category = "diagnostic"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def native_value(self) -> int | None:
@@ -318,7 +319,7 @@ class BatteryHealthSensor(EnphaseBatterySensorBase):
         self._attr_native_unit_of_measurement = PERCENTAGE
         self._attr_state_class = SensorStateClass.MEASUREMENT
         self._attr_icon = "mdi:heart-pulse"
-        self._attr_entity_category = "diagnostic"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def native_value(self) -> int | None:
@@ -335,7 +336,7 @@ class BatterySerialNumberSensor(EnphaseBatterySensorBase):
         """Initialize the sensor."""
         super().__init__(coordinator, "battery_serial", "Numéro de Série Batterie")
         self._attr_icon = "mdi:identifier"
-        self._attr_entity_category = "diagnostic"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def native_value(self) -> str | None:
@@ -355,7 +356,7 @@ class BatteryPartNumberSensor(EnphaseBatterySensorBase):
         """Initialize the sensor."""
         super().__init__(coordinator, "battery_part_number", "Référence Batterie")
         self._attr_icon = "mdi:barcode"
-        self._attr_entity_category = "diagnostic"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def native_value(self) -> str | None:
@@ -375,7 +376,7 @@ class BatteryFirmwareSensor(EnphaseBatterySensorBase):
         """Initialize the sensor."""
         super().__init__(coordinator, "battery_firmware", "Firmware Batterie")
         self._attr_icon = "mdi:chip"
-        self._attr_entity_category = "diagnostic"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def native_value(self) -> str | None:
@@ -398,7 +399,7 @@ class BatteryCapacitySensor(EnphaseBatterySensorBase):
         self._attr_native_unit_of_measurement = UnitOfEnergy.WATT_HOUR
         self._attr_state_class = SensorStateClass.MEASUREMENT
         self._attr_icon = "mdi:battery-high"
-        self._attr_entity_category = "diagnostic"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def native_value(self) -> int | None:
@@ -418,7 +419,7 @@ class BatteryGridModeSensor(EnphaseBatterySensorBase):
         """Initialize the sensor."""
         super().__init__(coordinator, "grid_mode", "Mode Réseau")
         self._attr_icon = "mdi:transmission-tower"
-        self._attr_entity_category = "diagnostic"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def native_value(self) -> str | None:
@@ -438,7 +439,7 @@ class EnvoySerialNumberSensor(EnphaseBatterySensorBase):
         """Initialize the sensor."""
         super().__init__(coordinator, "envoy_serial", "Numéro de Série Envoy")
         self._attr_icon = "mdi:identifier"
-        self._attr_entity_category = "diagnostic"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def native_value(self) -> str | None:
@@ -456,7 +457,7 @@ class EnvoyFirmwareSensor(EnphaseBatterySensorBase):
         """Initialize the sensor."""
         super().__init__(coordinator, "envoy_firmware", "Firmware Envoy")
         self._attr_icon = "mdi:chip"
-        self._attr_entity_category = "diagnostic"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def native_value(self) -> str | None:
