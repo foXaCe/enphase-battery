@@ -38,6 +38,7 @@ enphase_battery_status:
   entities:
     # Principal
     - sensor.enphase_battery_iq_5p_etat_de_charge
+    - sensor.enphase_battery_iq_5p_etat_batterie  # NEW: État avec icône dynamique
     - sensor.enphase_battery_iq_5p_puissance
 
     # Charge/Décharge
@@ -60,6 +61,7 @@ enphase_battery_monitoring:
   icon: mdi:chart-line
   entities:
     - sensor.enphase_battery_iq_5p_etat_de_charge
+    - sensor.enphase_battery_iq_5p_etat_batterie  # État avec icône
     - sensor.enphase_battery_iq_5p_puissance
     - sensor.enphase_battery_iq_5p_temperature_batterie
     - sensor.enphase_battery_iq_5p_etat_de_sante_batterie

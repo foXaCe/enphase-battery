@@ -88,6 +88,16 @@
       },
       "battery_health": {
         "name": "État de santé de la batterie"
+      },
+      "battery_state": {
+        "name": "État de la batterie",
+        "state": {
+          "charging": "En charge",
+          "discharging": "En décharge",
+          "idle": "Inactif",
+          "full": "Pleine",
+          "empty": "Vide"
+        }
       }
     },
     "binary_sensor": {

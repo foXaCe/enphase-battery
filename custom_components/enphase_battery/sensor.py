@@ -36,6 +36,7 @@ async def async_setup_entry(
 
     entities = [
         BatterySOCSensor(coordinator),
+        BatteryStateSensor(coordinator),  # NEW: État batterie avec icône dynamique
         BatteryPowerSensor(coordinator),
         BatteryChargePowerSensor(coordinator),
         BatteryDischargePowerSensor(coordinator),
@@ -123,6 +124,102 @@ class BatterySOCSensor(EnphaseBatterySensorBase):
             return "mdi:battery-10"
         else:
             return "mdi:battery-alert"
+
+
+class BatteryStateSensor(EnphaseBatterySensorBase):
+    """Battery State sensor with charging/discharging/idle states."""
+
+    def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, "state", "État Batterie")
+        self._attr_device_class = SensorDeviceClass.ENUM
+        self._attr_options = [
+            "charging",
+            "discharging",
+            "idle",
+            "full",
+            "empty"
+        ]
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the current battery state."""
+        if not self.coordinator.data:
+            return None
+
+        soc = self.coordinator.data.get("soc", 0)
+        power = self.coordinator.data.get("power", 0)
+
+        # Determine state based on SOC and power
+        if soc >= 100:
+            return "full"
+        elif soc <= 5:
+            return "empty"
+        elif power < -10:  # Charging (negative power, with 10W threshold)
+            return "charging"
+        elif power > 10:   # Discharging (positive power, with 10W threshold)
+            return "discharging"
+        else:
+            return "idle"
+
+    @property
+    def icon(self) -> str:
+        """Return icon based on battery state."""
+        state = self.native_value
+        soc = self.coordinator.data.get("soc", 0) if self.coordinator.data else 0
+
+        if state == "charging":
+            # Charging icons based on SOC
+            if soc >= 90:
+                return "mdi:battery-charging-100"
+            elif soc >= 80:
+                return "mdi:battery-charging-90"
+            elif soc >= 70:
+                return "mdi:battery-charging-80"
+            elif soc >= 60:
+                return "mdi:battery-charging-70"
+            elif soc >= 50:
+                return "mdi:battery-charging-60"
+            elif soc >= 40:
+                return "mdi:battery-charging-50"
+            elif soc >= 30:
+                return "mdi:battery-charging-40"
+            elif soc >= 20:
+                return "mdi:battery-charging-30"
+            else:
+                return "mdi:battery-charging-20"
+        elif state == "discharging":
+            # Discharging (arrow down) icons
+            if soc >= 90:
+                return "mdi:battery-arrow-down"
+            elif soc >= 70:
+                return "mdi:battery-70"
+            elif soc >= 50:
+                return "mdi:battery-50"
+            elif soc >= 30:
+                return "mdi:battery-30"
+            elif soc >= 10:
+                return "mdi:battery-10"
+            else:
+                return "mdi:battery-alert"
+        elif state == "full":
+            return "mdi:battery"
+        elif state == "empty":
+            return "mdi:battery-alert-variant-outline"
+        else:  # idle
+            if soc >= 90:
+                return "mdi:battery-heart"
+            elif soc >= 70:
+                return "mdi:battery-70"
+            elif soc >= 50:
+                return "mdi:battery-50"
+            else:
+                return "mdi:battery-30"
+
+    @property
+    def translation_key(self) -> str:
+        """Return translation key for state values."""
+        return "battery_state"
 
 
 class BatteryPowerSensor(EnphaseBatterySensorBase):

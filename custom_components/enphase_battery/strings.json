@@ -48,5 +48,18 @@
       "already_configured": "This Enphase system is already configured.",
       "reauth_successful": "Re-authentication successful."
     }
+  },
+  "entity": {
+    "sensor": {
+      "battery_state": {
+        "state": {
+          "charging": "En charge",
+          "discharging": "En décharge",
+          "idle": "Inactif",
+          "full": "Pleine",
+          "empty": "Vide"
+        }
+      }
+    }
   }
 }
