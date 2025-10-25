@@ -173,7 +173,7 @@ GET https://enlighten.enphaseenergy.com/app-api/{SITE_ID}/devices.json
       "type": "encharge",
       "devices": [{
         "name": "IQ Battery 5P FlexPhase",
-        "serial_number": "492510005186",
+        "serial_number": "123456789012",
         "sku_id": "IQBATTERY-5P-3P-INT",
         "status": "normal",
         "sw_version": "522-00002-01-v3.0.8507_rel/31.43",
