@@ -125,12 +125,25 @@ class EnphaseEnvoyLocalAPI:
         try:
             # Step 1: Get info (no auth required) to retrieve serial number
             info = await self._get_info()
-            self._serial_number = info.get("device", {}).get("sn")
+
+            # Try multiple ways to extract serial
+            self._serial_number = (
+                info.get("device", {}).get("sn") or
+                info.get("device", {}).get("serial_num") or
+                info.get("sn") or
+                info.get("serial_num") or
+                info.get("serialNumber")
+            )
 
             if not self._serial_number:
-                raise EnvoyAuthError("Could not retrieve Envoy serial number")
+                _LOGGER.error(f"Cannot find serial in /info response. Keys found: {list(info.keys())}")
+                _LOGGER.error(f"Full response: {info}")
+                raise EnvoyAuthError(
+                    f"Could not retrieve Envoy serial number from /info endpoint. "
+                    f"Response keys: {list(info.keys())}"
+                )
 
-            _LOGGER.info(f"Envoy serial number: {self._serial_number}")
+            _LOGGER.info(f"✅ Envoy serial number: {self._serial_number}")
 
             # Step 2: Generate password from serial if not provided
             if not self._password:
@@ -182,8 +195,36 @@ class EnphaseEnvoyLocalAPI:
         Returns:
             Device information including serial, model, firmware
         """
-        response = await self._make_request("GET", "/info", auth_required=False)
-        return response or {}
+        try:
+            response = await self._make_request("GET", "/info", auth_required=False)
+            _LOGGER.debug(f"Envoy /info response: {response}")
+
+            # Handle different response formats
+            if isinstance(response, dict):
+                # Try different possible locations for device info
+                if "device" in response:
+                    return response
+                elif "serial_num" in response or "sn" in response:
+                    # Wrap in expected format
+                    return {"device": response}
+                else:
+                    # Log full response to debug
+                    _LOGGER.warning(f"Unexpected /info structure: {list(response.keys())}")
+                    return response
+            elif isinstance(response, str):
+                # Handle text/xml response
+                _LOGGER.warning(f"/info returned non-JSON: {response[:200]}")
+                # Try to extract serial from XML/text
+                import re
+                serial_match = re.search(r'<sn>(\d+)</sn>|serial[_\s]*(?:num|number)["\s:]+(\w+)', response, re.IGNORECASE)
+                if serial_match:
+                    serial = serial_match.group(1) or serial_match.group(2)
+                    return {"device": {"sn": serial}}
+
+            return response or {}
+        except Exception as err:
+            _LOGGER.error(f"Failed to get /info: {err}")
+            raise
 
     async def get_production_data(self) -> dict[str, Any]:
         """Get production data from Envoy.
