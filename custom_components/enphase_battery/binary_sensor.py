@@ -29,7 +29,6 @@ async def async_setup_entry(
     coordinator: EnphaseBatteryDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
 
     entities = [
-        BatteryChargingBinarySensor(coordinator),
         # Diagnostic binary sensors
         BatteryGridTiedBinarySensor(coordinator),
         BatteryHealthyBinarySensor(coordinator),
@@ -64,29 +63,6 @@ class EnphaseBatteryBinarySensorBase(CoordinatorEntity, BinarySensorEntity):
             "manufacturer": "Enphase Energy",
             "model": "IQ Battery 5P",
         }
-
-
-class BatteryChargingBinarySensor(EnphaseBatteryBinarySensorBase):
-    """Battery Charging binary sensor."""
-
-    def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
-        """Initialize the sensor."""
-        super().__init__(coordinator, "charging", "Batterie en charge")
-        self._attr_device_class = BinarySensorDeviceClass.BATTERY_CHARGING
-
-    @property
-    def is_on(self) -> bool | None:
-        """Return true if battery is charging."""
-        if not self.coordinator.data:
-            return None
-        return self.coordinator.is_charging
-
-    @property
-    def icon(self) -> str:
-        """Return icon based on charging state."""
-        if self.is_on:
-            return "mdi:battery-charging"
-        return "mdi:battery"
 
 
 # Diagnostic Binary Sensors
