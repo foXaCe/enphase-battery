@@ -78,12 +78,10 @@ class EnphaseBatteryAPI:
             if not login_success:
                 raise EnphaseBatteryAuthError("Login failed")
 
-            # Étape 2: Obtenir le token de session
-            session_token = await self._get_session_token()
-            if session_token:
-                self._session_token = session_token
+            # Note: Session token endpoint skipped - cookies are sufficient for auth
+            # This saves 1-2 seconds during authentication
 
-            # Étape 3: Récupérer site_id et user_id de l'utilisateur (si pas déjà fourni)
+            # Étape 2: Récupérer site_id et user_id de l'utilisateur (si pas déjà fourni)
             # Skip auto-detection if both IDs are already provided (saves 5-10 seconds at startup)
             if self._site_id and self._user_id:
                 _LOGGER.info("Using provided site_id and user_id (skipping auto-detection)")
@@ -119,13 +117,8 @@ class EnphaseBatteryAPI:
                             f"Error details: {err}"
                         )
 
-            # Étape 4 (optionnel): Obtenir envoy serial si disponible
-            try:
-                envoy_serial = await self._get_envoy_serial()
-                if envoy_serial:
-                    self._envoy_serial = envoy_serial
-            except Exception:
-                pass
+            # Note: Envoy serial is fetched later on-demand, not during auth
+            # This saves 1-2 seconds during authentication
 
             _LOGGER.info(f"Authenticated successfully - site_id: {self._site_id}")
             return True
