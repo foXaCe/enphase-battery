@@ -30,11 +30,27 @@ async def async_setup_entry(
     """Set up Enphase Battery select platform."""
     coordinator: EnphaseBatteryDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
 
-    entities = [
-        BatteryModeSelect(coordinator),
-    ]
+    entities = []
 
-    async_add_entities(entities)
+    # Battery Mode select available in:
+    # 1. Cloud mode (always)
+    # 2. Local mode with cloud control enabled (hybrid mode)
+    # Local API no longer supports this since firmware 8.2.4225 (confirmed by Home Assistant docs)
+    enable_cloud_control = entry.data.get("enable_cloud_control", False)
+
+    if not coordinator.is_local_mode or enable_cloud_control:
+        entities.append(BatteryModeSelect(coordinator))
+        mode_desc = "Cloud mode" if not coordinator.is_local_mode else "Hybrid mode (Local data + Cloud control)"
+        _LOGGER.info(f"Battery Mode select enabled ({mode_desc})")
+    else:
+        _LOGGER.warning(
+            "Battery Mode select disabled. "
+            "Envoy firmware 8.x no longer supports battery control via local API. "
+            "Enable 'Cloud Control' option in integration settings or use Enphase app."
+        )
+
+    if entities:
+        async_add_entities(entities)
 
 
 class BatteryModeSelect(CoordinatorEntity, SelectEntity):
@@ -97,7 +113,9 @@ class BatteryModeSelect(CoordinatorEntity, SelectEntity):
             return
 
         try:
-            # TODO: Implémenter set_battery_mode dans l'API
+            # Always use cloud API (pure cloud mode or hybrid mode)
+            if not self.coordinator.api:
+                raise Exception("Cloud API not initialized. Enable cloud control in settings.")
             await self.coordinator.api.set_battery_mode(api_mode)
             await self.coordinator.async_request_refresh()
 
