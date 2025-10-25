@@ -11,7 +11,8 @@ from aiohttp import ClientSession, ClientTimeout
 _LOGGER = logging.getLogger(__name__)
 
 API_BASE_URL = "https://enlighten.enphaseenergy.com"
-API_TIMEOUT = 30
+API_TIMEOUT = 15  # Standard API timeout
+API_TIMEOUT_DISCOVERY = 5  # Faster timeout for auto-discovery endpoints
 
 
 class EnphaseBatteryApiError(Exception):
@@ -83,7 +84,10 @@ class EnphaseBatteryAPI:
                 self._session_token = session_token
 
             # Étape 3: Récupérer site_id et user_id de l'utilisateur (si pas déjà fourni)
-            if not self._site_id or not self._user_id:
+            # Skip auto-detection if both IDs are already provided (saves 5-10 seconds at startup)
+            if self._site_id and self._user_id:
+                _LOGGER.info("Using provided site_id and user_id (skipping auto-detection)")
+            elif not self._site_id or not self._user_id:
                 try:
                     detected_site_id, detected_user_id = await self._get_user_sites()
 
@@ -151,7 +155,7 @@ class EnphaseBatteryAPI:
             async with self._session.post(
                 url,
                 data=payload,
-                timeout=ClientTimeout(total=API_TIMEOUT),
+                timeout=ClientTimeout(total=API_TIMEOUT_DISCOVERY),
             ) as response:
                 if response.status == 200:
                     data = await response.json()
@@ -259,7 +263,7 @@ class EnphaseBatteryAPI:
                 async with self._session.get(
                     url,
                     headers=self._get_headers(),
-                    timeout=ClientTimeout(total=API_TIMEOUT),
+                    timeout=ClientTimeout(total=API_TIMEOUT_DISCOVERY),
                 ) as response:
                     if response.status == 200:
                         data = await response.json()
@@ -310,7 +314,7 @@ class EnphaseBatteryAPI:
                 url,
                 params=params,
                 headers=self._get_headers(),
-                timeout=ClientTimeout(total=API_TIMEOUT),
+                timeout=ClientTimeout(total=API_TIMEOUT_DISCOVERY),
             ) as response:
                 if response.status == 200:
                     try:
@@ -353,7 +357,7 @@ class EnphaseBatteryAPI:
             async with self._session.get(
                 url,
                 headers=self._get_headers(),
-                timeout=ClientTimeout(total=API_TIMEOUT),
+                timeout=ClientTimeout(total=API_TIMEOUT_DISCOVERY),
                 allow_redirects=True,
             ) as response:
                 # Extraire site_id de l'URL (format: /web/2168380?v=3.4.0)
@@ -370,7 +374,7 @@ class EnphaseBatteryAPI:
                         async with self._session.get(
                             settings_url,
                             headers=self._get_headers(),
-                            timeout=ClientTimeout(total=API_TIMEOUT),
+                            timeout=ClientTimeout(total=API_TIMEOUT_DISCOVERY),
                         ) as settings_response:
                             if settings_response.status == 200:
                                 settings_data = await settings_response.json()
@@ -389,7 +393,7 @@ class EnphaseBatteryAPI:
                         async with self._session.get(
                             summary_url,
                             headers=self._get_headers(),
-                            timeout=ClientTimeout(total=API_TIMEOUT),
+                            timeout=ClientTimeout(total=API_TIMEOUT_DISCOVERY),
                         ) as summary_response:
                             if summary_response.status == 200:
                                 summary_data = await summary_response.json()
