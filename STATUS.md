@@ -95,10 +95,10 @@
 ```json
 {
   "name": "IQ Battery 5P FlexPhase",
-  "serial_number": "492510005186",
+  "serial_number": "123456789012",
   "sku_id": "IQBATTERY-5P-3P-INT",
   "sw_version": "v3.0.8507",
-  "warranty_end_date": "2040-10-23"
+  "warranty_end_date": "2035-12-31"
 }
 ```
 

@@ -177,7 +177,7 @@ GET https://enlighten.enphaseenergy.com/app-api/{SITE_ID}/devices.json
         "sku_id": "IQBATTERY-5P-3P-INT",
         "status": "normal",
         "sw_version": "522-00002-01-v3.0.8507_rel/31.43",
-        "warranty_end_date": "2040-10-23"
+        "warranty_end_date": "2035-12-31"
       }]
     },
     {
