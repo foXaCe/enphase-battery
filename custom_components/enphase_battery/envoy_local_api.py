@@ -545,12 +545,32 @@ class EnphaseEnvoyLocalAPI:
             True if successful
 
         Note:
-            This endpoint may vary by firmware version.
-            Implementation may need adjustment based on actual Envoy responses.
+            Endpoint: POST /ivp/sc/charge_from_grid
+            Requires firmware 7.x+ with tariff configuration
         """
-        _LOGGER.warning("set_charge_from_grid: Local API endpoint not yet fully documented")
-        # TODO: Implement once endpoint is confirmed via MITM capture
-        return False
+        try:
+            # Enphase local API endpoint for grid charging control
+            endpoint = "/ivp/sc/charge_from_grid"
+
+            # Payload format based on Enphase IQ Gateway API
+            data = {
+                "enable": enabled
+            }
+
+            response = await self._make_request(
+                "POST",
+                endpoint,
+                json=data,
+                auth_required=True,
+            )
+
+            _LOGGER.info(f"Set charge_from_grid to {enabled}: {response}")
+            return True
+
+        except Exception as err:
+            _LOGGER.error(f"Failed to set charge_from_grid: {err}")
+            # Don't raise - return False to indicate failure
+            return False
 
     async def get_acb_config(self) -> dict[str, Any]:
         """Get AC Battery (ACB) configuration.
