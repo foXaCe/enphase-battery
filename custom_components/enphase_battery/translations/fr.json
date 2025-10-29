@@ -109,7 +109,7 @@
         "name": "Charge depuis le réseau"
       },
       "discharge_to_grid": {
-        "name": "Décharge vers le réseau"
+        "name": "Limiter la décharge vers le réseau"
       }
     },
     "select": {

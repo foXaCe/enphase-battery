@@ -99,7 +99,7 @@
         "name": "Charge From Grid"
       },
       "discharge_to_grid": {
-        "name": "Discharge To Grid"
+        "name": "Limit Discharge To Grid"
       }
     },
     "select": {

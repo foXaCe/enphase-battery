@@ -107,7 +107,7 @@ class LimitDischargeSwitch(CoordinatorEntity, SwitchEntity):
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the switch entity."""
         super().__init__(coordinator)
-        self._attr_name = "Décharge vers le réseau"
+        self._attr_name = "Limiter la décharge vers le réseau"
         self._attr_unique_id = f"{DOMAIN}_discharge_to_grid"
         self._attr_has_entity_name = True
         self._attr_icon = "mdi:transmission-tower-export"
