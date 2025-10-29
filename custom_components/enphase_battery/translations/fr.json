@@ -110,6 +110,9 @@
       },
       "discharge_to_grid": {
         "name": "Autoriser la décharge vers le réseau"
+      },
+      "reserve_battery_discharge": {
+        "name": "Limiter la décharge de la batterie"
       }
     },
     "select": {

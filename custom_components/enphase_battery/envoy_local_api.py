@@ -762,6 +762,61 @@ class EnphaseEnvoyLocalAPI:
             _LOGGER.error(f"Failed to set discharge_to_grid: {err}")
             return False
 
+    async def set_reserve_battery_discharge(self, enabled: bool) -> bool:
+        """Enable/disable reserve battery discharge (rbdControl).
+
+        Args:
+            enabled: True to enable reserve/limit discharge, False to disable
+
+        Returns:
+            True if successful
+
+        Note:
+            Endpoint: PUT /admin/lib/tariff (or similar battery settings endpoint)
+            This is the local API equivalent of rbdControl from cloud API
+            The exact field name may vary - needs verification via MITM capture
+        """
+        try:
+            # Step 1: Get current tariff configuration
+            tariff_data = await self._make_request(
+                "GET",
+                "/admin/lib/tariff",
+                auth_required=True,
+            )
+
+            if not tariff_data:
+                _LOGGER.error("Failed to get tariff configuration for reserve_battery_discharge")
+                return False
+
+            # Parse JSON from 'raw' key if present (firmware 8.x format)
+            import json
+            if isinstance(tariff_data, dict) and "raw" in tariff_data:
+                tariff_data = json.loads(tariff_data["raw"])
+
+            # Step 2: Verify storage_settings exists
+            if "tariff" not in tariff_data or "storage_settings" not in tariff_data["tariff"]:
+                _LOGGER.error(f"Tariff configuration does not contain storage_settings")
+                return False
+
+            # Step 3: Modify reserve_battery_discharge setting in tariff.storage_settings
+            # Note: The exact field name may be "reserve_battery_discharge", "rbd_enabled", or similar
+            # This needs to be confirmed via MITM capture
+            tariff_data["tariff"]["storage_settings"]["reserve_battery_discharge"] = enabled
+
+            # Step 4: Send updated configuration back
+            response = await self._make_request(
+                "PUT",
+                "/admin/lib/tariff",
+                json=tariff_data,
+                auth_required=True,
+            )
+
+            return True
+
+        except Exception as err:
+            _LOGGER.error(f"Failed to set reserve_battery_discharge: {err}")
+            return False
+
     async def get_acb_config(self) -> dict[str, Any]:
         """Get AC Battery (ACB) configuration.
 

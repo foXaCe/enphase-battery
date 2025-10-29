@@ -1,0 +1,159 @@
+# Configuration des sensors SQL pour l'analyse historique de consommation
+# À ajouter dans votre configuration.yaml ou dans un fichier sensors.yaml inclus
+
+# IMPORTANT: Ces sensors nécessitent que le composant 'recorder' soit activé
+# et que vous ayez un historique d'au moins 60 jours pour des résultats optimaux
+
+sensor:
+  # Sensor SQL: Consommation moyenne des jours similaires (même jour de la semaine)
+  - platform: sql
+    db_url: sqlite:////config/home-assistant_v2.db
+    queries:
+      - name: "Consommation Prédite Demain"
+        query: >
+          WITH tomorrow_weekday AS (
+            SELECT CAST(strftime('%w', datetime('now', '+1 day')) AS INTEGER) as weekday
+          ),
+          similar_days AS (
+            SELECT
+              s.state,
+              s.created_ts,
+              strftime('%w', datetime(s.created_ts, 'unixepoch', 'localtime')) as day_of_week
+            FROM statistics s
+            INNER JOIN statistics_meta sm ON s.metadata_id = sm.id
+            WHERE sm.statistic_id = 'sensor.daily_energy_consumption'
+              AND s.created_ts > strftime('%s', 'now', '-60 days')
+              AND s.created_ts < strftime('%s', 'now', '-1 day')
+              AND CAST(strftime('%w', datetime(s.created_ts, 'unixepoch', 'localtime')) AS INTEGER) = (SELECT weekday FROM tomorrow_weekday)
+              AND s.state IS NOT NULL
+              AND s.state != 'unknown'
+              AND s.state != 'unavailable'
+          )
+          SELECT
+            CASE
+              WHEN COUNT(*) > 0 THEN ROUND(AVG(CAST(state AS FLOAT)), 2)
+              ELSE 5.0
+            END as avg_consumption
+          FROM similar_days;
+        column: "avg_consumption"
+        unit_of_measurement: "kWh"
+
+  # Sensor SQL: Consommation moyenne des jours similaires avec conditions météo
+  - platform: sql
+    db_url: sqlite:////config/home-assistant_v2.db
+    queries:
+      - name: "Consommation Prédite Demain Météo"
+        query: >
+          WITH tomorrow_info AS (
+            SELECT
+              CAST(strftime('%w', datetime('now', '+1 day')) AS INTEGER) as weekday,
+              CAST(strftime('%m', datetime('now', '+1 day')) AS INTEGER) as month
+          ),
+          similar_days AS (
+            SELECT
+              s.state,
+              s.created_ts
+            FROM statistics s
+            INNER JOIN statistics_meta sm ON s.metadata_id = sm.id
+            WHERE sm.statistic_id = 'sensor.daily_energy_consumption'
+              AND s.created_ts > strftime('%s', 'now', '-90 days')
+              AND s.created_ts < strftime('%s', 'now', '-1 day')
+              AND CAST(strftime('%w', datetime(s.created_ts, 'unixepoch', 'localtime')) AS INTEGER) = (SELECT weekday FROM tomorrow_info)
+              AND ABS(CAST(strftime('%m', datetime(s.created_ts, 'unixepoch', 'localtime')) AS INTEGER) - (SELECT month FROM tomorrow_info)) <= 1
+              AND s.state IS NOT NULL
+              AND s.state != 'unknown'
+              AND s.state != 'unavailable'
+          )
+          SELECT
+            CASE
+              WHEN COUNT(*) > 0 THEN ROUND(AVG(CAST(state AS FLOAT)), 2)
+              ELSE 5.0
+            END as avg_consumption
+          FROM similar_days;
+        column: "avg_consumption"
+        unit_of_measurement: "kWh"
+
+  # Sensor SQL: Consommation entre fin heures creuses et lever du soleil
+  - platform: sql
+    db_url: sqlite:////config/home-assistant_v2.db
+    queries:
+      - name: "Consommation Gap Heures Creuses Sunrise"
+        query: >
+          WITH gap_consumption AS (
+            SELECT
+              s.state,
+              s.created_ts,
+              strftime('%H', datetime(s.created_ts, 'unixepoch', 'localtime')) as hour
+            FROM statistics s
+            INNER JOIN statistics_meta sm ON s.metadata_id = sm.id
+            WHERE sm.statistic_id = 'sensor.hourly_energy_consumption'
+              AND s.created_ts > strftime('%s', 'now', '-30 days')
+              AND CAST(strftime('%H', datetime(s.created_ts, 'unixepoch', 'localtime')) AS INTEGER) >= 6
+              AND CAST(strftime('%H', datetime(s.created_ts, 'unixepoch', 'localtime')) AS INTEGER) <= 9
+              AND s.state IS NOT NULL
+              AND s.state != 'unknown'
+              AND s.state != 'unavailable'
+          )
+          SELECT
+            CASE
+              WHEN COUNT(*) > 0 THEN ROUND(AVG(CAST(state AS FLOAT)), 2)
+              ELSE 1.0
+            END as avg_hourly_consumption
+          FROM gap_consumption;
+        column: "avg_hourly_consumption"
+        unit_of_measurement: "kWh"
+
+# Template sensors pour faciliter l'utilisation
+template:
+  - sensor:
+      # Sensor qui combine consommation prédite et production solaire prévue
+      - name: "Déficit Énergétique Prédit Demain"
+        unique_id: predicted_energy_deficit_tomorrow
+        state: >
+          {% set consumption = states('sensor.consommation_predite_demain') | float(5) %}
+          {% set production = states('sensor.energy_production_tomorrow_forecast') | float(0) %}
+          {{ [consumption - production, 0] | max | round(2) }}
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: measurement
+        icon: mdi:battery-alert
+
+      # Sensor qui calcule le SOC nécessaire pour couvrir le déficit
+      - name: "SOC Requis Pour Déficit"
+        unique_id: soc_required_for_deficit
+        state: >
+          {% set deficit = states('sensor.deficit_energetique_predit_demain') | float(0) %}
+          {% set battery_capacity = 5.0 %}
+          {% set soc_needed = (deficit / battery_capacity) * 100 %}
+          {{ [soc_needed, 100] | min | round(0) }}
+        unit_of_measurement: "%"
+        icon: mdi:battery-charging-high
+
+# Configuration recommandée pour le recorder
+# À ajouter dans configuration.yaml si pas déjà présent
+#
+# recorder:
+#   purge_keep_days: 10
+#   commit_interval: 1
+#   db_url: sqlite:////config/home-assistant_v2.db
+#   include:
+#     entities:
+#       - sensor.daily_energy_consumption
+#       - sensor.hourly_energy_consumption
+#       - sensor.energy_production_today
+#       - sensor.battery_soc
+
+# NOTES D'UTILISATION:
+#
+# 1. Remplacez 'sensor.daily_energy_consumption' par votre sensor de consommation quotidienne
+# 2. Remplacez 'sensor.hourly_energy_consumption' par votre sensor de consommation horaire
+# 3. Les requêtes SQL analysent les 60-90 derniers jours d'historique
+# 4. Le sensor se met à jour automatiquement selon scan_interval (défaut: 60s)
+# 5. Pour forcer une mise à jour manuelle, utilisez le service 'homeassistant.update_entity'
+#
+# DÉPANNAGE:
+# - Si le sensor retourne toujours la valeur par défaut (5.0 ou 1.0), vérifiez:
+#   * Que le statistic_id correspond bien à votre sensor de consommation
+#   * Que vous avez au moins 60 jours d'historique
+#   * Que le recorder est bien configuré pour inclure ces sensors
+#   * Les logs Home Assistant pour les erreurs SQL

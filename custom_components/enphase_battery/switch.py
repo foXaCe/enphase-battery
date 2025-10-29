@@ -35,6 +35,7 @@ async def async_setup_entry(
     if not coordinator.is_local_mode or enable_cloud_control:
         entities.append(ChargeFromGridSwitch(coordinator))
         entities.append(LimitDischargeSwitch(coordinator))
+        entities.append(ReserveBatteryDischargeSwitch(coordinator))
         mode_desc = "Cloud mode" if not coordinator.is_local_mode else "Hybrid mode (Local data + Cloud control)"
     else:
         _LOGGER.warning(
@@ -169,4 +170,75 @@ class LimitDischargeSwitch(CoordinatorEntity, SwitchEntity):
             await self.coordinator.async_request_refresh()
         except Exception as err:
             _LOGGER.error(f"Failed to disable Limit Discharge: {err}")
+            raise
+
+
+class ReserveBatteryDischargeSwitch(CoordinatorEntity, SwitchEntity):
+    """Reserve Battery Discharge switch entity (rbdControl).
+
+    When enabled: Battery discharge is limited/reserved
+    When disabled: Battery can discharge freely
+    """
+
+    def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
+        """Initialize the switch entity."""
+        super().__init__(coordinator)
+        self._attr_name = "Limiter la décharge de la batterie"
+        self._attr_unique_id = f"{DOMAIN}_reserve_battery_discharge"
+        self._attr_has_entity_name = True
+        self._attr_icon = "mdi:battery-lock"
+
+    @property
+    def device_info(self) -> dict[str, Any]:
+        """Return device information."""
+        return {
+            "identifiers": {(DOMAIN, "enphase_battery")},
+            "name": "Enphase Battery IQ 5P",
+            "manufacturer": "Enphase Energy",
+            "model": "IQ Battery 5P",
+        }
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return true if switch is on."""
+        if not self.coordinator.data:
+            return None
+
+        # Read from rbdControl.enabled (Reserve Battery Discharge)
+        return self.coordinator.data.get("reserve_battery_discharge", False)
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Turn the switch on."""
+        try:
+            # Use appropriate API based on mode
+            if self.coordinator.is_local_mode and self.coordinator.local_api:
+                # Hybrid mode: use local API
+                await self.coordinator.local_api.set_reserve_battery_discharge(True)
+            elif self.coordinator.api:
+                # Cloud mode: use cloud API
+                await self.coordinator.api.set_reserve_battery_discharge(True)
+            else:
+                raise Exception("No API available. Enable cloud control in settings.")
+
+            await self.coordinator.async_request_refresh()
+        except Exception as err:
+            _LOGGER.error(f"Failed to enable Reserve Battery Discharge: {err}")
+            raise
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Turn the switch off."""
+        try:
+            # Use appropriate API based on mode
+            if self.coordinator.is_local_mode and self.coordinator.local_api:
+                # Hybrid mode: use local API
+                await self.coordinator.local_api.set_reserve_battery_discharge(False)
+            elif self.coordinator.api:
+                # Cloud mode: use cloud API
+                await self.coordinator.api.set_reserve_battery_discharge(False)
+            else:
+                raise Exception("No API available. Enable cloud control in settings.")
+
+            await self.coordinator.async_request_refresh()
+        except Exception as err:
+            _LOGGER.error(f"Failed to disable Reserve Battery Discharge: {err}")
             raise

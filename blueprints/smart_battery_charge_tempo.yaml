@@ -5,6 +5,8 @@ blueprint:
     - Des heures creuses (optimisation tarifaire)
     - Des jours EDF Tempo (charge à 100% avant jours rouges)
     - De la météo à venir (production solaire prévue)
+    - Du gap entre fin heures creuses et lever du soleil (ajustement saisonnier)
+    - De l'historique de consommation (prédiction basée sur jours similaires)
     - De l'état de charge actuel de la batterie
 
 
@@ -12,7 +14,10 @@ blueprint:
     - ⚡ Active la charge depuis le réseau en heures creuses
     - 🔴 Charge forcée à 100% avant les jours rouges Tempo
     - ☀️ Désactive la charge si météo favorable (production solaire suffisante)
+    - 🌅 Ajuste le SOC cible selon le délai avant le lever du soleil (hiver vs été)
+    - 📊 Analyse l'historique pour prédire la consommation des jours similaires
     - 🔋 Optimise selon le SOC (State of Charge) actuel
+    - 🚫 Limite maximale configurable pour éviter de trop charger
 
   domain: automation
   source_url: https://github.com/foXaCe/enphase-battery/blob/main/blueprints/smart_battery_charge_tempo.yaml
@@ -49,6 +54,28 @@ blueprint:
           step: 0.1
           unit_of_measurement: "kW"
 
+    charge_efficiency:
+      name: Efficacité de Charge
+      description: Coefficient d'efficacité réelle de la charge (pertes, rendement). 0.9 = 90% d'efficacité
+      default: 0.85
+      selector:
+        number:
+          min: 0.7
+          max: 1.0
+          step: 0.05
+          unit_of_measurement: ""
+
+    charge_safety_margin:
+      name: Marge de Sécurité Charge
+      description: Marge de temps supplémentaire avant fin HC pour garantir la charge complète (en minutes)
+      default: 15
+      selector:
+        number:
+          min: 0
+          max: 60
+          step: 5
+          unit_of_measurement: "min"
+
     charge_from_grid_switch:
       name: Switch Charge depuis Réseau
       description: Switch pour activer/désactiver la charge depuis le réseau (ex. switch.enphase_battery_charge_from_grid)
@@ -83,7 +110,7 @@ blueprint:
     heures_creuses_end:
       name: Fin Heures Creuses
       description: Heure de fin des heures creuses
-      default: "06:30:00"
+      default: "06:00:00"
       selector:
         time:
 
@@ -95,6 +122,15 @@ blueprint:
           filter:
             - domain: weather
 
+    sun_sensor:
+      name: Capteur Lever du Soleil
+      description: Capteur sun.sun pour calculer l'heure du lever du soleil
+      default: "sun.sun"
+      selector:
+        entity:
+          filter:
+            - domain: sun
+
     solar_forecast_sensor:
       name: Capteur Prévision Production Solaire
       description: Capteur estimant la production solaire du jour (kWh) - ex. sensor.energy_production_today
@@ -103,6 +139,22 @@ blueprint:
         entity:
           filter:
             - domain: sensor
+
+    predicted_consumption_sensor:
+      name: Capteur Consommation Prédite
+      description: Capteur SQL estimant la consommation de demain basée sur l'historique (kWh) - ex. sensor.consommation_predite_demain
+      default: ""
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+
+    enable_consumption_prediction:
+      name: Activer Prédiction par Consommation Historique
+      description: Utilise l'historique de consommation pour ajuster le SOC cible
+      default: false
+      selector:
+        boolean:
 
     solar_forecast_threshold_low:
       name: Seuil Production Faible
@@ -126,6 +178,24 @@ blueprint:
           step: 0.5
           unit_of_measurement: "kWh"
 
+    sunrise_gap_adjustment:
+      name: Ajustement Gap Lever du Soleil
+      description: Active l'ajustement du SOC cible selon le gap entre fin HC et lever du soleil
+      default: true
+      selector:
+        boolean:
+
+    consumption_per_hour:
+      name: Consommation Moyenne par Heure
+      description: Consommation moyenne de la maison (kWh/h) pour calculer l'ajustement du SOC selon le gap sunrise
+      default: 1.0
+      selector:
+        number:
+          min: 0.1
+          max: 10.0
+          step: 0.1
+          unit_of_measurement: "kWh/h"
+
     min_soc_charge:
       name: SOC Minimum pour Charge
       description: En-dessous de ce seuil, active la charge en heures creuses (%)
@@ -137,13 +207,64 @@ blueprint:
           step: 5
           unit_of_measurement: "%"
 
-    target_soc_end_offpeak:
-      name: SOC Minimum Fin Heures Creuses
-      description: SOC minimum souhaité à la fin des heures creuses (%) - ajusté dynamiquement selon la prévision solaire
-      default: 80
+    enable_emergency_charge:
+      name: Autoriser Charge Urgence Hors HC
+      description: Active la charge forcée même hors heures creuses si SOC critique (< min_soc). ATTENTION - Peut être coûteux !
+      default: false
+      selector:
+        boolean:
+
+    weather_margin_sunny:
+      name: Marge Météo Ensoleillée
+      description: Marge de sécurité ajoutée au SOC si production ≥ 15 kWh (%)
+      default: 5
+      selector:
+        number:
+          min: 0
+          max: 50
+          step: 5
+          unit_of_measurement: "%"
+
+    weather_margin_medium:
+      name: Marge Météo Moyenne
+      description: Marge de sécurité ajoutée au SOC si production entre 5-15 kWh (%)
+      default: 20
+      selector:
+        number:
+          min: 0
+          max: 50
+          step: 5
+          unit_of_measurement: "%"
+
+    weather_margin_cloudy:
+      name: Marge Météo Nuageuse
+      description: Marge de sécurité ajoutée au SOC si production ≤ 5 kWh (%)
+      default: 40
       selector:
         number:
           min: 20
+          max: 100
+          step: 5
+          unit_of_measurement: "%"
+
+    min_soc_safety:
+      name: SOC Minimum de Sécurité
+      description: SOC minimum absolu même si calcul donne moins (%)
+      default: 20
+      selector:
+        number:
+          min: 10
+          max: 50
+          step: 5
+          unit_of_measurement: "%"
+
+    max_soc_target:
+      name: SOC Maximum Absolu
+      description: Limite maximale du SOC cible même après ajustements (sunrise, consommation, météo). Empêche de charger trop. Ignoré si météo très nuageuse (≤5 kWh) ou Tempo Rouge demain.
+      default: 60
+      selector:
+        number:
+          min: 30
           max: 100
           step: 5
           unit_of_measurement: "%"
@@ -192,37 +313,138 @@ variables:
   battery_soc: !input battery_soc_sensor
   battery_capacity_kwh: !input battery_capacity
   charge_power_kw: !input battery_charge_power
+  charge_efficiency_coef: !input charge_efficiency
+  safety_margin_minutes: !input charge_safety_margin
   tempo_today: !input tempo_today_sensor
   tempo_tomorrow: !input tempo_tomorrow_sensor
   weather: !input weather_entity
+  sun_entity: !input sun_sensor
   solar_forecast: !input solar_forecast_sensor
+  predicted_consumption: !input predicted_consumption_sensor
+  consumption_prediction_enabled: !input enable_consumption_prediction
   solar_low: !input solar_forecast_threshold_low
   solar_medium: !input solar_forecast_threshold_medium
+  sunrise_adjustment_enabled: !input sunrise_gap_adjustment
+  consumption_kwh_per_hour: !input consumption_per_hour
   min_soc: !input min_soc_charge
-  target_end_offpeak_base: !input target_soc_end_offpeak
+  emergency_charge_enabled: !input enable_emergency_charge
+  margin_sunny: !input weather_margin_sunny
+  margin_medium: !input weather_margin_medium
+  margin_cloudy: !input weather_margin_cloudy
+  min_soc_safety: !input min_soc_safety
+  max_soc_absolute: !input max_soc_target
   target_rouge: !input target_soc_tempo_rouge
   sunny_threshold: !input sunny_forecast_threshold
   strategy: !input charge_strategy
   debug_mode: !input debug_notifications
+  heures_creuses_start_time: !input heures_creuses_start
   heures_creuses_end_time: !input heures_creuses_end
-  # Calcul du SOC cible dynamique basé sur la prévision solaire
+  # Calcul du gap entre fin HC et lever du soleil (en heures)
+  sunrise_gap_hours: >
+    {% if sunrise_adjustment_enabled %}
+      {% set sunrise_time = state_attr(sun_entity, 'next_rising') %}
+      {% if sunrise_time is not none %}
+        {% set sunrise_dt = as_timestamp(sunrise_time) | timestamp_custom('%H:%M', true) %}
+        {% set sunrise_hour = sunrise_dt.split(':')[0] | int %}
+        {% set sunrise_minute = sunrise_dt.split(':')[1] | int %}
+        {% set sunrise_decimal = sunrise_hour + (sunrise_minute / 60) %}
+
+        {% set hc_end_hour = heures_creuses_end_time.split(':')[0] | int %}
+        {% set hc_end_minute = heures_creuses_end_time.split(':')[1] | int %}
+        {% set hc_end_decimal = hc_end_hour + (hc_end_minute / 60) %}
+
+        {# Gap = temps entre fin HC et sunrise (si positif) #}
+        {% set gap = sunrise_decimal - hc_end_decimal %}
+        {{ [gap, 0] | max }}
+      {% else %}
+        0
+      {% endif %}
+    {% else %}
+      0
+    {% endif %}
+  # Calcul de l'ajustement SOC basé sur le gap sunrise (en %)
+  sunrise_soc_adjustment: >
+    {% if sunrise_adjustment_enabled and sunrise_gap_hours > 0 %}
+      {% set energy_needed = sunrise_gap_hours * consumption_kwh_per_hour %}
+      {% set soc_adjustment = (energy_needed / battery_capacity_kwh) * 100 %}
+      {{ soc_adjustment | round(1) }}
+    {% else %}
+      0
+    {% endif %}
+  # Calcul du déficit énergétique basé sur la consommation historique (en kWh)
+  predicted_energy_deficit: >
+    {% if consumption_prediction_enabled and predicted_consumption != "" %}
+      {% set consumption_kwh = states(predicted_consumption) | float(0) %}
+      {% set production_kwh = states(solar_forecast) | float(0) if solar_forecast != "" else 0 %}
+      {% set deficit = consumption_kwh - production_kwh %}
+      {{ [deficit, 0] | max | round(2) }}
+    {% else %}
+      0
+    {% endif %}
+  # Calcul de l'ajustement SOC basé sur le déficit énergétique prédit (en %)
+  consumption_soc_adjustment: >
+    {% if consumption_prediction_enabled and predicted_energy_deficit > 0 %}
+      {% set soc_for_deficit = (predicted_energy_deficit / battery_capacity_kwh) * 100 %}
+      {# Limiter l'ajustement à +50% maximum pour éviter de trop charger #}
+      {{ [soc_for_deficit, 50] | min | round(1) }}
+    {% else %}
+      0
+    {% endif %}
+  # Calcul du SOC cible basé sur le gap entre fin HC et lever du soleil + marge météo
   target_end_offpeak: >
+    {# ÉTAPE 1: Calcul du SOC nécessaire pour tenir jusqu'au lever du soleil #}
+    {% if sunrise_adjustment_enabled and sunrise_gap_hours > 0 %}
+      {# Énergie nécessaire = gap en heures × consommation par heure #}
+      {% set energy_needed = sunrise_gap_hours * consumption_kwh_per_hour %}
+      {# Conversion en pourcentage SOC #}
+      {% set base_soc = (energy_needed / battery_capacity_kwh) * 100 %}
+    {% else %}
+      {# Par défaut : supposer 1h de gap si pas de calcul sunrise #}
+      {% set energy_needed = 1 * consumption_kwh_per_hour %}
+      {% set base_soc = (energy_needed / battery_capacity_kwh) * 100 %}
+    {% endif %}
+
+    {# ÉTAPE 2: Ajout de la marge de sécurité selon la météo #}
     {% if solar_forecast == "" or solar_low == 0 %}
-      {{ target_end_offpeak_base }}
+      {# Pas de prévision solaire : marge moyenne par défaut #}
+      {% set weather_margin = margin_medium %}
+      {% set is_very_cloudy = false %}
     {% else %}
       {% set forecast_kwh = states(solar_forecast) | float(0) %}
       {% if forecast_kwh <= solar_low %}
-        100
+        {# Météo très nuageuse : grosse marge #}
+        {% set weather_margin = margin_cloudy %}
+        {% set is_very_cloudy = true %}
       {% elif forecast_kwh >= solar_medium %}
-        {{ target_end_offpeak_base }}
+        {# Météo ensoleillée : petite marge #}
+        {% set weather_margin = margin_sunny %}
+        {% set is_very_cloudy = false %}
       {% else %}
-        {# Interpolation linéaire entre low et medium #}
+        {# Météo moyenne : interpolation linéaire entre marge cloudy et sunny #}
         {% set ratio = (forecast_kwh - solar_low) / (solar_medium - solar_low) %}
-        {% set dynamic_target = 100 - (ratio * (100 - target_end_offpeak_base)) %}
-        {{ dynamic_target | round(0) }}
+        {% set weather_margin = margin_cloudy - (ratio * (margin_cloudy - margin_sunny)) %}
+        {% set is_very_cloudy = false %}
       {% endif %}
     {% endif %}
-  # Calcul du temps de charge nécessaire en heures
+
+    {# ÉTAPE 3: Ajout de l'ajustement consommation historique si activé #}
+    {% set soc_with_margin = base_soc + weather_margin + consumption_soc_adjustment %}
+
+    {# ÉTAPE 4: Application des limites min et max #}
+    {# Minimum de sécurité #}
+    {% set soc_secured = [soc_with_margin, min_soc_safety] | max %}
+
+    {# Maximum absolu (sauf si météo très nuageuse) #}
+    {% if is_very_cloudy %}
+      {% set limited_soc = soc_secured %}
+    {% else %}
+      {% set limited_soc = [soc_secured, max_soc_absolute] | min %}
+    {% endif %}
+
+    {# ÉTAPE 5: Limitation finale à 100% #}
+    {{ [limited_soc, 100] | min | round(0) }}
+
+  # Calcul du temps de charge nécessaire en heures (avec efficacité)
   charge_time_needed: >
     {% set current_soc = states(battery_soc) | float(0) %}
     {% set target = target_end_offpeak | float(80) %}
@@ -231,8 +453,39 @@ variables:
       0
     {% else %}
       {% set energy_needed = (soc_to_charge / 100) * battery_capacity_kwh %}
-      {{ (energy_needed / charge_power_kw) | round(2) }}
+      {# Application du coefficient d'efficacité : énergie réelle = énergie théorique / efficacité #}
+      {% set energy_with_losses = energy_needed / charge_efficiency_coef %}
+      {# Calcul du temps en heures #}
+      {% set charge_hours = energy_with_losses / charge_power_kw %}
+      {# Ajout de la marge de sécurité (conversion minutes en heures) #}
+      {% set margin_hours = safety_margin_minutes / 60 %}
+      {{ (charge_hours + margin_hours) | round(2) }}
     {% endif %}
+
+  # Calcul précis du temps restant avant fin des heures creuses (en heures)
+  hours_until_offpeak_end: >
+    {% set now_ts = now().timestamp() %}
+    {% set now_dt = now() %}
+
+    {# Construction de la date/heure de fin HC aujourd'hui #}
+    {% set end_time_parts = heures_creuses_end_time.split(':') %}
+    {% set end_hour = end_time_parts[0] | int %}
+    {% set end_minute = end_time_parts[1] | int %}
+    {% set end_second = end_time_parts[2] | int(0) %}
+
+    {# Création du timestamp de fin HC #}
+    {% set end_today = now_dt.replace(hour=end_hour, minute=end_minute, second=end_second, microsecond=0) %}
+    {% set end_ts = end_today.timestamp() %}
+
+    {# Si l'heure de fin est déjà passée aujourd'hui, c'est pour demain #}
+    {% if end_ts < now_ts %}
+      {% set end_ts = end_ts + 86400 %}
+    {% endif %}
+
+    {# Calcul de la différence en heures #}
+    {% set diff_seconds = end_ts - now_ts %}
+    {% set diff_hours = diff_seconds / 3600 %}
+    {{ [diff_hours, 0] | max | round(2) }}
 
 trigger:
   # Déclenchement à chaque changement de SOC
@@ -259,9 +512,14 @@ trigger:
   - platform: time
     at: "18:00:00"
 
-  # Déclenchement quand la prévision solaire change
-  - platform: state
-    entity_id: !input solar_forecast_sensor
+  # Déclenchement à 03h00 pour recalcul quotidien basé sur l'historique
+  # (Inclut mise à jour des prévisions solaires et consommation prédite)
+  - platform: time
+    at: "03:00:00"
+
+  # Déclenchement toutes les heures pour réévaluation
+  - platform: time_pattern
+    hours: "*"
 
 condition: []
 
@@ -278,15 +536,37 @@ action:
               title: "🔍 Debug - Charge Batterie"
               message: >
                 **📊 Calculs actuels:**
-                - SOC: {{ states(battery_soc) }}%
+
+                **Contexte:**
+                - SOC actuel: {{ states(battery_soc) }}%
                 - Tempo Aujourd'hui: {{ states(tempo_today) }}
                 - Tempo Demain: {{ states(tempo_tomorrow) }}
                 {% if solar_forecast != "" %}
                 - Production prévue: {{ states(solar_forecast) }} kWh
                 {% endif %}
-                - SOC Cible dynamique: {{ target_end_offpeak }}%
-                - Temps de charge estimé: {{ charge_time_needed }}h
-                - Heure actuelle: {{ now().strftime('%H:%M') }}
+
+                **Calcul du SOC cible:**
+                {% if sunrise_adjustment_enabled %}
+                - 🌅 Fin HC → Lever soleil: {{ sunrise_gap_hours | round(2) }}h
+                - 🔋 Énergie pour tenir: {{ (sunrise_gap_hours * consumption_kwh_per_hour) | round(2) }} kWh
+                - 📊 SOC de base nécessaire: {{ ((sunrise_gap_hours * consumption_kwh_per_hour / battery_capacity_kwh) * 100) | round(1) }}%
+                {% endif %}
+                {% if solar_forecast != "" %}
+                - ☁️ Marge météo: {% if states(solar_forecast) | float(0) <= solar_low %}+{{ margin_cloudy }}% (nuageux){% elif states(solar_forecast) | float(0) >= solar_medium %}+{{ margin_sunny }}% (ensoleillé){% else %}~{{ ((margin_cloudy + margin_sunny) / 2) | round(0) }}% (moyen){% endif %}
+                {% endif %}
+                {% if consumption_prediction_enabled and predicted_consumption != "" %}
+                - 📈 Ajustement conso prédite: +{{ consumption_soc_adjustment | round(1) }}%
+                {% endif %}
+
+                **Résultat:**
+                - 🎯 SOC Cible: {{ target_end_offpeak }}%
+                - ⏱️ Temps de charge nécessaire: {{ charge_time_needed }}h
+                - ⏳ Temps restant avant fin HC: {{ hours_until_offpeak_end }}h
+                - 🔌 Efficacité prise en compte: {{ (charge_efficiency_coef * 100) | round(0) }}%
+                - 🛡️ Marge de sécurité: {{ safety_margin_minutes }} min
+                - 🚫 Limites: min {{ min_soc_safety }}%, max {{ max_soc_absolute }}%
+                - 🕐 Heure actuelle: {{ now().strftime('%H:%M') }}
+                - 📅 Fin HC prévue: {{ heures_creuses_end_time }}
 
   - choose:
       # CAS 0: BLOQUAGE - Jour rouge Tempo AUJOURD'HUI → JAMAIS de charge depuis réseau
@@ -376,32 +656,43 @@ action:
               {% if strategy == "immediate" %}
                 true
               {% else %}
-                {# Stratégie optimisée: calcul intelligent du timing #}
+                {# Stratégie optimisée: calcul précis du timing avec efficacité réelle #}
                 {% set current_soc = states(battery_soc) | float(0) %}
                 {% set target = target_end_offpeak | float(80) %}
 
-                {# Si SOC très bas (< 50%), charger immédiatement #}
-                {% if current_soc < 50 %}
+                {# Si SOC très bas (< 30%), charger immédiatement #}
+                {% if current_soc < 30 %}
                   true
                 {% else %}
-                  {# Calcul du temps restant - approximation simple basée sur l'heure #}
-                  {% set current_hour = now().hour + (now().minute / 60) %}
-                  {# Extraction de l'heure de fin des HC depuis la variable #}
-                  {% set end_hour = heures_creuses_end_time.split(':')[0] | int + (heures_creuses_end_time.split(':')[1] | int / 60) %}
+                  {# Calcul précis du temps restant avant fin HC (en heures) #}
+                  {% set now_ts = now().timestamp() %}
+                  {% set now_dt = now() %}
 
-                  {% if current_hour < end_hour %}
-                    {% set hours_remaining = end_hour - current_hour %}
-                  {% else %}
-                    {% set hours_remaining = (24 - current_hour) + end_hour %}
+                  {% set end_time_parts = heures_creuses_end_time.split(':') %}
+                  {% set end_hour = end_time_parts[0] | int %}
+                  {% set end_minute = end_time_parts[1] | int %}
+                  {% set end_second = end_time_parts[2] | int(0) %}
+
+                  {% set end_today = now_dt.replace(hour=end_hour, minute=end_minute, second=end_second, microsecond=0) %}
+                  {% set end_ts = end_today.timestamp() %}
+
+                  {% if end_ts < now_ts %}
+                    {% set end_ts = end_ts + 86400 %}
                   {% endif %}
 
-                  {# Calcul du temps de charge nécessaire #}
+                  {% set diff_seconds = end_ts - now_ts %}
+                  {% set hours_remaining = diff_seconds / 3600 %}
+
+                  {# Calcul du temps de charge nécessaire avec pertes et marge #}
                   {% set soc_to_charge = target - current_soc %}
                   {% set energy_needed = (soc_to_charge / 100) * battery_capacity_kwh %}
-                  {% set charge_hours_needed = (energy_needed / charge_power_kw) %}
+                  {% set energy_with_losses = energy_needed / charge_efficiency_coef %}
+                  {% set charge_hours_needed = energy_with_losses / charge_power_kw %}
+                  {% set margin_hours = safety_margin_minutes / 60 %}
+                  {% set total_time_needed = charge_hours_needed + margin_hours %}
 
-                  {# Charger si le temps restant <= temps nécessaire + marge de 0.5h #}
-                  {{ hours_remaining <= (charge_hours_needed + 0.5) }}
+                  {# Charger si le temps restant <= temps nécessaire #}
+                  {{ hours_remaining <= total_time_needed }}
                 {% endif %}
               {% endif %}
         sequence:
@@ -415,19 +706,36 @@ action:
               message: |
                 **🔋 Charge intelligente démarrée**
 
+                **État actuel:**
                 - SOC actuel: {{ states(battery_soc) }}%
-                - Cible dynamique: {{ target_end_offpeak }}%
-                {% if solar_forecast != "" %}
-                - Production prévue demain: {{ states(solar_forecast) }} kWh
+                - 🎯 Cible: {{ target_end_offpeak }}%
+                - ⚡ SOC à charger: {{ (target_end_offpeak | float(0) - states(battery_soc) | float(0)) | round(1) }}%
+
+                **Timing:**
+                - ⏱️ Temps de charge nécessaire: {{ charge_time_needed }}h
+                - ⏳ Temps restant avant fin HC: {{ hours_until_offpeak_end }}h
+                - 🕐 Fin HC prévue: {{ heures_creuses_end_time }}
+                - 🕑 Heure de démarrage: {{ now().strftime('%H:%M') }}
+
+                **Paramètres:**
+                - 🔌 Puissance: {{ charge_power_kw }} kW
+                - 📊 Efficacité: {{ (charge_efficiency_coef * 100) | round(0) }}%
+                - 🛡️ Marge: {{ safety_margin_minutes }} min
+                {% if sunrise_adjustment_enabled and sunrise_gap_hours > 0 %}
+                - 🌅 Gap fin HC → soleil: {{ sunrise_gap_hours | round(1) }}h
                 {% endif %}
-                - Temps de charge estimé: {{ charge_time_needed }}h
-                - Fin des heures creuses: {{ heures_creuses_end_time }}
-                - Stratégie: {% if strategy == 'immediate' %}Charge dès le début HC{% else %}Timing optimisé{% endif %}
+                {% if solar_forecast != "" %}
+                - ☀️ Production prévue: {{ states(solar_forecast) }} kWh
+                {% endif %}
 
-                {% if strategy == 'immediate' %}Charge démarrée dès le début des heures creuses.{% else %}Le système a calculé le moment optimal pour démarrer la charge.{% endif %}
+                📋 Stratégie: {% if strategy == 'immediate' %}Immédiate{% else %}Optimisée (au dernier moment){% endif %}
 
-      # CAS 3: SOC critique (< min_soc) → Charge forcée même hors heures creuses
+                Le système charge juste ce qu'il faut pour atteindre la cible avant la fin des heures creuses.
+
+      # CAS 3: SOC critique (< min_soc) → Charge forcée même hors heures creuses (OPTIONNEL)
       - conditions:
+          - condition: template
+            value_template: "{{ emergency_charge_enabled }}"
           - condition: numeric_state
             entity_id: !input battery_soc_sensor
             below: !input min_soc_charge
@@ -445,7 +753,8 @@ action:
                 SOC actuel: {{ states(battery_soc) }}%
                 Seuil minimum: {{ min_soc }}%
 
-                Charge forcée activée même hors heures creuses pour éviter une décharge complète.
+                ⚠️ Charge forcée activée même hors heures creuses pour éviter une décharge complète.
+                (Cette fonctionnalité peut être désactivée dans les paramètres du blueprint)
 
       # CAS 4: Hors heures creuses OU cible fin HC atteinte → Désactiver charge SI ACTIVE
       - conditions:
