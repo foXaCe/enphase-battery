@@ -34,6 +34,7 @@ async def async_setup_entry(
 
     if not coordinator.is_local_mode or enable_cloud_control:
         entities.append(ChargeFromGridSwitch(coordinator))
+        entities.append(LimitDischargeSwitch(coordinator))
         mode_desc = "Cloud mode" if not coordinator.is_local_mode else "Hybrid mode (Local data + Cloud control)"
     else:
         _LOGGER.warning(
@@ -97,4 +98,71 @@ class ChargeFromGridSwitch(CoordinatorEntity, SwitchEntity):
             await self.coordinator.async_request_refresh()
         except Exception as err:
             _LOGGER.error(f"Failed to disable Charge From Grid: {err}")
+            raise
+
+
+class LimitDischargeSwitch(CoordinatorEntity, SwitchEntity):
+    """Discharge To Grid switch entity (dtgControl)."""
+
+    def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
+        """Initialize the switch entity."""
+        super().__init__(coordinator)
+        self._attr_name = "Décharge vers le réseau"
+        self._attr_unique_id = f"{DOMAIN}_discharge_to_grid"
+        self._attr_has_entity_name = True
+        self._attr_icon = "mdi:transmission-tower-export"
+
+    @property
+    def device_info(self) -> dict[str, Any]:
+        """Return device information."""
+        return {
+            "identifiers": {(DOMAIN, "enphase_battery")},
+            "name": "Enphase Battery IQ 5P",
+            "manufacturer": "Enphase Energy",
+            "model": "IQ Battery 5P",
+        }
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return true if switch is on."""
+        if not self.coordinator.data:
+            return None
+
+        # Read from dtgControl.enabled (Discharge To Grid)
+        return self.coordinator.data.get("discharge_to_grid", False)
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Turn the switch on."""
+        try:
+            # Use appropriate API based on mode
+            if self.coordinator.is_local_mode and self.coordinator.local_api:
+                # Hybrid mode: use local API
+                await self.coordinator.local_api.set_limit_discharge(True)
+            elif self.coordinator.api:
+                # Cloud mode: use cloud API
+                await self.coordinator.api.set_limit_discharge(True)
+            else:
+                raise Exception("No API available. Enable cloud control in settings.")
+
+            await self.coordinator.async_request_refresh()
+        except Exception as err:
+            _LOGGER.error(f"Failed to enable Limit Discharge: {err}")
+            raise
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Turn the switch off."""
+        try:
+            # Use appropriate API based on mode
+            if self.coordinator.is_local_mode and self.coordinator.local_api:
+                # Hybrid mode: use local API
+                await self.coordinator.local_api.set_limit_discharge(False)
+            elif self.coordinator.api:
+                # Cloud mode: use cloud API
+                await self.coordinator.api.set_limit_discharge(False)
+            else:
+                raise Exception("No API available. Enable cloud control in settings.")
+
+            await self.coordinator.async_request_refresh()
+        except Exception as err:
+            _LOGGER.error(f"Failed to disable Limit Discharge: {err}")
             raise

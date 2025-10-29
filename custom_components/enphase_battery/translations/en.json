@@ -94,6 +94,12 @@
     "switch": {
       "battery_backup_mode": {
         "name": "Battery Backup Mode"
+      },
+      "charge_from_grid": {
+        "name": "Charge From Grid"
+      },
+      "discharge_to_grid": {
+        "name": "Discharge To Grid"
       }
     },
     "select": {

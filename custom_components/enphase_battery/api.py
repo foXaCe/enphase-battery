@@ -498,6 +498,10 @@ class EnphaseBatteryAPI:
         # Sinon fallback sur batteryConfig (qui peut être vide/absent)
         config_source = battery_settings if battery_settings else battery_config
 
+        # Extract dtgControl (Discharge To Grid) setting
+        dtg_control = config_source.get("dtgControl", {})
+        discharge_to_grid_enabled = dtg_control.get("enabled", False) if isinstance(dtg_control, dict) else False
+
         return {
             # État de charge
             "soc": battery_details.get("aggregate_soc", latest_soc),
@@ -515,6 +519,7 @@ class EnphaseBatteryAPI:
             "mode": config_source.get("profile", battery_config.get("usage", "unknown")),
             "backup_reserve": config_source.get("batteryBackupPercentage", battery_config.get("battery_backup_percentage", 0)),
             "charge_from_grid": config_source.get("chargeFromGrid", battery_config.get("charge_from_grid", False)),
+            "discharge_to_grid": discharge_to_grid_enabled,
             "very_low_soc": config_source.get("veryLowSoc", battery_config.get("very_low_soc", 5)),
 
             # Totaux du jour
@@ -810,3 +815,60 @@ class EnphaseBatteryAPI:
 
         except aiohttp.ClientError as err:
             raise EnphaseBatteryConnectionError(f"Failed to set charge from grid: {err}") from err
+
+    async def set_limit_discharge(self, enabled: bool) -> bool:
+        """Enable/disable battery discharge to grid limit (Discharge To Grid control).
+
+        Args:
+            enabled: True to enable discharge to grid, False to disable
+
+        Returns:
+            True if successful
+        """
+        if not self._site_id or not self._user_id:
+            raise EnphaseBatteryAuthError("Not authenticated")
+
+        # Get current battery settings to preserve other values
+        try:
+            current_settings = await self.get_battery_settings()
+        except Exception as err:
+            raise EnphaseBatteryConnectionError(f"Failed to get current settings: {err}") from err
+
+        # Update the dtgControl.enabled field (Discharge To Grid)
+        data = current_settings.copy()
+
+        # Ensure dtgControl exists
+        if "dtgControl" not in data:
+            data["dtgControl"] = {
+                "show": True,
+                "showDaySchedule": True,
+                "enabled": enabled,
+                "locked": False,
+                "scheduleSupported": True,
+                "startTime": 960,
+                "endTime": 1140
+            }
+        else:
+            # Update only the enabled field
+            data["dtgControl"]["enabled"] = enabled
+
+        # Send PUT request
+        url = f"{API_BASE_URL}/service/batteryConfig/api/v1/batterySettings/{self._site_id}"
+        params = {"userId": self._user_id, "source": "enho"}
+
+        try:
+            async with self._session.put(
+                url,
+                params=params,
+                json=data,
+                headers=self._get_headers(),
+                timeout=ClientTimeout(total=API_TIMEOUT),
+            ) as response:
+                response.raise_for_status()
+                result = await response.json()
+
+                # Check for success message
+                return result.get("message") == "success"
+
+        except aiohttp.ClientError as err:
+            raise EnphaseBatteryConnectionError(f"Failed to set limit discharge: {err}") from err

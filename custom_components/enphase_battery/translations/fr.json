@@ -104,6 +104,12 @@
     "switch": {
       "battery_backup_mode": {
         "name": "Mode backup de la batterie"
+      },
+      "charge_from_grid": {
+        "name": "Charge depuis le réseau"
+      },
+      "discharge_to_grid": {
+        "name": "Décharge vers le réseau"
       }
     },
     "select": {
