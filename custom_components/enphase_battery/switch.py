@@ -139,16 +139,10 @@ class LimitDischargeSwitch(CoordinatorEntity, SwitchEntity):
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
         try:
-            # Use appropriate API based on mode
-            if self.coordinator.is_local_mode and self.coordinator.local_api:
-                # Hybrid mode: use local API
-                await self.coordinator.local_api.set_limit_discharge(True)
-            elif self.coordinator.api:
-                # Cloud mode: use cloud API
-                await self.coordinator.api.set_limit_discharge(True)
-            else:
-                raise Exception("No API available. Enable cloud control in settings.")
-
+            # Always use cloud API (pure cloud mode or hybrid mode)
+            if not self.coordinator.api:
+                raise Exception("Cloud API not initialized. Enable cloud control in settings.")
+            await self.coordinator.api.set_limit_discharge(True)
             await self.coordinator.async_request_refresh()
         except Exception as err:
             _LOGGER.error(f"Failed to enable Limit Discharge: {err}")
@@ -157,16 +151,10 @@ class LimitDischargeSwitch(CoordinatorEntity, SwitchEntity):
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
         try:
-            # Use appropriate API based on mode
-            if self.coordinator.is_local_mode and self.coordinator.local_api:
-                # Hybrid mode: use local API
-                await self.coordinator.local_api.set_limit_discharge(False)
-            elif self.coordinator.api:
-                # Cloud mode: use cloud API
-                await self.coordinator.api.set_limit_discharge(False)
-            else:
-                raise Exception("No API available. Enable cloud control in settings.")
-
+            # Always use cloud API (pure cloud mode or hybrid mode)
+            if not self.coordinator.api:
+                raise Exception("Cloud API not initialized. Enable cloud control in settings.")
+            await self.coordinator.api.set_limit_discharge(False)
             await self.coordinator.async_request_refresh()
         except Exception as err:
             _LOGGER.error(f"Failed to disable Limit Discharge: {err}")
@@ -210,16 +198,10 @@ class ReserveBatteryDischargeSwitch(CoordinatorEntity, SwitchEntity):
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
         try:
-            # Use appropriate API based on mode
-            if self.coordinator.is_local_mode and self.coordinator.local_api:
-                # Hybrid mode: use local API
-                await self.coordinator.local_api.set_reserve_battery_discharge(True)
-            elif self.coordinator.api:
-                # Cloud mode: use cloud API
-                await self.coordinator.api.set_reserve_battery_discharge(True)
-            else:
-                raise Exception("No API available. Enable cloud control in settings.")
-
+            # Always use cloud API (pure cloud mode or hybrid mode)
+            if not self.coordinator.api:
+                raise Exception("Cloud API not initialized. Enable cloud control in settings.")
+            await self.coordinator.api.set_reserve_battery_discharge(True)
             await self.coordinator.async_request_refresh()
         except Exception as err:
             _LOGGER.error(f"Failed to enable Reserve Battery Discharge: {err}")
@@ -228,16 +210,10 @@ class ReserveBatteryDischargeSwitch(CoordinatorEntity, SwitchEntity):
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
         try:
-            # Use appropriate API based on mode
-            if self.coordinator.is_local_mode and self.coordinator.local_api:
-                # Hybrid mode: use local API
-                await self.coordinator.local_api.set_reserve_battery_discharge(False)
-            elif self.coordinator.api:
-                # Cloud mode: use cloud API
-                await self.coordinator.api.set_reserve_battery_discharge(False)
-            else:
-                raise Exception("No API available. Enable cloud control in settings.")
-
+            # Always use cloud API (pure cloud mode or hybrid mode)
+            if not self.coordinator.api:
+                raise Exception("Cloud API not initialized. Enable cloud control in settings.")
+            await self.coordinator.api.set_reserve_battery_discharge(False)
             await self.coordinator.async_request_refresh()
         except Exception as err:
             _LOGGER.error(f"Failed to disable Reserve Battery Discharge: {err}")

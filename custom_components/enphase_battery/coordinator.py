@@ -353,13 +353,21 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
                 # Hybrid mode: Merge control states from cloud API
                 # In hybrid mode, control changes (switch/select) are made via cloud API,
                 # but local API may not immediately reflect these changes.
-                # Read charge_from_grid and mode from cloud to show real-time UI updates.
+                # Read charge_from_grid, mode, dtgControl, and rbdControl from cloud to show real-time UI updates.
                 if self.api:  # Cloud API is initialized (hybrid mode)
                     try:
                         cloud_settings = await self.api.get_battery_settings()
                         # Override local values with cloud values for these control fields
                         data["charge_from_grid"] = cloud_settings.get("chargeFromGrid", data.get("charge_from_grid", False))
                         data["mode"] = cloud_settings.get("profile", data.get("mode", "unknown"))
+
+                        # Extract dtgControl (Discharge To Grid) setting
+                        dtg_control = cloud_settings.get("dtgControl", {})
+                        data["discharge_to_grid"] = dtg_control.get("enabled", False) if isinstance(dtg_control, dict) else False
+
+                        # Extract rbdControl (Reserve Battery Discharge) setting
+                        rbd_control = cloud_settings.get("rbdControl", {})
+                        data["reserve_battery_discharge"] = rbd_control.get("enabled", False) if isinstance(rbd_control, dict) else False
                     except Exception as err:
                         _LOGGER.warning(f"Hybrid mode: Failed to fetch cloud control states, using local values: {err}")
 
