@@ -84,20 +84,19 @@ class ChargeFromGridSwitch(CoordinatorEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
-        try:
-            # Set optimistic state immediately for UI feedback
-            self._optimistic_state = True
-            self.async_write_ha_state()
+        # Set optimistic state immediately for UI feedback
+        self._optimistic_state = True
+        self.async_write_ha_state()
 
+        try:
             # Always use cloud API (pure cloud mode or hybrid mode)
             if not self.coordinator.api:
                 raise Exception("Cloud API not initialized. Enable cloud control in settings.")
             await self.coordinator.api.set_charge_from_grid(True)
-            await self.coordinator.async_request_refresh()
 
-            # Clear optimistic state after refresh
+            # Clear optimistic state before refresh so real state takes over
             self._optimistic_state = None
-            self.async_write_ha_state()
+            await self.coordinator.async_request_refresh()
         except Exception as err:
             # Clear optimistic state on error
             self._optimistic_state = None
@@ -107,20 +106,19 @@ class ChargeFromGridSwitch(CoordinatorEntity, SwitchEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
-        try:
-            # Set optimistic state immediately for UI feedback
-            self._optimistic_state = False
-            self.async_write_ha_state()
+        # Set optimistic state immediately for UI feedback
+        self._optimistic_state = False
+        self.async_write_ha_state()
 
+        try:
             # Always use cloud API (pure cloud mode or hybrid mode)
             if not self.coordinator.api:
                 raise Exception("Cloud API not initialized. Enable cloud control in settings.")
             await self.coordinator.api.set_charge_from_grid(False)
-            await self.coordinator.async_request_refresh()
 
-            # Clear optimistic state after refresh
+            # Clear optimistic state before refresh so real state takes over
             self._optimistic_state = None
-            self.async_write_ha_state()
+            await self.coordinator.async_request_refresh()
         except Exception as err:
             # Clear optimistic state on error
             self._optimistic_state = None
@@ -170,20 +168,19 @@ class LimitDischargeSwitch(CoordinatorEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
-        try:
-            # Set optimistic state immediately for UI feedback
-            self._optimistic_state = True
-            self.async_write_ha_state()
+        # Set optimistic state immediately for UI feedback
+        self._optimistic_state = True
+        self.async_write_ha_state()
 
+        try:
             # Always use cloud API (pure cloud mode or hybrid mode)
             if not self.coordinator.api:
                 raise Exception("Cloud API not initialized. Enable cloud control in settings.")
             await self.coordinator.api.set_limit_discharge(True)
-            await self.coordinator.async_request_refresh()
 
-            # Clear optimistic state after refresh
+            # Clear optimistic state before refresh so real state takes over
             self._optimistic_state = None
-            self.async_write_ha_state()
+            await self.coordinator.async_request_refresh()
         except Exception as err:
             # Clear optimistic state on error
             self._optimistic_state = None
@@ -193,20 +190,19 @@ class LimitDischargeSwitch(CoordinatorEntity, SwitchEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
-        try:
-            # Set optimistic state immediately for UI feedback
-            self._optimistic_state = False
-            self.async_write_ha_state()
+        # Set optimistic state immediately for UI feedback
+        self._optimistic_state = False
+        self.async_write_ha_state()
 
+        try:
             # Always use cloud API (pure cloud mode or hybrid mode)
             if not self.coordinator.api:
                 raise Exception("Cloud API not initialized. Enable cloud control in settings.")
             await self.coordinator.api.set_limit_discharge(False)
-            await self.coordinator.async_request_refresh()
 
-            # Clear optimistic state after refresh
+            # Clear optimistic state before refresh so real state takes over
             self._optimistic_state = None
-            self.async_write_ha_state()
+            await self.coordinator.async_request_refresh()
         except Exception as err:
             # Clear optimistic state on error
             self._optimistic_state = None
@@ -256,20 +252,19 @@ class ReserveBatteryDischargeSwitch(CoordinatorEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
-        try:
-            # Set optimistic state immediately for UI feedback
-            self._optimistic_state = True
-            self.async_write_ha_state()
+        # Set optimistic state immediately for UI feedback
+        self._optimistic_state = True
+        self.async_write_ha_state()
 
+        try:
             # Always use cloud API (pure cloud mode or hybrid mode)
             if not self.coordinator.api:
                 raise Exception("Cloud API not initialized. Enable cloud control in settings.")
             await self.coordinator.api.set_reserve_battery_discharge(True)
-            await self.coordinator.async_request_refresh()
 
-            # Clear optimistic state after refresh
+            # Clear optimistic state before refresh so real state takes over
             self._optimistic_state = None
-            self.async_write_ha_state()
+            await self.coordinator.async_request_refresh()
         except Exception as err:
             # Clear optimistic state on error
             self._optimistic_state = None
@@ -279,20 +274,19 @@ class ReserveBatteryDischargeSwitch(CoordinatorEntity, SwitchEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
-        try:
-            # Set optimistic state immediately for UI feedback
-            self._optimistic_state = False
-            self.async_write_ha_state()
+        # Set optimistic state immediately for UI feedback
+        self._optimistic_state = False
+        self.async_write_ha_state()
 
+        try:
             # Always use cloud API (pure cloud mode or hybrid mode)
             if not self.coordinator.api:
                 raise Exception("Cloud API not initialized. Enable cloud control in settings.")
             await self.coordinator.api.set_reserve_battery_discharge(False)
-            await self.coordinator.async_request_refresh()
 
-            # Clear optimistic state after refresh
+            # Clear optimistic state before refresh so real state takes over
             self._optimistic_state = None
-            self.async_write_ha_state()
+            await self.coordinator.async_request_refresh()
         except Exception as err:
             # Clear optimistic state on error
             self._optimistic_state = None
