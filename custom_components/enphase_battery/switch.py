@@ -116,7 +116,6 @@ class LimitDischargeSwitch(CoordinatorEntity, SwitchEntity):
         self._attr_unique_id = f"{DOMAIN}_discharge_to_grid"
         self._attr_has_entity_name = True
         self._attr_icon = "mdi:transmission-tower-export"
-        self._attr_assumed_state = True  # Show optimistic state until API confirms
         self._optimistic_state: bool | None = None
 
     @property
@@ -203,7 +202,6 @@ class ReserveBatteryDischargeSwitch(CoordinatorEntity, SwitchEntity):
         self._attr_unique_id = f"{DOMAIN}_reserve_battery_discharge"
         self._attr_has_entity_name = True
         self._attr_icon = "mdi:battery-lock"
-        self._attr_assumed_state = True  # Show optimistic state until API confirms
         self._optimistic_state: bool | None = None
 
     @property
