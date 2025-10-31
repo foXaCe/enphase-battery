@@ -337,11 +337,6 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
                 if not self.api:
                     await self._async_setup()
 
-            _LOGGER.debug(
-                "Fetching battery data from %s API",
-                "local" if self._connection_mode == CONNECTION_MODE_LOCAL else "cloud"
-            )
-
             # Get battery data from appropriate source
             if self._connection_mode == CONNECTION_MODE_LOCAL:
                 # Local mode: Get data from Envoy

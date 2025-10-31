@@ -342,8 +342,8 @@ class EnphaseBatteryAPI:
                                     if site_id and user_id:
                                         return int(site_id), int(user_id)
 
-        except Exception as err:
-            _LOGGER.debug(f"Method 1 (search_sites) failed: {err}")
+        except Exception:
+            pass  # Try next method
 
         # Méthode 2: Essayer /pv/systems endpoint et extraire site_id de l'URL de redirection
         try:
@@ -399,8 +399,8 @@ class EnphaseBatteryAPI:
                     except Exception:
                         pass
 
-        except Exception as err:
-            _LOGGER.debug(f"Method 2 (pv/systems) failed: {err}")
+        except Exception:
+            pass  # Try next method
 
         # Méthode 3: Essayer d'extraire user_id depuis le JWT token dans les cookies
         try:
