@@ -90,6 +90,9 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         self._connection_mode = entry.data.get(CONF_CONNECTION_MODE, CONNECTION_MODE_CLOUD)
         self._use_mqtt = entry.options.get(CONF_USE_MQTT, False) and self._connection_mode == CONNECTION_MODE_CLOUD
 
+        # Track last warning time for rate limiting repeated errors
+        self._last_cloud_error_warning: datetime | None = None
+
         # Determine update interval based on connection mode and MQTT
         if self._connection_mode == CONNECTION_MODE_LOCAL:
             # Local mode: Fast polling (10s)
@@ -364,7 +367,18 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
                         rbd_control = cloud_settings.get("rbdControl", {})
                         data["reserve_battery_discharge"] = rbd_control.get("enabled", False) if isinstance(rbd_control, dict) else False
                     except Exception as err:
-                        _LOGGER.warning(f"Hybrid mode: Failed to fetch cloud control states, using local values: {err}")
+                        # Rate limit warnings: only log every 5 minutes to avoid spam
+                        now = datetime.now()
+                        if (
+                            self._last_cloud_error_warning is None
+                            or (now - self._last_cloud_error_warning) > timedelta(minutes=5)
+                        ):
+                            _LOGGER.warning(
+                                "Hybrid mode: Failed to fetch cloud control states, using local values: %s "
+                                "(This warning will be suppressed for 5 minutes)",
+                                err
+                            )
+                            self._last_cloud_error_warning = now
 
             else:
                 # Cloud mode: Get data from Enlighten API
