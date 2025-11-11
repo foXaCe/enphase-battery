@@ -2,6 +2,8 @@
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Code Quality](https://github.com/foXaCe/enphase-battery/actions/workflows/quality.yml/badge.svg)](https://github.com/foXaCe/enphase-battery/actions/workflows/quality.yml)
+[![Validate](https://github.com/foXaCe/enphase-battery/actions/workflows/validate.yml/badge.svg)](https://github.com/foXaCe/enphase-battery/actions/workflows/validate.yml)
 
 Intégration Home Assistant pour les batteries Enphase IQ 5P avec support étendu des fonctionnalités non disponibles dans l'intégration officielle.
 

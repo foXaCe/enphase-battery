@@ -1,0 +1,95 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint with Ruff
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Ruff
+        run: pip install ruff
+
+      - name: Run Ruff linter
+        run: ruff check custom_components/
+
+      - name: Run Ruff formatter check
+        run: ruff format --check custom_components/
+
+  type-check:
+    name: Type checking with MyPy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install mypy PyJWT types-aiofiles
+
+      - name: Run MyPy
+        run: mypy custom_components/enphase_battery --ignore-missing-imports
+        continue-on-error: true
+
+  validate:
+    name: Validate Home Assistant Integration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate manifest
+        run: |
+          python -m json.tool custom_components/enphase_battery/manifest.json > /dev/null
+          echo "✓ manifest.json is valid JSON"
+
+      - name: Check for common issues
+        run: |
+          # Check for debug statements
+          if grep -r "print(" custom_components/enphase_battery/*.py; then
+            echo "❌ Found print() statements"
+            exit 1
+          fi
+          echo "✓ No print() statements found"
+
+          # Check for TODO/FIXME that might indicate incomplete work
+          if grep -rn "# TODO.*URGENT\|# FIXME.*URGENT" custom_components/enphase_battery/*.py; then
+            echo "⚠️  Found URGENT TODO/FIXME"
+            exit 1
+          fi
+          echo "✓ No urgent TODO/FIXME found"
+
+  summary:
+    name: Quality Check Summary
+    runs-on: ubuntu-latest
+    needs: [lint, type-check, validate]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          if [ "${{ needs.lint.result }}" != "success" ]; then
+            echo "❌ Linting failed"
+            exit 1
+          fi
+          if [ "${{ needs.validate.result }}" != "success" ]; then
+            echo "❌ Validation failed"
+            exit 1
+          fi
+          echo "✅ All quality checks passed!"
