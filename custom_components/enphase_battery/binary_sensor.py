@@ -1,4 +1,5 @@
 """Binary sensor platform for Enphase Battery."""
+
 from __future__ import annotations
 
 import logging
@@ -66,6 +67,7 @@ class EnphaseBatteryBinarySensorBase(CoordinatorEntity, BinarySensorEntity):
 
 
 # Diagnostic Binary Sensors
+
 
 class BatteryGridTiedBinarySensor(EnphaseBatteryBinarySensorBase):
     """Battery Grid-Tied binary sensor."""

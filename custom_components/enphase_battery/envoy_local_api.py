@@ -1,11 +1,10 @@
 """Local Envoy API Client for Enphase IQ Gateway."""
+
 from __future__ import annotations
 
+from datetime import datetime
 import logging
 from typing import Any
-from datetime import datetime
-import hashlib
-import jwt
 
 import aiohttp
 from aiohttp import ClientSession, ClientTimeout
@@ -141,28 +140,27 @@ class EnphaseEnvoyLocalAPI:
 
             # Try multiple ways to extract serial
             self._serial_number = (
-                info.get("device", {}).get("sn") or
-                info.get("device", {}).get("serial_num") or
-                info.get("sn") or
-                info.get("serial_num") or
-                info.get("serialNumber")
+                info.get("device", {}).get("sn")
+                or info.get("device", {}).get("serial_num")
+                or info.get("sn")
+                or info.get("serial_num")
+                or info.get("serialNumber")
             )
 
             if not self._serial_number:
                 _LOGGER.error(f"Cannot find serial in /info response. Keys found: {list(info.keys())}")
                 raise EnvoyAuthError(
-                    f"Could not retrieve Envoy serial number from /info endpoint. "
-                    f"Response keys: {list(info.keys())}"
+                    f"Could not retrieve Envoy serial number from /info endpoint. Response keys: {list(info.keys())}"
                 )
 
             _LOGGER.info(f"Envoy serial number: {self._serial_number}")
 
             # Step 2: Extract firmware version from info
             self._firmware_version = (
-                info.get("device", {}).get("software") or
-                info.get("software") or
-                info.get("fw_version") or
-                info.get("version")
+                info.get("device", {}).get("software")
+                or info.get("software")
+                or info.get("fw_version")
+                or info.get("version")
             )
 
             # Step 3: Determine authentication method based on firmware
@@ -181,7 +179,7 @@ class EnphaseEnvoyLocalAPI:
 
                 # Validate token with local Envoy
                 try:
-                    test_response = await self._make_request(
+                    await self._make_request(
                         "GET",
                         "/auth/check_jwt",
                         auth_required=True,
@@ -247,7 +245,8 @@ class EnphaseEnvoyLocalAPI:
         try:
             # Extract version number (e.g., "D7.3.466" -> "7.3")
             import re
-            match = re.search(r'[dD]?(\d+)\.(\d+)', self._firmware_version)
+
+            match = re.search(r"[dD]?(\d+)\.(\d+)", self._firmware_version)
             if match:
                 major = int(match.group(1))
                 return major >= 7
@@ -291,9 +290,7 @@ class EnphaseEnvoyLocalAPI:
 
                 session_id = login_response.get("session_id")
                 if not session_id:
-                    raise EnvoyAuthError(
-                        f"No session_id in login response. Keys: {list(login_response.keys())}"
-                    )
+                    raise EnvoyAuthError(f"No session_id in login response. Keys: {list(login_response.keys())}")
 
             # Step 2: Request token from Entrez using session ID
             token_data = {
@@ -358,15 +355,15 @@ class EnphaseEnvoyLocalAPI:
                 import re
 
                 # Extract serial number
-                serial_match = re.search(r'<sn>(\d+)</sn>', xml_content)
+                serial_match = re.search(r"<sn>(\d+)</sn>", xml_content)
                 serial = serial_match.group(1) if serial_match else None
 
                 # Extract firmware version
-                software_match = re.search(r'<software>([\w.]+)</software>', xml_content)
+                software_match = re.search(r"<software>([\w.]+)</software>", xml_content)
                 software = software_match.group(1) if software_match else None
 
                 # Extract part number
-                pn_match = re.search(r'<device>.*?<pn>([\w-]+)</pn>', xml_content, re.DOTALL)
+                pn_match = re.search(r"<device>.*?<pn>([\w-]+)</pn>", xml_content, re.DOTALL)
                 part_num = pn_match.group(1) if pn_match else None
 
                 if serial:
@@ -378,7 +375,9 @@ class EnphaseEnvoyLocalAPI:
                         }
                     }
                 else:
-                    _LOGGER.error(f"Cannot find serial in /info response. Keys found: {list(response.keys()) if isinstance(response, dict) else 'string'}")
+                    _LOGGER.error(
+                        f"Cannot find serial in /info response. Keys found: {list(response.keys()) if isinstance(response, dict) else 'string'}"
+                    )
 
             return response or {}
         except Exception as err:
@@ -522,14 +521,17 @@ class EnphaseEnvoyLocalAPI:
                     battery_data["soh"] = secctrl.get("ENC_agg_soh", 100)
                     battery_data["available_energy"] = secctrl.get("ENC_agg_avail_energy", 0)
                     battery_data["max_capacity"] = secctrl.get("Enc_max_available_capacity", 0)
-                    battery_data["status"] = "grid-tied" if ensemble_status.get("relay", {}).get("Enchg_grid_mode") == "grid-tied" else "unknown"
+                    battery_data["status"] = (
+                        "grid-tied"
+                        if ensemble_status.get("relay", {}).get("Enchg_grid_mode") == "grid-tied"
+                        else "unknown"
+                    )
                 else:
                     # Fallback to direct fields (older firmware)
                     battery_data["soc"] = ensemble_status.get("percentage", 0)
                     battery_data["status"] = ensemble_status.get("state", "unknown")
                     battery_data["available_energy"] = ensemble_status.get("available_energy", 0)
                     battery_data["max_capacity"] = ensemble_status.get("max_available_capacity", 0)
-
 
             # Power and energy from meters (battery meter)
             # In firmware 8.x, meters is a list with multiple EIDs:
@@ -583,11 +585,12 @@ class EnphaseEnvoyLocalAPI:
 
                 # Store cumulative energy values (will be used by coordinator for daily calc)
                 # If battery meter doesn't track energy, use production/consumption energies as proxy
-                battery_data["total_energy_discharged"] = battery_energy_discharged if battery_energy_discharged > 0 else 0
+                battery_data["total_energy_discharged"] = (
+                    battery_energy_discharged if battery_energy_discharged > 0 else 0
+                )
                 battery_data["total_energy_charged"] = battery_energy_charged if battery_energy_charged > 0 else 0
                 battery_data["total_consumption"] = consumption_energy
                 battery_data["total_production"] = production_energy
-
 
             # Device inventory
             if inventory and isinstance(inventory, list):
@@ -621,12 +624,13 @@ class EnphaseEnvoyLocalAPI:
                 # Read charge_from_grid from tariff.storage_settings (the modifiable value)
                 # Note: schedule.charge_from_grid appears to be read-only and always returns false
                 if tariff_data and "tariff" in tariff_data and "storage_settings" in tariff_data["tariff"]:
-                    battery_data["charge_from_grid"] = tariff_data["tariff"]["storage_settings"].get("charge_from_grid", False)
+                    battery_data["charge_from_grid"] = tariff_data["tariff"]["storage_settings"].get(
+                        "charge_from_grid", False
+                    )
                 else:
                     battery_data["charge_from_grid"] = False
-            except Exception as tariff_err:
+            except Exception:
                 battery_data["charge_from_grid"] = False
-
 
             return battery_data
 
@@ -679,13 +683,16 @@ class EnphaseEnvoyLocalAPI:
 
             # Parse JSON from 'raw' key if present (firmware 8.x format)
             import json
+
             if isinstance(tariff_data, dict) and "raw" in tariff_data:
                 tariff_data = json.loads(tariff_data["raw"])
 
             # Step 2: Verify storage_settings exists
             # The structure is {"tariff": {"storage_settings": {...}}}
             if "tariff" not in tariff_data or "storage_settings" not in tariff_data["tariff"]:
-                _LOGGER.error(f"Tariff configuration does not contain storage_settings. Keys: {list(tariff_data.keys())}")
+                _LOGGER.error(
+                    f"Tariff configuration does not contain storage_settings. Keys: {list(tariff_data.keys())}"
+                )
                 return False
 
             # Step 3: Modify charge_from_grid setting in tariff.storage_settings
@@ -693,7 +700,7 @@ class EnphaseEnvoyLocalAPI:
             tariff_data["tariff"]["storage_settings"]["charge_from_grid"] = enabled
 
             # Step 4: Send updated configuration back (send the whole structure)
-            response = await self._make_request(
+            await self._make_request(
                 "PUT",
                 "/admin/lib/tariff",
                 json=tariff_data,  # Send complete structure, not wrapped again
@@ -735,12 +742,13 @@ class EnphaseEnvoyLocalAPI:
 
             # Parse JSON from 'raw' key if present (firmware 8.x format)
             import json
+
             if isinstance(tariff_data, dict) and "raw" in tariff_data:
                 tariff_data = json.loads(tariff_data["raw"])
 
             # Step 2: Verify storage_settings exists
             if "tariff" not in tariff_data or "storage_settings" not in tariff_data["tariff"]:
-                _LOGGER.error(f"Tariff configuration does not contain storage_settings")
+                _LOGGER.error("Tariff configuration does not contain storage_settings")
                 return False
 
             # Step 3: Modify discharge_to_grid setting in tariff.storage_settings
@@ -749,7 +757,7 @@ class EnphaseEnvoyLocalAPI:
             tariff_data["tariff"]["storage_settings"]["discharge_to_grid"] = enabled
 
             # Step 4: Send updated configuration back
-            response = await self._make_request(
+            await self._make_request(
                 "PUT",
                 "/admin/lib/tariff",
                 json=tariff_data,
@@ -790,12 +798,13 @@ class EnphaseEnvoyLocalAPI:
 
             # Parse JSON from 'raw' key if present (firmware 8.x format)
             import json
+
             if isinstance(tariff_data, dict) and "raw" in tariff_data:
                 tariff_data = json.loads(tariff_data["raw"])
 
             # Step 2: Verify storage_settings exists
             if "tariff" not in tariff_data or "storage_settings" not in tariff_data["tariff"]:
-                _LOGGER.error(f"Tariff configuration does not contain storage_settings")
+                _LOGGER.error("Tariff configuration does not contain storage_settings")
                 return False
 
             # Step 3: Modify reserve_battery_discharge setting in tariff.storage_settings
@@ -804,7 +813,7 @@ class EnphaseEnvoyLocalAPI:
             tariff_data["tariff"]["storage_settings"]["reserve_battery_discharge"] = enabled
 
             # Step 4: Send updated configuration back
-            response = await self._make_request(
+            await self._make_request(
                 "PUT",
                 "/admin/lib/tariff",
                 json=tariff_data,

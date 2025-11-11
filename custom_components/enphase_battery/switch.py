@@ -1,4 +1,5 @@
 """Switch platform for Enphase Battery."""
+
 from __future__ import annotations
 
 import logging
@@ -36,7 +37,6 @@ async def async_setup_entry(
         entities.append(ChargeFromGridSwitch(coordinator))
         entities.append(LimitDischargeSwitch(coordinator))
         entities.append(ReserveBatteryDischargeSwitch(coordinator))
-        mode_desc = "Cloud mode" if not coordinator.is_local_mode else "Hybrid mode (Local data + Cloud control)"
     else:
         _LOGGER.warning(
             "Charge From Grid switch disabled. "

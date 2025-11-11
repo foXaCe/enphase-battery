@@ -1,4 +1,5 @@
 """Sensor platform for Enphase Battery."""
+
 from __future__ import annotations
 
 import logging
@@ -134,13 +135,7 @@ class BatteryStateSensor(EnphaseBatterySensorBase):
         """Initialize the sensor."""
         super().__init__(coordinator, "state", "État Batterie")
         self._attr_device_class = SensorDeviceClass.ENUM
-        self._attr_options = [
-            "charging",
-            "discharging",
-            "idle",
-            "full",
-            "empty"
-        ]
+        self._attr_options = ["charging", "discharging", "idle", "full", "empty"]
 
     @property
     def native_value(self) -> str | None:
@@ -158,7 +153,7 @@ class BatteryStateSensor(EnphaseBatterySensorBase):
             return "empty"
         elif power < -10:  # Charging (negative power, with 10W threshold)
             return "charging"
-        elif power > 10:   # Discharging (positive power, with 10W threshold)
+        elif power > 10:  # Discharging (positive power, with 10W threshold)
             return "discharging"
         else:
             return "idle"
@@ -386,6 +381,7 @@ class BatteryBackupTimeSensor(EnphaseBatterySensorBase):
 
 
 # Diagnostic Sensors
+
 
 class BatteryTemperatureSensor(EnphaseBatterySensorBase):
     """Battery Temperature sensor."""

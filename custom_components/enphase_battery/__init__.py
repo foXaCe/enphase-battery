@@ -2,15 +2,16 @@
 Enphase Battery IQ 5P Integration for Home Assistant
 Intégration pour batteries Enphase IQ 5P
 """
+
 from __future__ import annotations
 
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform, EVENT_HOMEASSISTANT_STARTED
-from homeassistant.core import HomeAssistant, Event
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, Platform
+from homeassistant.core import Event, HomeAssistant
 
-from .const import DOMAIN, CONF_CONNECTION_MODE, CONNECTION_MODE_CLOUD
+from .const import CONF_CONNECTION_MODE, CONNECTION_MODE_CLOUD, DOMAIN
 from .coordinator import EnphaseBatteryDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -37,9 +38,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Update config entry
         hass.config_entries.async_update_entry(entry, data=new_data)
 
-        _LOGGER.info(
-            "Migration successful: Added connection_mode='cloud' to existing config"
-        )
+        _LOGGER.info("Migration successful: Added connection_mode='cloud' to existing config")
 
     return True
 
@@ -47,6 +46,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Enphase Battery from a config entry."""
     import time
+
     start_time = time.time()
     _LOGGER.info("Starting Enphase Battery setup")
 

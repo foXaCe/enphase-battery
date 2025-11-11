@@ -1,4 +1,5 @@
 """Constants for the Enphase Battery integration."""
+
 from typing import Final
 
 DOMAIN: Final = "enphase_battery"

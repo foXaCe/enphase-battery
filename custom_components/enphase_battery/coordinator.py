@@ -1,38 +1,39 @@
 """DataUpdateCoordinator for Enphase Battery."""
+
 from __future__ import annotations
 
-import logging
 from datetime import datetime, timedelta
+import logging
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
 )
-from homeassistant.helpers.storage import Store
 
 from .api import EnphaseBatteryAPI, EnphaseBatteryApiError
-from .envoy_local_api import EnphaseEnvoyLocalAPI, EnvoyLocalApiError
 from .const import (
-    CONF_SITE_ID,
-    CONF_USER_ID,
-    CONF_USE_MQTT,
     CONF_CONNECTION_MODE,
     CONF_ENVOY_HOST,
-    CONNECTION_MODE_LOCAL,
+    CONF_SITE_ID,
+    CONF_USE_MQTT,
+    CONF_USER_ID,
     CONNECTION_MODE_CLOUD,
+    CONNECTION_MODE_LOCAL,
     DEFAULT_SCAN_INTERVAL,
-    LOCAL_SCAN_INTERVAL,
     DOMAIN,
+    LOCAL_SCAN_INTERVAL,
     MQTT_SCAN_INTERVAL,
 )
+from .envoy_local_api import EnphaseEnvoyLocalAPI, EnvoyLocalApiError
 
 try:
-    from .mqtt_client import EnphaseMQTTClient, MQTT_AVAILABLE
+    from .mqtt_client import MQTT_AVAILABLE, EnphaseMQTTClient
 except ImportError:
     MQTT_AVAILABLE = False
 
@@ -197,16 +198,14 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.info("Successfully authenticated with Enphase cloud")
 
             # Save auto-detected IDs to config to avoid re-detection on next startup
-            if self.api._site_id and self.api._user_id:
-                if not site_id or not user_id:
-                    _LOGGER.info("Saving auto-detected IDs: site_id=%s, user_id=%s",
-                                self.api._site_id, self.api._user_id)
-                    new_data = {
-                        **self.entry.data,
-                        CONF_SITE_ID: str(self.api._site_id),
-                        CONF_USER_ID: str(self.api._user_id),
-                    }
-                    self.hass.config_entries.async_update_entry(self.entry, data=new_data)
+            if self.api._site_id and self.api._user_id and (not site_id or not user_id):
+                _LOGGER.info("Saving auto-detected IDs: site_id=%s, user_id=%s", self.api._site_id, self.api._user_id)
+                new_data = {
+                    **self.entry.data,
+                    CONF_SITE_ID: str(self.api._site_id),
+                    CONF_USER_ID: str(self.api._user_id),
+                }
+                self.hass.config_entries.async_update_entry(self.entry, data=new_data)
         except EnphaseBatteryApiError as err:
             _LOGGER.error("Failed to authenticate with cloud: %s", err)
             raise
@@ -356,27 +355,32 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
                     try:
                         cloud_settings = await self.api.get_battery_settings()
                         # Override local values with cloud values for these control fields
-                        data["charge_from_grid"] = cloud_settings.get("chargeFromGrid", data.get("charge_from_grid", False))
+                        data["charge_from_grid"] = cloud_settings.get(
+                            "chargeFromGrid", data.get("charge_from_grid", False)
+                        )
                         data["mode"] = cloud_settings.get("profile", data.get("mode", "unknown"))
 
                         # Extract dtgControl (Discharge To Grid) setting
                         dtg_control = cloud_settings.get("dtgControl", {})
-                        data["discharge_to_grid"] = dtg_control.get("enabled", False) if isinstance(dtg_control, dict) else False
+                        data["discharge_to_grid"] = (
+                            dtg_control.get("enabled", False) if isinstance(dtg_control, dict) else False
+                        )
 
                         # Extract rbdControl (Reserve Battery Discharge) setting
                         rbd_control = cloud_settings.get("rbdControl", {})
-                        data["reserve_battery_discharge"] = rbd_control.get("enabled", False) if isinstance(rbd_control, dict) else False
+                        data["reserve_battery_discharge"] = (
+                            rbd_control.get("enabled", False) if isinstance(rbd_control, dict) else False
+                        )
                     except Exception as err:
                         # Rate limit warnings: only log every 5 minutes to avoid spam
                         now = datetime.now()
-                        if (
-                            self._last_cloud_error_warning is None
-                            or (now - self._last_cloud_error_warning) > timedelta(minutes=5)
+                        if self._last_cloud_error_warning is None or (now - self._last_cloud_error_warning) > timedelta(
+                            minutes=5
                         ):
                             _LOGGER.warning(
                                 "Hybrid mode: Failed to fetch cloud control states, using local values: %s "
                                 "(This warning will be suppressed for 5 minutes)",
-                                err
+                                err,
                             )
                             self._last_cloud_error_warning = now
 
@@ -388,10 +392,9 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
                     raise UpdateFailed(f"Error fetching cloud data: {err}") from err
 
                 # If MQTT is enabled but stale, reconnect
-                if self._use_mqtt and self.mqtt_client:
-                    if self.mqtt_client.is_stale():
-                        _LOGGER.warning("MQTT data is stale, reconnecting...")
-                        await self._setup_mqtt()
+                if self._use_mqtt and self.mqtt_client and self.mqtt_client.is_stale():
+                    _LOGGER.warning("MQTT data is stale, reconnecting...")
+                    await self._setup_mqtt()
 
             # Calculate daily energy and 24h consumption
             self._calculate_daily_values(data)
@@ -477,8 +480,7 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         # Remove entries older than 24h
         cutoff_time = now - timedelta(hours=24)
         self._consumption_24h_history = [
-            (ts, cons) for ts, cons in self._consumption_24h_history
-            if datetime.fromisoformat(ts) > cutoff_time
+            (ts, cons) for ts, cons in self._consumption_24h_history if datetime.fromisoformat(ts) > cutoff_time
         ]
 
         # Calculate 24h consumption (delta between oldest and newest)
@@ -567,8 +569,4 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
     @property
     def is_mqtt_active(self) -> bool:
         """Return True if MQTT is active and connected."""
-        return (
-            self._use_mqtt
-            and self.mqtt_client is not None
-            and self.mqtt_client.is_connected
-        )
+        return self._use_mqtt and self.mqtt_client is not None and self.mqtt_client.is_connected

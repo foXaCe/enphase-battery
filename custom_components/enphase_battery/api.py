@@ -1,9 +1,10 @@
 """API Client for Enphase Battery IQ 5P."""
+
 from __future__ import annotations
 
+from datetime import datetime
 import logging
 from typing import Any
-from datetime import datetime
 
 import aiohttp
 from aiohttp import ClientSession, ClientTimeout
@@ -336,7 +337,9 @@ class EnphaseBatteryAPI:
 
                                 if isinstance(systems, list) and len(systems) > 0:
                                     first_site = systems[0]
-                                    site_id = first_site.get("system_id") or first_site.get("site_id") or first_site.get("id")
+                                    site_id = (
+                                        first_site.get("system_id") or first_site.get("site_id") or first_site.get("id")
+                                    )
                                     user_id = first_site.get("user_id") or first_site.get("owner_id")
 
                                     if site_id and user_id:
@@ -356,15 +359,18 @@ class EnphaseBatteryAPI:
             ) as response:
                 # Extraire site_id de l'URL (format: /web/2168380?v=3.4.0)
                 import re
+
                 url_str = str(response.url)
-                match = re.search(r'/web/(\d+)', url_str)
+                match = re.search(r"/web/(\d+)", url_str)
                 if match:
                     extracted_site_id = int(match.group(1))
 
                     # Maintenant on doit trouver le user_id
                     # Essayer de le récupérer depuis les settings de la batterie
                     try:
-                        settings_url = f"{API_BASE_URL}/service/batteryConfig/api/v1/batterySettings/{extracted_site_id}"
+                        settings_url = (
+                            f"{API_BASE_URL}/service/batteryConfig/api/v1/batterySettings/{extracted_site_id}"
+                        )
                         async with self._session.get(
                             settings_url,
                             headers=self._get_headers(),
@@ -393,7 +399,11 @@ class EnphaseBatteryAPI:
                                 summary_data = await summary_response.json()
 
                                 if isinstance(summary_data, dict):
-                                    extracted_user_id = summary_data.get("user_id") or summary_data.get("userId") or summary_data.get("owner_id")
+                                    extracted_user_id = (
+                                        summary_data.get("user_id")
+                                        or summary_data.get("userId")
+                                        or summary_data.get("owner_id")
+                                    )
                                     if extracted_user_id:
                                         return int(extracted_site_id), int(extracted_user_id)
                     except Exception:
@@ -404,8 +414,8 @@ class EnphaseBatteryAPI:
 
         # Méthode 3: Essayer d'extraire user_id depuis le JWT token dans les cookies
         try:
-            import json
             import base64
+            import json
 
             cookies = self._session.cookie_jar.filter_cookies(API_BASE_URL)
 
@@ -414,16 +424,16 @@ class EnphaseBatteryAPI:
                 if "enlighten_manager_token" in cookie.key.lower():
                     try:
                         # Décoder le JWT (format: header.payload.signature)
-                        token_parts = cookie.value.split('.')
+                        token_parts = cookie.value.split(".")
                         if len(token_parts) >= 2:
                             # Décoder la partie payload (partie 2)
                             payload_b64 = token_parts[1]
                             # Ajouter le padding si nécessaire
                             padding = 4 - len(payload_b64) % 4
                             if padding != 4:
-                                payload_b64 += '=' * padding
+                                payload_b64 += "=" * padding
 
-                            payload_json = base64.b64decode(payload_b64).decode('utf-8')
+                            payload_json = base64.b64decode(payload_b64).decode("utf-8")
                             payload_data = json.loads(payload_json)
 
                             # Extraire user_id du JWT
@@ -483,7 +493,9 @@ class EnphaseBatteryAPI:
         except aiohttp.ClientError as err:
             raise EnphaseBatteryConnectionError(f"Failed to get battery data: {err}") from err
 
-    def _parse_battery_data(self, data: dict[str, Any], battery_settings: dict[str, Any] | None = None) -> dict[str, Any]:
+    def _parse_battery_data(
+        self, data: dict[str, Any], battery_settings: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Parse battery data from API response."""
         battery_details = data.get("battery_details", {})
         battery_config = data.get("batteryConfig", {})
@@ -504,33 +516,32 @@ class EnphaseBatteryAPI:
 
         # Extract rbdControl (Reserve Battery Discharge) setting
         rbd_control = config_source.get("rbdControl", {})
-        reserve_battery_discharge_enabled = rbd_control.get("enabled", False) if isinstance(rbd_control, dict) else False
+        reserve_battery_discharge_enabled = (
+            rbd_control.get("enabled", False) if isinstance(rbd_control, dict) else False
+        )
 
         return {
             # État de charge
             "soc": battery_details.get("aggregate_soc", latest_soc),
-
             # Puissances instantanées
             "power": self._calculate_battery_power(latest_charge, latest_discharge),
             "charge_power": latest_charge or 0,
             "discharge_power": latest_discharge or 0,
-
             # Statistiques journalières
             "consumption_24h": battery_details.get("last_24h_consumption", 0),
             "estimated_backup_time": battery_details.get("estimated_time", 0),
-
             # Configuration - prioriser battery_settings (camelCase) puis batteryConfig (snake_case)
             "mode": config_source.get("profile", battery_config.get("usage", "unknown")),
-            "backup_reserve": config_source.get("batteryBackupPercentage", battery_config.get("battery_backup_percentage", 0)),
+            "backup_reserve": config_source.get(
+                "batteryBackupPercentage", battery_config.get("battery_backup_percentage", 0)
+            ),
             "charge_from_grid": config_source.get("chargeFromGrid", battery_config.get("charge_from_grid", False)),
             "discharge_to_grid": discharge_to_grid_enabled,
             "reserve_battery_discharge": reserve_battery_discharge_enabled,
             "very_low_soc": config_source.get("veryLowSoc", battery_config.get("very_low_soc", 5)),
-
             # Totaux du jour
             "energy_charged_today": stats.get("totals", {}).get("charge", 0) / 1000,  # Wh -> kWh
             "energy_discharged_today": stats.get("totals", {}).get("discharge", 0) / 1000,
-
             # État système
             "status": data.get("siteStatus", "unknown"),
             "last_update": datetime.now().isoformat(),
@@ -851,7 +862,7 @@ class EnphaseBatteryAPI:
                 "locked": False,
                 "scheduleSupported": True,
                 "startTime": 960,
-                "endTime": 1140
+                "endTime": 1140,
             }
         else:
             # Update only the enabled field
@@ -908,7 +919,7 @@ class EnphaseBatteryAPI:
                 "locked": False,
                 "scheduleSupported": True,
                 "startTime": None,
-                "endTime": None
+                "endTime": None,
             }
         else:
             # Update only the enabled field

@@ -1,4 +1,5 @@
 """Select platform for Enphase Battery."""
+
 from __future__ import annotations
 
 import logging
@@ -40,7 +41,6 @@ async def async_setup_entry(
 
     if not coordinator.is_local_mode or enable_cloud_control:
         entities.append(BatteryModeSelect(coordinator))
-        mode_desc = "Cloud mode" if not coordinator.is_local_mode else "Hybrid mode (Local data + Cloud control)"
     else:
         _LOGGER.warning(
             "Battery Mode select disabled. "
@@ -67,7 +67,7 @@ class BatteryModeSelect(CoordinatorEntity, SelectEntity):
         # Note: backup_only et expert sont souvent cachés selon la configuration
         self._attr_options = [
             "Autoconsommation",  # self-consumption
-            "Optimisation IA",   # cost_savings (AI optimization)
+            "Optimisation IA",  # cost_savings (AI optimization)
         ]
 
         # Mapping API <-> UI

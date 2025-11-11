@@ -1,14 +1,16 @@
 """MQTT Client for real-time Enphase Battery updates."""
+
 from __future__ import annotations
 
-import asyncio
-import logging
-from typing import Any, Callable
+from collections.abc import Callable
 from datetime import datetime, timedelta
+import logging
+from typing import Any
 
 try:
     from awscrt import mqtt
     from awsiot import mqtt_connection_builder
+
     MQTT_AVAILABLE = True
 except ImportError:
     MQTT_AVAILABLE = False
@@ -54,7 +56,6 @@ class EnphaseMQTTClient:
     async def connect(self) -> bool:
         """Connect to AWS IoT MQTT broker."""
         try:
-
             # TODO: Implémenter la connexion AWS IoT avec custom authorizer
             # Note: L'app Enphase utilise aws-lambda-authoriser-prod
             # Nécessite de passer le token via le header MQTT
@@ -80,11 +81,11 @@ class EnphaseMQTTClient:
         """Handle received MQTT message."""
         try:
             import json
+
             message = json.loads(payload.decode("utf-8"))
 
             self._last_message = message
             self._last_update = datetime.now()
-
 
             if self._on_message_callback:
                 self._on_message_callback(message)

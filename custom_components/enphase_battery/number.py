@@ -1,4 +1,5 @@
 """Number platform for Enphase Battery."""
+
 from __future__ import annotations
 
 import logging
