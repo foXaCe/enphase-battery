@@ -1,0 +1,131 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Verify manifest version matches tag
+        run: |
+          MANIFEST_VERSION=$(jq -r '.version' custom_components/enphase_battery/manifest.json)
+          TAG_VERSION="${{ steps.version.outputs.version }}"
+
+          if [ "$MANIFEST_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Manifest version ($MANIFEST_VERSION) does not match tag version ($TAG_VERSION)"
+            exit 1
+          fi
+
+          echo "✓ Version matches: $MANIFEST_VERSION"
+
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          # Try to extract changelog section for this version
+          VERSION="${{ steps.version.outputs.version }}"
+
+          if [ -f "CHANGELOG.md" ]; then
+            # Extract section between this version and next version heading
+            CHANGELOG=$(sed -n "/## \[$VERSION\]/,/## \[/p" CHANGELOG.md | sed '$d')
+
+            if [ -z "$CHANGELOG" ]; then
+              # Fallback: use git log
+              CHANGELOG=$(git log $(git describe --tags --abbrev=0 HEAD^)..HEAD --pretty=format:"- %s" || echo "- Release $VERSION")
+            fi
+          else
+            # Use git log for changelog
+            CHANGELOG=$(git log $(git describe --tags --abbrev=0 HEAD^ 2>/dev/null)..HEAD --pretty=format:"- %s" 2>/dev/null || echo "- Release $VERSION")
+          fi
+
+          # Save to file to preserve newlines
+          echo "$CHANGELOG" > /tmp/changelog.txt
+          echo "changelog_file=/tmp/changelog.txt" >> $GITHUB_OUTPUT
+
+      - name: Create ZIP archive
+        run: |
+          cd custom_components
+          zip -r ../enphase_battery-${{ steps.version.outputs.version }}.zip enphase_battery/ -x "*.pyc" -x "*__pycache__*"
+          cd ..
+
+          # Verify ZIP was created
+          if [ -f "enphase_battery-${{ steps.version.outputs.version }}.zip" ]; then
+            echo "✓ ZIP archive created successfully"
+            ls -lh enphase_battery-${{ steps.version.outputs.version }}.zip
+          else
+            echo "::error::Failed to create ZIP archive"
+            exit 1
+          fi
+
+      - name: Generate release notes
+        run: |
+          cat > /tmp/release_notes.md << 'EOF'
+          ## Changes in this release
+
+          $(cat /tmp/changelog.txt)
+
+          ## Installation
+
+          ### Via HACS (Recommended)
+
+          1. Open HACS
+          2. Go to "Integrations"
+          3. Click the three dots in the top right
+          4. Select "Custom repositories"
+          5. Add `https://github.com/foXaCe/enphase-battery` as an Integration
+          6. Click "Enphase Battery IQ 5P" and install
+          7. Restart Home Assistant
+
+          ### Manual Installation
+
+          1. Download `enphase_battery-${{ steps.version.outputs.version }}.zip`
+          2. Extract to `custom_components/` in your Home Assistant config directory
+          3. Restart Home Assistant
+
+          ## Configuration
+
+          After installation, go to **Settings → Devices & Services → Add Integration** and search for "Enphase Battery".
+
+          ## What's Changed
+
+          See [CHANGELOG.md](https://github.com/foXaCe/enphase-battery/blob/main/CHANGELOG.md) for full details.
+
+          ## Support
+
+          - 📖 [Documentation](https://github.com/foXaCe/enphase-battery)
+          - 🐛 [Report Issues](https://github.com/foXaCe/enphase-battery/issues)
+          - 💬 [Discussions](https://github.com/foXaCe/enphase-battery/discussions)
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Release ${{ steps.version.outputs.tag }}"
+          body_path: /tmp/release_notes.md
+          files: |
+            enphase_battery-${{ steps.version.outputs.version }}.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Announce release
+        run: |
+          echo "::notice::Release ${{ steps.version.outputs.tag }} created successfully!"
+          echo "::notice::Download: https://github.com/foXaCe/enphase-battery/releases/tag/${{ steps.version.outputs.tag }}"

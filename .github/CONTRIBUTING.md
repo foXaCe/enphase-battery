@@ -113,3 +113,76 @@ Open an issue for:
 - Help with development setup
 
 Thank you for contributing! 🚀
+
+## Creating a Release
+
+Releases are automated via GitHub Actions. To create a new release:
+
+### Option 1: Using the release script (Recommended)
+
+```bash
+# Create and push a new release
+./scripts/release.sh 2.27.4
+
+# The script will:
+# 1. Update manifest.json and pyproject.toml versions
+# 2. Create a commit
+# 3. Create a git tag
+# 4. Push to GitHub (with confirmation)
+```
+
+### Option 2: Manual process
+
+```bash
+# 1. Update version in manifest.json
+vim custom_components/enphase_battery/manifest.json
+
+# 2. Update version in pyproject.toml
+vim pyproject.toml
+
+# 3. Update CHANGELOG.md with changes
+vim CHANGELOG.md
+
+# 4. Commit changes
+git add custom_components/enphase_battery/manifest.json pyproject.toml CHANGELOG.md
+git commit -m "chore: bump version to X.Y.Z"
+
+# 5. Create and push tag
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+git push origin main
+git push origin vX.Y.Z
+```
+
+### What happens automatically
+
+Once you push a tag (format: `v*.*.*`), GitHub Actions will:
+
+1. ✅ Run all quality checks (Ruff, Hassfest, HACS)
+2. ✅ Verify manifest version matches tag
+3. ✅ Extract changelog for this version
+4. ✅ Create ZIP archive of the integration
+5. ✅ Create GitHub Release with:
+   - Release notes from CHANGELOG.md
+   - Installation instructions
+   - ZIP file attachment
+6. ✅ Generate automatic release notes from commits
+
+### Release checklist
+
+Before creating a release:
+
+- [ ] All tests pass locally
+- [ ] Code is formatted with Ruff
+- [ ] CHANGELOG.md is updated
+- [ ] Version in manifest.json is correct
+- [ ] All GitHub Actions are passing on main branch
+- [ ] Test the integration on a real system if possible
+
+### Versioning
+
+This project follows [Semantic Versioning](https://semver.org/):
+
+- **MAJOR** (X.0.0): Breaking changes
+- **MINOR** (0.X.0): New features, backward compatible
+- **PATCH** (0.0.X): Bug fixes, backward compatible
+
