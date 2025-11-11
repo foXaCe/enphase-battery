@@ -39,3 +39,6 @@ Thumbs.db
 # Home Assistant test files
 test_config/
 *.log
+
+# Debug scripts
+debug_*.py
