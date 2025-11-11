@@ -1,180 +1,121 @@
 # Changelog
 
-Toutes les modifications notables de ce projet seront documentées dans ce fichier.
+All notable changes to this project will be documented in this file.
 
-## [2.0.0] - 2025-10-25
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-### 🎉 Nouvelles Fonctionnalités Majeures
+## [Unreleased]
 
-#### Prédiction de Consommation par Analyse Historique
-- **Sensors SQL** pour analyser l'historique des 60-90 derniers jours
-- **Identification automatique** des jours similaires (même jour semaine + saison)
-- **Calcul du déficit énergétique** prévu (consommation - production)
-- **Ajustement dynamique** du SOC cible basé sur les prédictions
+## [2.28.0] - 2025-11-11
 
-#### Ajustement Lever du Soleil
-- **Calcul du gap** entre fin des heures creuses et lever du soleil
-- **Ajustement saisonnier** automatique (hiver vs été)
-- **Optimisation** pour couvrir la consommation pendant le gap
-- **Intégration** avec le sensor `sun.sun`
+### Added
+- **Automated release workflow** via GitHub Actions
+  - Triggers on version tags (v*.*.*)
+  - Auto-generates release notes and ZIP archives
+  - Publishes releases automatically to GitHub
+- **Release helper script** (`scripts/release.sh`)
+  - Interactive release creation
+  - Automatic version updates in manifest.json and pyproject.toml
+  - Color-coded CLI output
+- **Code quality tooling**
+  - Ruff linter and formatter configuration
+  - Pre-commit hooks (optional)
+  - MyPy type checking setup
+- **CI/CD workflows**
+  - Code quality checks (Ruff linting and formatting)
+  - Home Assistant Hassfest validation
+  - HACS integration validation
+  - All checks run on push and pull requests
+- **Documentation improvements**
+  - CONTRIBUTING.md with development guidelines
+  - Release process documentation
+  - GitHub Actions status badges in README
 
-### 📝 Modifications
+### Changed
+- All Python code formatted with Ruff for consistency
+- Imports organized with isort
+- Increased complexity limit for integration-specific logic
 
-#### Blueprint `smart_battery_charge_tempo.yaml`
+### Fixed
+- Removed deprecated `domains` key from hacs.json
+- Removed unsupported `description` key from manifest.json
+- Added GitHub repository topics for better discoverability
 
-**Nouveaux Inputs:**
-- `sun_sensor`: Capteur pour le lever du soleil (défaut: `sun.sun`)
-- `predicted_consumption_sensor`: Sensor SQL de consommation prédite
-- `enable_consumption_prediction`: Active/désactive la prédiction historique
-- `sunrise_gap_adjustment`: Active/désactive l'ajustement gap sunrise
-- `consumption_per_hour`: Consommation moyenne par heure (kWh/h)
+## [2.27.3] - 2025-10-31
 
-**Nouvelles Variables Calculées:**
-- `sunrise_gap_hours`: Heures entre fin HC et lever du soleil
-- `sunrise_soc_adjustment`: Ajustement SOC basé sur le gap sunrise
-- `predicted_energy_deficit`: Déficit énergétique prévu (kWh)
-- `consumption_soc_adjustment`: Ajustement SOC basé sur la consommation historique
+### Fixed
+- Add rate limiting for cloud API error warnings to prevent log spam
+- Warning messages now limited to once every 5 minutes when Enphase cloud API has issues
+- Integration continues working with local values during cloud API outages
 
-**Nouveaux Triggers:**
-- Trigger à `03:00` pour recalcul quotidien avec nouvel historique
-- Trigger sur changement de `predicted_consumption_sensor`
+### Changed
+- Removed all debug logs from production code
+- Cleaner log output focused on important events
 
-**Améliorations du Calcul SOC Cible:**
-```
-Ancien: SOC base + ajustement production solaire
-Nouveau: SOC base + ajustement sunrise + ajustement consommation historique
-```
+## [2.27.2] - 2025-10-31
 
-**Notifications Améliorées:**
-- Affichage consommation prédite
-- Affichage déficit énergétique prévu
-- Affichage gap sunrise et ajustements
-- Détails complets en mode debug
+### Changed
+- Removed debug logging from coordinator and API modules
+- Improved log clarity by removing verbose fetch messages
 
-### 📚 Nouvelle Documentation
+## [2.27.1] - 2025-10-31
 
-**Fichiers Ajoutés:**
-- `docs/CONSUMPTION_PREDICTION.md`: Guide complet prédiction consommation
-- `docs/ARCHITECTURE_PREDICTION.md`: Architecture technique détaillée
-- `examples/sensors_sql_consumption.yaml`: Exemples sensors SQL
-- `examples/configuration_complete.yaml`: Configuration complète annotée
+### Fixed
+- Improved optimistic state timing for battery control switches
+- Optimistic state now clears before refresh instead of after
+- Prevents switches from getting stuck during slow API calls or rapid toggles
 
-**Contenu de la Documentation:**
-- Guide d'installation étape par étape
-- Exemples de requêtes SQL pour différents cas d'usage
-- Schémas d'architecture avec flux de données
-- Timeline journalière avec exemple concret
-- Guide de dépannage complet
-- Ressources et liens utiles
+## [2.27.0] - 2025-10-31
 
-### 🔧 Améliorations Techniques
+### Added
+- Optimistic state support for "Charge From Grid" switch
+- Instant UI feedback for all three battery control switches
 
-**Base de Données:**
-- Requêtes SQL optimisées avec JOIN sur `statistics_meta`
-- Filtrage intelligent (exclut valeurs nulles, invalides)
-- Valeurs par défaut sécurisées (5.0 kWh si pas d'historique)
+### Changed
+- All switches now update UI immediately on toggle
+- Consistent UX across all battery control switches
 
-**Performance:**
-- Calculs uniquement sur événements (pas de polling)
-- Templates optimisés avec mise en cache
-- Triggers conditionnels (évite exécutions inutiles)
+## [2.26.3] - 2025-10-31
 
-**Sécurité:**
-- Limitation ajustement consommation à **+50% max** (évite surcharge)
-- SOC final toujours plafonné à **100%**
-- Fallback gracieux si sensors indisponibles
+### Changed
+- Removed assumed_state attribute for normal switch visual appearance
+- Switches maintain instant feedback without visual indicators
 
-### 🐛 Corrections
+## [2.26.2] - 2025-10-31
 
-- Fix: Gestion correcte des sensors vides (`""` vs `none`)
-- Fix: Calcul gap sunrise avec heures qui traversent minuit
-- Fix: Arrondi cohérent des pourcentages (1 décimale pour debug)
+### Added
+- Optimistic state feedback for dtgControl and rbdControl switches
+- Instant visual updates when toggling switches
 
-### ⚠️ Breaking Changes
+## [2.26.1] - 2025-10-31
 
-**Aucun !** Toutes les nouvelles fonctionnalités sont **optionnelles** :
-- Si vous n'activez pas `enable_consumption_prediction`, le blueprint fonctionne comme avant
-- Si vous n'activez pas `sunrise_gap_adjustment`, le calcul reste inchangé
-- Rétrocompatibilité totale avec les configurations existantes
+### Fixed
+- Fixed dtgControl and rbdControl switches to properly use cloud API
+- Fixed coordinator to read switch states from cloud in hybrid mode
+- Switches now work correctly in both cloud and hybrid modes
 
-### 📊 Comparaison Versions
+## [2.26.0] - 2025-10-29
 
-| Fonctionnalité | v1.x | v2.0 |
-|----------------|------|------|
-| Heures creuses | ✅ | ✅ |
-| Tempo (jours rouges) | ✅ | ✅ |
-| Production solaire prévue | ✅ | ✅ |
-| Lever du soleil | ❌ | ✅ |
-| Consommation historique | ❌ | ✅ |
-| Déficit énergétique | ❌ | ✅ |
-| Ajustement saisonnier | ❌ | ✅ |
-| Prédiction jours similaires | ❌ | ✅ |
+### Added
+- Reserve Battery Discharge switch (rbdControl)
+- Allow Discharge To Grid switch (dtgControl)
+- Both switches support cloud and hybrid modes
 
-### 🎯 Impact sur le SOC Cible
+### Changed
+- Improved switch naming for better clarity
 
-**Exemple Hiver (gap important):**
-- **v1.x**: SOC cible = 80% (base production solaire)
-- **v2.0**: SOC cible = 100% (80% base + 30% sunrise + 50% consommation)
-- **Gain**: +20% autonomie pendant le gap matinal
+## Previous Versions
 
-**Exemple Été (pas de gap):**
-- **v1.x**: SOC cible = 80%
-- **v2.0**: SOC cible = 80% (pas d'ajustement nécessaire)
-- **Gain**: Pas de surcharge inutile
+See git history for changes in versions prior to 2.26.0.
 
-### 📈 Statistiques
-
-**Lignes de Code:**
-- Blueprint: ~600 lignes (+200 lignes)
-- Documentation: ~1500 lignes (nouveau)
-- Exemples SQL: ~200 lignes (nouveau)
-
-**Couverture:**
-- 6 nouveaux inputs configurables
-- 4 nouvelles variables calculées
-- 2 nouveaux triggers temporels
-- 3 nouveaux fichiers de documentation
-- 15+ exemples de configuration
-
-### 🙏 Remerciements
-
-Merci à la communauté Home Assistant pour :
-- L'intégration SQL Sensor
-- L'intégration Recorder avec statistics
-- Les exemples de requêtes SQL dans les forums
-
-### 🔗 Ressources
-
-- **Documentation principale**: [`docs/CONSUMPTION_PREDICTION.md`](docs/CONSUMPTION_PREDICTION.md)
-- **Architecture technique**: [`docs/ARCHITECTURE_PREDICTION.md`](docs/ARCHITECTURE_PREDICTION.md)
-- **Configuration complète**: [`examples/configuration_complete.yaml`](examples/configuration_complete.yaml)
-- **Support**: [GitHub Issues](https://github.com/foXaCe/enphase-battery/issues)
-
----
-
-## [1.0.0] - 2025-10-24
-
-### Fonctionnalités Initiales
-
-- Gestion charge batterie selon heures creuses
-- Optimisation Tempo (jours rouges EDF)
-- Intégration prévisions production solaire
-- Stratégies de charge (immédiate / optimisée)
-- Notifications intelligentes
-- Mode debug détaillé
-
----
-
-## Format
-
-Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
-et ce projet adhère à [Semantic Versioning](https://semver.org/lang/fr/).
-
-### Types de Changements
-
-- `Ajouté` pour les nouvelles fonctionnalités
-- `Modifié` pour les changements aux fonctionnalités existantes
-- `Déprécié` pour les fonctionnalités qui seront bientôt supprimées
-- `Supprimé` pour les fonctionnalités supprimées
-- `Corrigé` pour les corrections de bugs
-- `Sécurité` pour les changements de sécurité
+[Unreleased]: https://github.com/foXaCe/enphase-battery/compare/v2.28.0...HEAD
+[2.28.0]: https://github.com/foXaCe/enphase-battery/compare/v2.27.3...v2.28.0
+[2.27.3]: https://github.com/foXaCe/enphase-battery/compare/v2.27.2...v2.27.3
+[2.27.2]: https://github.com/foXaCe/enphase-battery/compare/v2.27.1...v2.27.2
+[2.27.1]: https://github.com/foXaCe/enphase-battery/compare/v2.27.0...v2.27.1
+[2.27.0]: https://github.com/foXaCe/enphase-battery/compare/v2.26.3...v2.27.0
+[2.26.3]: https://github.com/foXaCe/enphase-battery/compare/v2.26.2...v2.26.3
+[2.26.2]: https://github.com/foXaCe/enphase-battery/compare/v2.26.1...v2.26.2
+[2.26.1]: https://github.com/foXaCe/enphase-battery/compare/v2.26.0...v2.26.1
+[2.26.0]: https://github.com/foXaCe/enphase-battery/releases/tag/v2.26.0
