@@ -1,7 +1,6 @@
 {
   "domain": "enphase_battery",
   "name": "Enphase Battery IQ 5P",
-  "description": "Monitoring and control for Enphase IQ Battery via cloud API or local Envoy with Tempo and weather-based smart charging",
   "codeowners": ["@foXaCe"],
   "config_flow": true,
   "dependencies": [],
