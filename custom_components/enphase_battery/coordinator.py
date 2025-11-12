@@ -207,6 +207,13 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.error("Cloud credentials not found in local mode config. Cannot enable cloud control.")
             return
 
+        # Get saved site_id and user_id to avoid re-detection (saves 5-7 seconds)
+        site_id_str = self.entry.data.get(CONF_SITE_ID)
+        site_id = int(site_id_str) if site_id_str else None
+
+        user_id_str = self.entry.data.get(CONF_USER_ID)
+        user_id = int(user_id_str) if user_id_str else None
+
         _LOGGER.debug("Setting up cloud API for control (hybrid mode)")
 
         # Initialize API client
@@ -214,14 +221,28 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
             session=session,
             username=cloud_username,
             password=cloud_password,
-            site_id=None,  # Will be auto-detected
-            user_id=None,
+            site_id=site_id,
+            user_id=user_id,
         )
 
         # Authenticate
         try:
             await self.api.authenticate()
             _LOGGER.debug("Successfully authenticated with Enphase cloud for control")
+
+            # Save auto-detected IDs to config to avoid re-detection on next startup
+            if self.api._site_id and self.api._user_id and (not site_id or not user_id):
+                _LOGGER.debug(
+                    "Saving auto-detected IDs: site_id=%s, user_id=%s",
+                    self.api._site_id,
+                    self.api._user_id,
+                )
+                new_data = {
+                    **self.entry.data,
+                    CONF_SITE_ID: str(self.api._site_id),
+                    CONF_USER_ID: str(self.api._user_id),
+                }
+                self.hass.config_entries.async_update_entry(self.entry, data=new_data)
         except EnphaseBatteryApiError as err:
             _LOGGER.error("Failed to authenticate with cloud for control: %s", err)
             # Don't raise - allow local mode to continue without control
