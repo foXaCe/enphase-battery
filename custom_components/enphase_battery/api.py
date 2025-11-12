@@ -644,29 +644,6 @@ class EnphaseBatteryAPI:
         except aiohttp.ClientError as err:
             raise EnphaseBatteryConnectionError(f"Failed to get devices: {err}") from err
 
-    async def get_mqtt_credentials(self) -> dict[str, Any] | None:
-        """Get MQTT connection credentials for real-time updates.
-
-        Returns AWS IoT endpoint, topic, and authentication token.
-        """
-        if not self._site_id:
-            raise EnphaseBatteryAuthError("Not authenticated")
-
-        url = f"{API_BASE_URL}/service/batteryConfig/api/v1/mqttSignedUrl/{self._site_id}"
-
-        try:
-            async with self._session.get(
-                url,
-                headers=self._get_headers(),
-                timeout=ClientTimeout(total=API_TIMEOUT),
-            ) as response:
-                response.raise_for_status()
-                return await response.json()
-
-        except aiohttp.ClientError as err:
-            _LOGGER.error(f"Failed to get MQTT credentials: {err}")
-            return None
-
     async def set_battery_mode(self, mode: str) -> bool:
         """Set battery operation mode.
 

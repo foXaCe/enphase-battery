@@ -10,7 +10,6 @@ CONF_USERNAME: Final = "username"
 CONF_PASSWORD: Final = "password"
 CONF_SITE_ID: Final = "site_id"  # ID du site Enphase
 CONF_USER_ID: Final = "user_id"  # ID utilisateur Enphase (optionnel)
-CONF_USE_MQTT: Final = "use_mqtt"  # Option pour activer MQTT
 CONF_CONNECTION_MODE: Final = "connection_mode"  # Mode de connexion (local/cloud)
 CONF_ENVOY_HOST: Final = "envoy_host"  # Hostname/IP Envoy pour mode local
 CONF_ENABLE_CLOUD_CONTROL: Final = "enable_cloud_control"  # Activer contrôle cloud en mode local
@@ -28,8 +27,6 @@ CONNECTION_MODES: Final = [CONNECTION_MODE_LOCAL, CONNECTION_MODE_CLOUD]
 # Update intervals
 DEFAULT_SCAN_INTERVAL: Final = 60  # secondes (mode polling cloud)
 LOCAL_SCAN_INTERVAL: Final = 10  # secondes (mode local - plus rapide)
-MQTT_SCAN_INTERVAL: Final = 300  # secondes (backup avec MQTT)
-MQTT_RECONNECT_INTERVAL: Final = 900  # 15 minutes (durée token MQTT)
 
 # Battery modes (noms API réels découverts)
 BATTERY_MODE_SELF_CONSUMPTION: Final = "self-consumption"

@@ -21,21 +21,14 @@ from .const import (
     CONF_CONNECTION_MODE,
     CONF_ENVOY_HOST,
     CONF_SITE_ID,
-    CONF_USE_MQTT,
     CONF_USER_ID,
     CONNECTION_MODE_CLOUD,
     CONNECTION_MODE_LOCAL,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     LOCAL_SCAN_INTERVAL,
-    MQTT_SCAN_INTERVAL,
 )
 from .envoy_local_api import EnphaseEnvoyLocalAPI, EnvoyLocalApiError
-
-try:
-    from .mqtt_client import MQTT_AVAILABLE, EnphaseMQTTClient
-except ImportError:
-    MQTT_AVAILABLE = False
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,11 +42,7 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
 
     Supports dual connection modes:
     - Local mode: Direct connection to Envoy (10s polling, no API limits)
-    - Cloud mode: Enphase Enlighten API (60s polling OR MQTT real-time)
-
-    Cloud mode supports two sub-modes:
-    - Polling mode (default): Updates every 60 seconds via HTTP API
-    - MQTT mode (optional): Real-time updates via AWS IoT + backup polling every 5 min
+    - Cloud mode: Enphase Enlighten API (60s polling)
     """
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -61,7 +50,6 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         self.entry = entry
         self.api: EnphaseBatteryAPI | None = None
         self.local_api: EnphaseEnvoyLocalAPI | None = None
-        self.mqtt_client: EnphaseMQTTClient | None = None
 
         # Initialize persistent storage for energy tracking
         self._store = Store(hass, STORAGE_VERSION, f"{STORAGE_KEY}_{entry.entry_id}")
@@ -89,22 +77,26 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
 
         # Determine connection mode (default to cloud for backward compatibility)
         self._connection_mode = entry.data.get(CONF_CONNECTION_MODE, CONNECTION_MODE_CLOUD)
-        self._use_mqtt = entry.options.get(CONF_USE_MQTT, False) and self._connection_mode == CONNECTION_MODE_CLOUD
 
         # Track last warning time for rate limiting repeated errors
         self._last_cloud_error_warning: datetime | None = None
 
-        # Determine update interval based on connection mode and MQTT
+        # Track last save time for batching storage writes (save every 5 minutes)
+        self._last_storage_save: datetime | None = None
+        self._storage_save_interval = timedelta(minutes=5)
+
+        # Cache for cloud control states in hybrid mode (refresh every 2 minutes)
+        self._last_cloud_control_fetch: datetime | None = None
+        self._cloud_control_cache: dict[str, Any] = {}
+        self._cloud_control_cache_interval = timedelta(minutes=2)
+
+        # Determine update interval based on connection mode
         if self._connection_mode == CONNECTION_MODE_LOCAL:
             # Local mode: Fast polling (10s)
             update_interval = timedelta(seconds=LOCAL_SCAN_INTERVAL)
             mode_description = "Local (Envoy direct)"
-        elif self._use_mqtt:
-            # Cloud mode with MQTT: Slow backup polling (5min)
-            update_interval = timedelta(seconds=MQTT_SCAN_INTERVAL)
-            mode_description = "Cloud (MQTT + backup polling)"
         else:
-            # Cloud mode standard polling (60s)
+            # Cloud mode: Standard polling (60s)
             update_interval = timedelta(seconds=DEFAULT_SCAN_INTERVAL)
             mode_description = "Cloud (polling)"
 
@@ -115,7 +107,7 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
             update_interval=update_interval,
         )
 
-        _LOGGER.info(
+        _LOGGER.debug(
             "Coordinator initialized in %s mode (interval: %ss)",
             mode_description,
             update_interval.total_seconds(),
@@ -135,15 +127,11 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
 
             # Hybrid mode: Also initialize cloud API for control if enabled
             if enable_cloud_control:
-                _LOGGER.info("Hybrid mode enabled: initializing cloud API for control")
+                _LOGGER.debug("Hybrid mode enabled: initializing cloud API for control")
                 await self._setup_cloud_api_from_local_creds(session)
         else:
             # Cloud mode: Initialize cloud API
             await self._setup_cloud_api(session)
-
-            # Initialize MQTT if enabled (cloud mode only)
-            if self._use_mqtt and MQTT_AVAILABLE:
-                await self._setup_mqtt()
 
     async def _setup_local_api(self, session) -> None:
         """Set up local Envoy API client."""
@@ -153,7 +141,7 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         cloud_username = self.entry.data.get("cloud_username")
         cloud_password = self.entry.data.get("cloud_password")
 
-        _LOGGER.info("Setting up local Envoy API connection to %s", host)
+        _LOGGER.debug("Setting up local Envoy API connection to %s", host)
 
         self.local_api = EnphaseEnvoyLocalAPI(
             session=session,
@@ -167,7 +155,7 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         # Authenticate
         try:
             await self.local_api.authenticate()
-            _LOGGER.info("Successfully authenticated with local Envoy at %s", host)
+            _LOGGER.debug("Successfully authenticated with local Envoy at %s", host)
         except EnvoyLocalApiError as err:
             _LOGGER.error("Failed to authenticate with local Envoy: %s", err)
             raise
@@ -181,7 +169,7 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         user_id_str = self.entry.data.get(CONF_USER_ID)
         user_id = int(user_id_str) if user_id_str else None
 
-        _LOGGER.info("Setting up cloud API connection to Enphase Enlighten")
+        _LOGGER.debug("Setting up cloud API connection to Enphase Enlighten")
 
         # Initialize API client
         self.api = EnphaseBatteryAPI(
@@ -195,11 +183,11 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         # Authenticate
         try:
             await self.api.authenticate()
-            _LOGGER.info("Successfully authenticated with Enphase cloud")
+            _LOGGER.debug("Successfully authenticated with Enphase cloud")
 
             # Save auto-detected IDs to config to avoid re-detection on next startup
             if self.api._site_id and self.api._user_id and (not site_id or not user_id):
-                _LOGGER.info("Saving auto-detected IDs: site_id=%s, user_id=%s", self.api._site_id, self.api._user_id)
+                _LOGGER.debug("Saving auto-detected IDs: site_id=%s, user_id=%s", self.api._site_id, self.api._user_id)
                 new_data = {
                     **self.entry.data,
                     CONF_SITE_ID: str(self.api._site_id),
@@ -219,7 +207,7 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.error("Cloud credentials not found in local mode config. Cannot enable cloud control.")
             return
 
-        _LOGGER.info("Setting up cloud API for control (hybrid mode)")
+        _LOGGER.debug("Setting up cloud API for control (hybrid mode)")
 
         # Initialize API client
         self.api = EnphaseBatteryAPI(
@@ -233,51 +221,12 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         # Authenticate
         try:
             await self.api.authenticate()
-            _LOGGER.info("Successfully authenticated with Enphase cloud for control")
+            _LOGGER.debug("Successfully authenticated with Enphase cloud for control")
         except EnphaseBatteryApiError as err:
             _LOGGER.error("Failed to authenticate with cloud for control: %s", err)
             # Don't raise - allow local mode to continue without control
             self.api = None
 
-    async def _setup_mqtt(self) -> None:
-        """Set up MQTT connection for real-time updates."""
-        try:
-            _LOGGER.info("Setting up MQTT connection...")
-
-            # Get MQTT credentials from API
-            mqtt_data = await self.api.get_mqtt_credentials()
-
-            if not mqtt_data:
-                _LOGGER.warning("Failed to get MQTT credentials, falling back to polling")
-                self._use_mqtt = False
-                return
-
-            # Create MQTT client
-            self.mqtt_client = EnphaseMQTTClient(
-                endpoint=mqtt_data["aws_iot_endpoint"],
-                topic=mqtt_data["topic"],
-                token_key=mqtt_data["aws_token_key"],
-                token_value=mqtt_data["aws_token_value"],
-                on_message_callback=self._handle_mqtt_message,
-            )
-
-            # Connect
-            connected = await self.mqtt_client.connect()
-            if connected:
-                _LOGGER.info("MQTT connected successfully")
-            else:
-                _LOGGER.warning("MQTT connection failed, using polling only")
-                self._use_mqtt = False
-
-        except Exception as err:
-            _LOGGER.error("Error setting up MQTT: %s", err)
-            self._use_mqtt = False
-
-    def _handle_mqtt_message(self, message: dict[str, Any]) -> None:
-        """Handle incoming MQTT message with battery updates."""
-
-        # Update coordinator data immediately
-        self.async_set_updated_data(message)
 
     async def _load_energy_tracking(self) -> None:
         """Load energy tracking data from persistent storage."""
@@ -298,7 +247,7 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
             self._daily_power_discharged = self._stored_data.get("power_discharged", 0)
 
             if self._daily_reset_date:
-                _LOGGER.info(f"Restored energy tracking from {self._daily_reset_date}")
+                _LOGGER.debug(f"Restored energy tracking from {self._daily_reset_date}")
         except Exception as err:
             _LOGGER.error(f"Failed to load energy tracking data: {err}")
 
@@ -327,8 +276,7 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
 
         Mode behavior:
         - Local mode: Primary data source (every 10s)
-        - Cloud polling mode: Primary data source (every 60s)
-        - Cloud MQTT mode: Backup data source (every 5 minutes)
+        - Cloud mode: Primary data source (every 60s)
         """
         try:
             # Ensure API is initialized
@@ -347,42 +295,60 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
                 except EnvoyLocalApiError as err:
                     raise UpdateFailed(f"Error fetching local data: {err}") from err
 
-                # Hybrid mode: Merge control states from cloud API
+                # Hybrid mode: Merge control states from cloud API (cached for 2 minutes)
                 # In hybrid mode, control changes (switch/select) are made via cloud API,
                 # but local API may not immediately reflect these changes.
                 # Read charge_from_grid, mode, dtgControl, and rbdControl from cloud to show real-time UI updates.
                 if self.api:  # Cloud API is initialized (hybrid mode)
-                    try:
-                        cloud_settings = await self.api.get_battery_settings()
-                        # Override local values with cloud values for these control fields
-                        data["charge_from_grid"] = cloud_settings.get(
-                            "chargeFromGrid", data.get("charge_from_grid", False)
-                        )
-                        data["mode"] = cloud_settings.get("profile", data.get("mode", "unknown"))
+                    now = datetime.now()
+                    # Only fetch from cloud if cache is stale (older than 2 minutes)
+                    should_fetch = (
+                        self._last_cloud_control_fetch is None
+                        or (now - self._last_cloud_control_fetch) >= self._cloud_control_cache_interval
+                    )
 
-                        # Extract dtgControl (Discharge To Grid) setting
-                        dtg_control = cloud_settings.get("dtgControl", {})
-                        data["discharge_to_grid"] = (
-                            dtg_control.get("enabled", False) if isinstance(dtg_control, dict) else False
-                        )
+                    if should_fetch:
+                        try:
+                            cloud_settings = await self.api.get_battery_settings()
+                            self._cloud_control_cache = {
+                                "charge_from_grid": cloud_settings.get("chargeFromGrid", False),
+                                "mode": cloud_settings.get("profile", "unknown"),
+                                "discharge_to_grid": (
+                                    cloud_settings.get("dtgControl", {}).get("enabled", False)
+                                    if isinstance(cloud_settings.get("dtgControl"), dict)
+                                    else False
+                                ),
+                                "reserve_battery_discharge": (
+                                    cloud_settings.get("rbdControl", {}).get("enabled", False)
+                                    if isinstance(cloud_settings.get("rbdControl"), dict)
+                                    else False
+                                ),
+                            }
+                            self._last_cloud_control_fetch = now
+                        except Exception as err:
+                            # Rate limit warnings: only log every 5 minutes to avoid spam
+                            if self._last_cloud_error_warning is None or (now - self._last_cloud_error_warning) > timedelta(
+                                minutes=5
+                            ):
+                                _LOGGER.warning(
+                                    "Hybrid mode: Failed to fetch cloud control states, using cached/local values: %s "
+                                    "(This warning will be suppressed for 5 minutes)",
+                                    err,
+                                )
+                                self._last_cloud_error_warning = now
 
-                        # Extract rbdControl (Reserve Battery Discharge) setting
-                        rbd_control = cloud_settings.get("rbdControl", {})
-                        data["reserve_battery_discharge"] = (
-                            rbd_control.get("enabled", False) if isinstance(rbd_control, dict) else False
+                    # Apply cached values if available
+                    if self._cloud_control_cache:
+                        data["charge_from_grid"] = self._cloud_control_cache.get(
+                            "charge_from_grid", data.get("charge_from_grid", False)
                         )
-                    except Exception as err:
-                        # Rate limit warnings: only log every 5 minutes to avoid spam
-                        now = datetime.now()
-                        if self._last_cloud_error_warning is None or (now - self._last_cloud_error_warning) > timedelta(
-                            minutes=5
-                        ):
-                            _LOGGER.warning(
-                                "Hybrid mode: Failed to fetch cloud control states, using local values: %s "
-                                "(This warning will be suppressed for 5 minutes)",
-                                err,
-                            )
-                            self._last_cloud_error_warning = now
+                        data["mode"] = self._cloud_control_cache.get("mode", data.get("mode", "unknown"))
+                        data["discharge_to_grid"] = self._cloud_control_cache.get(
+                            "discharge_to_grid", data.get("discharge_to_grid", False)
+                        )
+                        data["reserve_battery_discharge"] = self._cloud_control_cache.get(
+                            "reserve_battery_discharge", data.get("reserve_battery_discharge", False)
+                        )
 
             else:
                 # Cloud mode: Get data from Enlighten API
@@ -390,11 +356,6 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
                     data = await self.api.get_battery_data()
                 except EnphaseBatteryApiError as err:
                     raise UpdateFailed(f"Error fetching cloud data: {err}") from err
-
-                # If MQTT is enabled but stale, reconnect
-                if self._use_mqtt and self.mqtt_client and self.mqtt_client.is_stale():
-                    _LOGGER.warning("MQTT data is stale, reconnecting...")
-                    await self._setup_mqtt()
 
             # Calculate daily energy and 24h consumption
             self._calculate_daily_values(data)
@@ -510,22 +471,30 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
 
         data["estimated_backup_time"] = backup_time_minutes
 
-        # Save tracking data to persistent storage (async, non-blocking)
-        self.hass.async_create_task(self._save_energy_tracking())
+        # Save tracking data to persistent storage (batched every 5 minutes)
+        now_time = datetime.now()
+        if self._last_storage_save is None or (now_time - self._last_storage_save) >= self._storage_save_interval:
+            self._last_storage_save = now_time
+            self.hass.async_create_task(self._save_energy_tracking())
+
+    def invalidate_cloud_control_cache(self) -> None:
+        """Invalidate cached cloud control states to force immediate refresh.
+
+        Call this after making control changes (switch/select) to ensure
+        the next update fetches fresh values from the cloud API.
+        """
+        self._last_cloud_control_fetch = None
+        _LOGGER.debug("Cloud control cache invalidated, will refresh on next update")
 
     async def async_shutdown(self) -> None:
         """Shutdown coordinator and cleanup resources."""
         # Save energy tracking data before shutdown
         await self._save_energy_tracking()
-        _LOGGER.info("Energy tracking data saved on shutdown")
-
-        if self.mqtt_client:
-            await self.mqtt_client.disconnect()
-            _LOGGER.info("MQTT client disconnected")
+        _LOGGER.debug("Energy tracking data saved on shutdown")
 
         if self.local_api:
             await self.local_api.close()
-            _LOGGER.info("Local Envoy API client closed")
+            _LOGGER.debug("Local Envoy API client closed")
 
     @property
     def connection_mode(self) -> str:
@@ -565,8 +534,3 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         if power is None:
             return False
         return power < 0
-
-    @property
-    def is_mqtt_active(self) -> bool:
-        """Return True if MQTT is active and connected."""
-        return self._use_mqtt and self.mqtt_client is not None and self.mqtt_client.is_connected

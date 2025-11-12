@@ -26,8 +26,6 @@ PLATFORMS: list[Platform] = [
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate old config entries to new format with connection_mode."""
-    _LOGGER.info("Checking if migration is needed for entry %s", entry.entry_id)
-
     # Check if this is an old config (before v2.0.0 - no connection_mode)
     if CONF_CONNECTION_MODE not in entry.data:
         _LOGGER.info("⚙️ Migrating old config entry to dual-mode format")
@@ -45,9 +43,6 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Enphase Battery from a config entry."""
-    import time
-
-    start_time = time.time()
     _LOGGER.info("Starting Enphase Battery setup")
 
     # Migrate old entries if needed
@@ -58,11 +53,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Create and initialize coordinator
     coordinator = EnphaseBatteryDataUpdateCoordinator(hass, entry)
 
-    # Setup coordinator (auth + optional MQTT)
+    # Setup coordinator (authentication)
     try:
-        setup_start = time.time()
         await coordinator._async_setup()
-        _LOGGER.info(f"Coordinator setup completed in {time.time() - setup_start:.2f}s")
     except Exception as err:
         _LOGGER.error("Failed to setup coordinator: %s", err)
         return False
@@ -71,45 +64,36 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
     # Setup platforms
-    platform_start = time.time()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    _LOGGER.info(f"Platform setup completed in {time.time() - platform_start:.2f}s")
 
     # Wait for Home Assistant to finish startup before making API calls
     # This prevents blocking HA startup while still getting data quickly
     async def _async_first_refresh(event: Event = None):
         """Fetch first data after HA has started."""
-        refresh_start = time.time()
         try:
             await coordinator.async_refresh()
-            _LOGGER.info(f"First data refresh completed in {time.time() - refresh_start:.2f}s")
         except Exception as err:
             _LOGGER.error(f"First data refresh failed: {err}")
 
     # If HA is already started, fetch data immediately
     # Otherwise, wait for HA to finish starting
     if hass.is_running:
-        _LOGGER.info("Home Assistant already running, fetching data now")
         entry.async_on_unload(
             hass.async_create_background_task(_async_first_refresh(), "enphase_battery_first_refresh")
         )
     else:
-        _LOGGER.info("Waiting for Home Assistant startup to complete before fetching data")
         hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _async_first_refresh)
 
-    # Listen for options updates (MQTT enable/disable)
+    # Listen for options updates
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
-    total_time = time.time() - start_time
-    _LOGGER.info(f"Enphase Battery setup completed in {total_time:.2f}s")
+    _LOGGER.info("Enphase Battery setup completed")
 
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    _LOGGER.info("Unloading Enphase Battery integration")
-
     # Unload platforms
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         # Cleanup coordinator
@@ -121,5 +105,4 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload config entry when options change."""
-    _LOGGER.info("Reloading Enphase Battery integration (options changed)")
     await hass.config_entries.async_reload(entry.entry_id)

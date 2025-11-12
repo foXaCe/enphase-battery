@@ -116,6 +116,8 @@ class BatteryModeSelect(CoordinatorEntity, SelectEntity):
             if not self.coordinator.api:
                 raise Exception("Cloud API not initialized. Enable cloud control in settings.")
             await self.coordinator.api.set_battery_mode(api_mode)
+            # Invalidate cache to force immediate cloud refresh
+            self.coordinator.invalidate_cloud_control_cache()
             await self.coordinator.async_request_refresh()
 
         except Exception as err:

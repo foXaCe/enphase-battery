@@ -94,8 +94,9 @@ class ChargeFromGridSwitch(CoordinatorEntity, SwitchEntity):
                 raise Exception("Cloud API not initialized. Enable cloud control in settings.")
             await self.coordinator.api.set_charge_from_grid(True)
 
-            # Clear optimistic state before refresh so real state takes over
+            # Clear optimistic state and invalidate cache to force immediate cloud refresh
             self._optimistic_state = None
+            self.coordinator.invalidate_cloud_control_cache()
             await self.coordinator.async_request_refresh()
         except Exception as err:
             # Clear optimistic state on error
@@ -116,8 +117,9 @@ class ChargeFromGridSwitch(CoordinatorEntity, SwitchEntity):
                 raise Exception("Cloud API not initialized. Enable cloud control in settings.")
             await self.coordinator.api.set_charge_from_grid(False)
 
-            # Clear optimistic state before refresh so real state takes over
+            # Clear optimistic state and invalidate cache to force immediate cloud refresh
             self._optimistic_state = None
+            self.coordinator.invalidate_cloud_control_cache()
             await self.coordinator.async_request_refresh()
         except Exception as err:
             # Clear optimistic state on error
@@ -178,8 +180,9 @@ class LimitDischargeSwitch(CoordinatorEntity, SwitchEntity):
                 raise Exception("Cloud API not initialized. Enable cloud control in settings.")
             await self.coordinator.api.set_limit_discharge(True)
 
-            # Clear optimistic state before refresh so real state takes over
+            # Clear optimistic state and invalidate cache to force immediate cloud refresh
             self._optimistic_state = None
+            self.coordinator.invalidate_cloud_control_cache()
             await self.coordinator.async_request_refresh()
         except Exception as err:
             # Clear optimistic state on error
@@ -200,8 +203,9 @@ class LimitDischargeSwitch(CoordinatorEntity, SwitchEntity):
                 raise Exception("Cloud API not initialized. Enable cloud control in settings.")
             await self.coordinator.api.set_limit_discharge(False)
 
-            # Clear optimistic state before refresh so real state takes over
+            # Clear optimistic state and invalidate cache to force immediate cloud refresh
             self._optimistic_state = None
+            self.coordinator.invalidate_cloud_control_cache()
             await self.coordinator.async_request_refresh()
         except Exception as err:
             # Clear optimistic state on error
@@ -262,8 +266,9 @@ class ReserveBatteryDischargeSwitch(CoordinatorEntity, SwitchEntity):
                 raise Exception("Cloud API not initialized. Enable cloud control in settings.")
             await self.coordinator.api.set_reserve_battery_discharge(True)
 
-            # Clear optimistic state before refresh so real state takes over
+            # Clear optimistic state and invalidate cache to force immediate cloud refresh
             self._optimistic_state = None
+            self.coordinator.invalidate_cloud_control_cache()
             await self.coordinator.async_request_refresh()
         except Exception as err:
             # Clear optimistic state on error
@@ -284,8 +289,9 @@ class ReserveBatteryDischargeSwitch(CoordinatorEntity, SwitchEntity):
                 raise Exception("Cloud API not initialized. Enable cloud control in settings.")
             await self.coordinator.api.set_reserve_battery_discharge(False)
 
-            # Clear optimistic state before refresh so real state takes over
+            # Clear optimistic state and invalidate cache to force immediate cloud refresh
             self._optimistic_state = None
+            self.coordinator.invalidate_cloud_control_cache()
             await self.coordinator.async_request_refresh()
         except Exception as err:
             # Clear optimistic state on error
