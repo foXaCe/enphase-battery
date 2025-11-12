@@ -227,7 +227,6 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
             # Don't raise - allow local mode to continue without control
             self.api = None
 
-
     async def _load_energy_tracking(self) -> None:
         """Load energy tracking data from persistent storage."""
         try:
