@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.30.0] - 2025-11-12
+
+### Performance
+- **Hybrid mode startup optimization**: Eliminated 5-7 second auto-detection delay on every restart
+  - Hybrid mode now reuses saved site_id and user_id from config
+  - Auto-detection only runs on first setup, then IDs are cached
+  - Startup time reduced by 5-7 seconds on every restart after initial setup
+  - Matches fast startup behavior of pure cloud mode
+
 ## [2.29.0] - 2025-11-12
 
 ### Removed
@@ -135,7 +144,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 See git history for changes in versions prior to 2.26.0.
 
-[Unreleased]: https://github.com/foXaCe/enphase-battery/compare/v2.28.0...HEAD
+[Unreleased]: https://github.com/foXaCe/enphase-battery/compare/v2.30.0...HEAD
+[2.30.0]: https://github.com/foXaCe/enphase-battery/compare/v2.29.0...v2.30.0
+[2.29.0]: https://github.com/foXaCe/enphase-battery/compare/v2.28.0...v2.29.0
 [2.28.0]: https://github.com/foXaCe/enphase-battery/compare/v2.27.3...v2.28.0
 [2.27.3]: https://github.com/foXaCe/enphase-battery/compare/v2.27.2...v2.27.3
 [2.27.2]: https://github.com/foXaCe/enphase-battery/compare/v2.27.1...v2.27.2
