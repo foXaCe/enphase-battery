@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.29.0] - 2025-11-12
+
+### Removed
+- **MQTT support completely removed** to simplify codebase and improve startup performance
+  - Deleted mqtt_client.py (115 lines)
+  - Removed MQTT constants and configuration options
+  - Removed MQTT setup, reconnection, and shutdown logic
+  - Removed get_mqtt_credentials() API method
+  - All data now fetched via polling only (cloud: 60s, local: 10s)
+
+### Performance
+- **Major performance optimizations** reducing resource usage and API calls:
+  - **Batched storage writes**: Energy tracking data saved every 5 minutes instead of every update (10-60s)
+    - Reduces disk I/O operations by ~83%
+  - **Cloud control state caching**: In hybrid mode, control states cached for 2 minutes instead of fetched every 10s
+    - Reduces API calls to Enphase cloud by ~92% (360 → 30 calls/hour)
+  - **Smart cache invalidation**: Cache automatically invalidated after user actions (switch/select changes)
+    - Ensures immediate UI refresh with real values after control changes
+  - **Reduced logging verbosity**: Routine INFO logs converted to DEBUG level
+    - Cleaner logs during normal operation (~80% reduction in log noise)
+
+### Changed
+- All setup and authentication logs moved to DEBUG level
+- Energy tracking restoration logs moved to DEBUG level
+- Shutdown logs moved to DEBUG level
+
 ## [2.28.0] - 2025-11-11
 
 ### Added
