@@ -327,9 +327,9 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
                             self._last_cloud_control_fetch = now
                         except Exception as err:
                             # Rate limit warnings: only log every 5 minutes to avoid spam
-                            if self._last_cloud_error_warning is None or (now - self._last_cloud_error_warning) > timedelta(
-                                minutes=5
-                            ):
+                            if self._last_cloud_error_warning is None or (
+                                now - self._last_cloud_error_warning
+                            ) > timedelta(minutes=5):
                                 _LOGGER.warning(
                                     "Hybrid mode: Failed to fetch cloud control states, using cached/local values: %s "
                                     "(This warning will be suppressed for 5 minutes)",
