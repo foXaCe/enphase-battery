@@ -12,7 +12,7 @@ from aiohttp import ClientSession, ClientTimeout
 _LOGGER = logging.getLogger(__name__)
 
 API_BASE_URL = "https://enlighten.enphaseenergy.com"
-API_TIMEOUT = 15  # Standard API timeout
+API_TIMEOUT = 30  # Increased timeout for slow/unstable cloud API (was 15s)
 API_TIMEOUT_DISCOVERY = 5  # Faster timeout for auto-discovery endpoints
 
 

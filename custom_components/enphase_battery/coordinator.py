@@ -85,10 +85,10 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         self._last_storage_save: datetime | None = None
         self._storage_save_interval = timedelta(minutes=5)
 
-        # Cache for cloud control states in hybrid mode (refresh every 2 minutes)
+        # Cache for cloud control states in hybrid mode (refresh every 5 minutes)
         self._last_cloud_control_fetch: datetime | None = None
         self._cloud_control_cache: dict[str, Any] = {}
-        self._cloud_control_cache_interval = timedelta(minutes=2)
+        self._cloud_control_cache_interval = timedelta(minutes=5)
 
         # Determine update interval based on connection mode
         if self._connection_mode == CONNECTION_MODE_LOCAL:
@@ -315,13 +315,13 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
                 except EnvoyLocalApiError as err:
                     raise UpdateFailed(f"Error fetching local data: {err}") from err
 
-                # Hybrid mode: Merge control states from cloud API (cached for 2 minutes)
+                # Hybrid mode: Merge control states from cloud API (cached for 5 minutes)
                 # In hybrid mode, control changes (switch/select) are made via cloud API,
                 # but local API may not immediately reflect these changes.
                 # Read charge_from_grid, mode, dtgControl, and rbdControl from cloud to show real-time UI updates.
                 if self.api:  # Cloud API is initialized (hybrid mode)
                     now = datetime.now()
-                    # Only fetch from cloud if cache is stale (older than 2 minutes)
+                    # Only fetch from cloud if cache is stale (older than 5 minutes)
                     should_fetch = (
                         self._last_cloud_control_fetch is None
                         or (now - self._last_cloud_control_fetch) >= self._cloud_control_cache_interval
