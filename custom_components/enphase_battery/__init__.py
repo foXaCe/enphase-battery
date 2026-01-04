@@ -78,9 +78,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # If HA is already started, fetch data immediately
     # Otherwise, wait for HA to finish starting
     if hass.is_running:
-        task = hass.async_create_background_task(
-            _async_first_refresh(), "enphase_battery_first_refresh"
-        )
+        task = hass.async_create_background_task(_async_first_refresh(), "enphase_battery_first_refresh")
         # Register task.cancel as the unload callback (not the Task object itself)
         entry.async_on_unload(task.cancel)
     else:
