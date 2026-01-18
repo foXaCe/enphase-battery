@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
+import json
 import logging
+import re
 from typing import Any
 
 import aiohttp
@@ -122,7 +125,7 @@ class EnphaseEnvoyLocalAPI:
                     return {"raw": text}
 
         except aiohttp.ClientError as err:
-            _LOGGER.error(f"Connection error to Envoy at {url}: {err}")
+            _LOGGER.error("Connection error to Envoy at %s: %s", url, err)
             raise EnvoyConnectionError(f"Failed to connect to Envoy: {err}") from err
 
     async def authenticate(self) -> bool:
@@ -148,12 +151,12 @@ class EnphaseEnvoyLocalAPI:
             )
 
             if not self._serial_number:
-                _LOGGER.error(f"Cannot find serial in /info response. Keys found: {list(info.keys())}")
+                _LOGGER.error("Cannot find serial in /info response. Keys found: %s", list(info.keys()))
                 raise EnvoyAuthError(
                     f"Could not retrieve Envoy serial number from /info endpoint. Response keys: {list(info.keys())}"
                 )
 
-            _LOGGER.info(f"Envoy serial number: {self._serial_number}")
+            _LOGGER.info("Envoy serial number: %s", self._serial_number)
 
             # Step 2: Extract firmware version from info
             self._firmware_version = (
@@ -215,7 +218,7 @@ class EnphaseEnvoyLocalAPI:
                 raise EnvoyAuthError("No JWT token received from Envoy")
 
         except Exception as err:
-            _LOGGER.error(f"Authentication failed: {err}")
+            _LOGGER.error("Authentication failed: %s", err)
             raise EnvoyAuthError(f"Failed to authenticate with Envoy: {err}") from err
 
     def _generate_installer_password(self, serial_number: str) -> str:
@@ -244,8 +247,6 @@ class EnphaseEnvoyLocalAPI:
 
         try:
             # Extract version number (e.g., "D7.3.466" -> "7.3")
-            import re
-
             match = re.search(r"[dD]?(\d+)\.(\d+)", self._firmware_version)
             if match:
                 major = int(match.group(1))
@@ -316,10 +317,10 @@ class EnphaseEnvoyLocalAPI:
                 return token
 
         except aiohttp.ClientError as err:
-            _LOGGER.error(f"Cloud token request failed: {err}")
+            _LOGGER.error("Cloud token request failed: %s", err)
             raise EnvoyAuthError(f"Failed to obtain cloud token: {err}") from err
         except Exception as err:
-            _LOGGER.error(f"Unexpected error obtaining token: {err}")
+            _LOGGER.error("Unexpected error obtaining token: %s", err)
             raise EnvoyAuthError(f"Token retrieval error: {err}") from err
 
     async def _get_info(self) -> dict[str, Any]:
@@ -381,7 +382,7 @@ class EnphaseEnvoyLocalAPI:
 
             return response or {}
         except Exception as err:
-            _LOGGER.error(f"Failed to get /info: {err}")
+            _LOGGER.error("Failed to get /info: %s", err)
             raise
 
     async def get_production_data(self) -> dict[str, Any]:
@@ -474,8 +475,6 @@ class EnphaseEnvoyLocalAPI:
         """
         try:
             # Get data from multiple endpoints in parallel
-            import asyncio
-
             results = await asyncio.gather(
                 self.get_ensemble_status(),
                 self.get_meters_readings(),
@@ -492,8 +491,6 @@ class EnphaseEnvoyLocalAPI:
             # Debug: Log raw responses
 
             # Parse JSON from 'raw' key if present (firmware 8.x format)
-            import json
-
             if isinstance(ensemble_status, dict) and "raw" in ensemble_status:
                 ensemble_status = json.loads(ensemble_status["raw"])
 
@@ -635,7 +632,7 @@ class EnphaseEnvoyLocalAPI:
             return battery_data
 
         except Exception as err:
-            _LOGGER.error(f"Failed to get battery data: {err}")
+            _LOGGER.error("Failed to get battery data: %s", err)
             raise EnvoyLocalApiError(f"Failed to retrieve battery data: {err}") from err
 
     async def set_battery_mode(self, mode: str) -> bool:
@@ -682,8 +679,6 @@ class EnphaseEnvoyLocalAPI:
                 return False
 
             # Parse JSON from 'raw' key if present (firmware 8.x format)
-            import json
-
             if isinstance(tariff_data, dict) and "raw" in tariff_data:
                 tariff_data = json.loads(tariff_data["raw"])
 
@@ -710,7 +705,7 @@ class EnphaseEnvoyLocalAPI:
             return True
 
         except Exception as err:
-            _LOGGER.error(f"Failed to set charge_from_grid: {err}")
+            _LOGGER.error("Failed to set charge_from_grid: %s", err)
             # Don't raise - return False to indicate failure
             return False
 
@@ -741,8 +736,6 @@ class EnphaseEnvoyLocalAPI:
                 return False
 
             # Parse JSON from 'raw' key if present (firmware 8.x format)
-            import json
-
             if isinstance(tariff_data, dict) and "raw" in tariff_data:
                 tariff_data = json.loads(tariff_data["raw"])
 
@@ -767,7 +760,7 @@ class EnphaseEnvoyLocalAPI:
             return True
 
         except Exception as err:
-            _LOGGER.error(f"Failed to set discharge_to_grid: {err}")
+            _LOGGER.error("Failed to set discharge_to_grid: %s", err)
             return False
 
     async def set_reserve_battery_discharge(self, enabled: bool) -> bool:
@@ -797,8 +790,6 @@ class EnphaseEnvoyLocalAPI:
                 return False
 
             # Parse JSON from 'raw' key if present (firmware 8.x format)
-            import json
-
             if isinstance(tariff_data, dict) and "raw" in tariff_data:
                 tariff_data = json.loads(tariff_data["raw"])
 
@@ -823,7 +814,7 @@ class EnphaseEnvoyLocalAPI:
             return True
 
         except Exception as err:
-            _LOGGER.error(f"Failed to set reserve_battery_discharge: {err}")
+            _LOGGER.error("Failed to set reserve_battery_discharge: %s", err)
             return False
 
     async def get_acb_config(self) -> dict[str, Any]:
@@ -849,7 +840,7 @@ class EnphaseEnvoyLocalAPI:
             await self._make_request("POST", endpoint, json=data)
             return True
         except Exception as err:
-            _LOGGER.error(f"Failed to set sleep mode: {err}")
+            _LOGGER.error("Failed to set sleep mode: %s", err)
             return False
 
     async def close(self) -> None:

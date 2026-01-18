@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import base64
 from datetime import datetime
+import json
 import logging
+import re
 from typing import Any
 
 import aiohttp
@@ -93,7 +96,7 @@ class EnphaseBatteryAPI:
 
                     if not self._site_id and detected_site_id:
                         self._site_id = detected_site_id
-                        _LOGGER.info(f"Auto-detected site_id: {self._site_id}")
+                        _LOGGER.info("Auto-detected site_id: %s", self._site_id)
 
                     if not self._user_id and detected_user_id:
                         self._user_id = detected_user_id
@@ -110,7 +113,7 @@ class EnphaseBatteryAPI:
                             )
 
                 except EnphaseBatteryAuthError as err:
-                    _LOGGER.error(f"Auto-detection failed: {err}")
+                    _LOGGER.error("Auto-detection failed: %s", err)
 
                     # Si on n'a toujours pas les IDs nécessaires
                     if not self._site_id:
@@ -122,7 +125,7 @@ class EnphaseBatteryAPI:
             # Note: Envoy serial is fetched later on-demand, not during auth
             # This saves 1-2 seconds during authentication
 
-            _LOGGER.info(f"Authenticated successfully - site_id: {self._site_id}")
+            _LOGGER.info("Authenticated successfully - site_id: %s", self._site_id)
             return True
 
         except EnphaseBatteryAuthError:
@@ -172,7 +175,7 @@ class EnphaseBatteryAPI:
                 elif response.status == 401:
                     raise EnphaseBatteryAuthError("Invalid credentials")
                 else:
-                    _LOGGER.error(f"Login failed with status {response.status}")
+                    _LOGGER.error("Login failed with status %s", response.status)
                     return False
 
         except aiohttp.ClientError as err:
@@ -296,7 +299,7 @@ class EnphaseBatteryAPI:
         Returns:
             Tuple of (site_id, user_id)
         """
-        # Variables pour stocker les résultats au fur et à mesure
+        # Variables to store results as we go
         extracted_site_id = None
         extracted_user_id = None
 
@@ -315,7 +318,7 @@ class EnphaseBatteryAPI:
                     try:
                         data = await response.json()
                     except Exception as json_err:
-                        _LOGGER.error(f"Failed to parse JSON from search_sites: {json_err}")
+                        _LOGGER.error("Failed to parse JSON from search_sites: %s", json_err)
                         raise
 
                     # Extraire le premier site
@@ -358,8 +361,6 @@ class EnphaseBatteryAPI:
                 allow_redirects=True,
             ) as response:
                 # Extraire site_id de l'URL (format: /web/2168380?v=3.4.0)
-                import re
-
                 url_str = str(response.url)
                 match = re.search(r"/web/(\d+)", url_str)
                 if match:
@@ -414,9 +415,6 @@ class EnphaseBatteryAPI:
 
         # Méthode 3: Essayer d'extraire user_id depuis le JWT token dans les cookies
         try:
-            import base64
-            import json
-
             cookies = self._session.cookie_jar.filter_cookies(API_BASE_URL)
 
             for cookie in cookies.values():
@@ -449,7 +447,7 @@ class EnphaseBatteryAPI:
         if extracted_site_id and extracted_user_id:
             return int(extracted_site_id), int(extracted_user_id)
         elif extracted_site_id:
-            _LOGGER.warning(f"Found site_id={extracted_site_id} but not user_id. Returning with user_id=0")
+            _LOGGER.warning("Found site_id=%s but not user_id. Returning with user_id=0", extracted_site_id)
             return int(extracted_site_id), 0
         elif extracted_user_id:
             raise EnphaseBatteryAuthError(

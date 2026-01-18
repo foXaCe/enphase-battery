@@ -23,7 +23,7 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-# Schéma de configuration - Choix du mode de connexion
+# Configuration schema - Connection mode selection
 STEP_MODE_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_CONNECTION_MODE, default=CONNECTION_MODE_LOCAL): vol.In(
@@ -95,10 +95,10 @@ async def validate_local_input(hass: HomeAssistant, data: dict[str, Any]) -> dic
             }
 
         except EnvoyAuthError as err:
-            _LOGGER.error(f"Authentication failed: {err}")
+            _LOGGER.error("Authentication failed: %s", err)
             raise InvalidAuth from err
         except EnvoyConnectionError as err:
-            _LOGGER.error(f"Connection failed: {err}")
+            _LOGGER.error("Connection failed: %s", err)
             raise CannotConnect from err
         except Exception as err:
             _LOGGER.exception("Unexpected error during validation")
@@ -236,15 +236,28 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> FlowResult:
         """Handle re-authentication."""
+        self._reauth_entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle re-authentication confirmation."""
         errors: dict[str, str] = {}
 
+        # Determine which schema to use based on existing entry's connection mode
+        entry = getattr(self, "_reauth_entry", None)
+        is_local_mode = entry and entry.data.get(CONF_CONNECTION_MODE) == CONNECTION_MODE_LOCAL
+        data_schema = STEP_LOCAL_DATA_SCHEMA if is_local_mode else STEP_CLOUD_DATA_SCHEMA
+
         if user_input is not None:
+            # Add connection mode from existing entry
+            if entry:
+                user_input[CONF_CONNECTION_MODE] = entry.data.get(CONF_CONNECTION_MODE, CONNECTION_MODE_CLOUD)
+
             try:
-                await validate_input(self.hass, user_input)
+                if is_local_mode:
+                    await validate_local_input(self.hass, user_input)
+                else:
+                    await validate_cloud_input(self.hass, user_input)
             except CannotConnect:
                 errors["base"] = "cannot_connect"
             except InvalidAuth:
@@ -254,7 +267,6 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "unknown"
             else:
                 # Mettre à jour l'entrée existante
-                entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
                 if entry:
                     self.hass.config_entries.async_update_entry(entry, data=user_input)
                     await self.hass.config_entries.async_reload(entry.entry_id)
@@ -262,7 +274,7 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="reauth_confirm",
-            data_schema=STEP_USER_DATA_SCHEMA,
+            data_schema=data_schema,
             errors=errors,
         )
 

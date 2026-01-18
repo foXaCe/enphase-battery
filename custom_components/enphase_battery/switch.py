@@ -102,7 +102,7 @@ class ChargeFromGridSwitch(CoordinatorEntity, SwitchEntity):
             # Clear optimistic state on error
             self._optimistic_state = None
             self.async_write_ha_state()
-            _LOGGER.error(f"Failed to enable Charge From Grid: {err}")
+            _LOGGER.error("Failed to enable Charge From Grid: %s", err)
             raise
 
     async def async_turn_off(self, **kwargs: Any) -> None:
@@ -125,7 +125,7 @@ class ChargeFromGridSwitch(CoordinatorEntity, SwitchEntity):
             # Clear optimistic state on error
             self._optimistic_state = None
             self.async_write_ha_state()
-            _LOGGER.error(f"Failed to disable Charge From Grid: {err}")
+            _LOGGER.error("Failed to disable Charge From Grid: %s", err)
             raise
 
 
@@ -188,7 +188,7 @@ class LimitDischargeSwitch(CoordinatorEntity, SwitchEntity):
             # Clear optimistic state on error
             self._optimistic_state = None
             self.async_write_ha_state()
-            _LOGGER.error(f"Failed to enable Limit Discharge: {err}")
+            _LOGGER.error("Failed to enable Limit Discharge: %s", err)
             raise
 
     async def async_turn_off(self, **kwargs: Any) -> None:
@@ -211,7 +211,7 @@ class LimitDischargeSwitch(CoordinatorEntity, SwitchEntity):
             # Clear optimistic state on error
             self._optimistic_state = None
             self.async_write_ha_state()
-            _LOGGER.error(f"Failed to disable Limit Discharge: {err}")
+            _LOGGER.error("Failed to disable Limit Discharge: %s", err)
             raise
 
 
@@ -274,7 +274,7 @@ class ReserveBatteryDischargeSwitch(CoordinatorEntity, SwitchEntity):
             # Clear optimistic state on error
             self._optimistic_state = None
             self.async_write_ha_state()
-            _LOGGER.error(f"Failed to enable Reserve Battery Discharge: {err}")
+            _LOGGER.error("Failed to enable Reserve Battery Discharge: %s", err)
             raise
 
     async def async_turn_off(self, **kwargs: Any) -> None:
@@ -297,5 +297,5 @@ class ReserveBatteryDischargeSwitch(CoordinatorEntity, SwitchEntity):
             # Clear optimistic state on error
             self._optimistic_state = None
             self.async_write_ha_state()
-            _LOGGER.error(f"Failed to disable Reserve Battery Discharge: {err}")
+            _LOGGER.error("Failed to disable Reserve Battery Discharge: %s", err)
             raise

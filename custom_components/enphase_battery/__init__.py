@@ -73,7 +73,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         try:
             await coordinator.async_refresh()
         except Exception as err:
-            _LOGGER.error(f"First data refresh failed: {err}")
+            _LOGGER.error("First data refresh failed: %s", err)
 
     # If HA is already started, fetch data immediately
     # Otherwise, wait for HA to finish starting

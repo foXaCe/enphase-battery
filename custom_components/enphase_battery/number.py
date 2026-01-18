@@ -76,4 +76,4 @@ class BatteryBackupReserveNumber(CoordinatorEntity, NumberEntity):
             await self.coordinator.async_request_refresh()
 
         except Exception as err:
-            _LOGGER.error(f"Failed to set very low SOC: {err}")
+            _LOGGER.error("Failed to set very low SOC: %s", err)

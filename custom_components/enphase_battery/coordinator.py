@@ -56,24 +56,22 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         self._stored_data: dict[str, Any] = {}
 
         # Energy tracking for daily calculations
-        # Will be loaded from persistent storage in async_setup
-        stored_data: dict[str, Any] = {}
-
-        self._daily_reset_date: str | None = stored_data.get("reset_date")
-        self._daily_charged_start: float = stored_data.get("charged_start", 0)
-        self._daily_discharged_start: float = stored_data.get("discharged_start", 0)
-        self._consumption_24h_history: list[tuple[str, float]] = stored_data.get("consumption_history", [])
+        # Will be loaded from persistent storage in _load_energy_tracking()
+        self._daily_reset_date: str | None = None
+        self._daily_charged_start: float = 0
+        self._daily_discharged_start: float = 0
+        self._consumption_24h_history: list[tuple[str, float]] = []
 
         # SOC-based energy tracking (fallback when meters don't track battery energy)
-        self._last_soc: int | None = stored_data.get("last_soc")
-        self._daily_soc_charged: float = stored_data.get("soc_charged", 0)
-        self._daily_soc_discharged: float = stored_data.get("soc_discharged", 0)
+        self._last_soc: int | None = None
+        self._daily_soc_charged: float = 0
+        self._daily_soc_discharged: float = 0
 
         # Power integration energy tracking (most accurate method)
-        self._last_power: float | None = stored_data.get("last_power")
-        self._last_update_time: str | None = stored_data.get("last_update_time")
-        self._daily_power_charged: float = stored_data.get("power_charged", 0)
-        self._daily_power_discharged: float = stored_data.get("power_discharged", 0)
+        self._last_power: float | None = None
+        self._last_update_time: str | None = None
+        self._daily_power_charged: float = 0
+        self._daily_power_discharged: float = 0
 
         # Determine connection mode (default to cloud for backward compatibility)
         self._connection_mode = entry.data.get(CONF_CONNECTION_MODE, CONNECTION_MODE_CLOUD)
@@ -267,9 +265,9 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
             self._daily_power_discharged = self._stored_data.get("power_discharged", 0)
 
             if self._daily_reset_date:
-                _LOGGER.debug(f"Restored energy tracking from {self._daily_reset_date}")
+                _LOGGER.debug("Restored energy tracking from %s", self._daily_reset_date)
         except Exception as err:
-            _LOGGER.error(f"Failed to load energy tracking data: {err}")
+            _LOGGER.error("Failed to load energy tracking data: %s", err)
 
     async def _save_energy_tracking(self) -> None:
         """Save energy tracking data to persistent storage."""
@@ -289,7 +287,7 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
             }
             await self._store.async_save(data)
         except Exception as err:
-            _LOGGER.error(f"Failed to save energy tracking data: {err}")
+            _LOGGER.error("Failed to save energy tracking data: %s", err)
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from API.
@@ -393,8 +391,6 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         Args:
             data: Battery data dictionary to update with calculated values
         """
-        from datetime import datetime
-
         now = datetime.now()
         today_str = now.strftime("%Y-%m-%d")
 
@@ -438,7 +434,7 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
                         # Battery discharging (positive power)
                         self._daily_power_discharged += energy_delta_kwh
                 except (ValueError, TypeError) as e:
-                    _LOGGER.warning(f"Error in power integration: {e}")
+                    _LOGGER.warning("Error in power integration: %s", e)
 
             # Update tracking variables for next iteration
             self._last_power = current_power

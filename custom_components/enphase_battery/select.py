@@ -108,7 +108,7 @@ class BatteryModeSelect(CoordinatorEntity, SelectEntity):
         api_mode = self._mode_ui_to_api.get(option)
 
         if not api_mode:
-            _LOGGER.error(f"Invalid mode selected: {option}")
+            _LOGGER.error("Invalid mode selected: %s", option)
             return
 
         try:
@@ -121,5 +121,5 @@ class BatteryModeSelect(CoordinatorEntity, SelectEntity):
             await self.coordinator.async_request_refresh()
 
         except Exception as err:
-            _LOGGER.error(f"Failed to change battery mode: {err}")
+            _LOGGER.error("Failed to change battery mode: %s", err)
             raise

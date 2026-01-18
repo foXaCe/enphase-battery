@@ -10,7 +10,7 @@ CONF_USERNAME: Final = "username"
 CONF_PASSWORD: Final = "password"
 CONF_SITE_ID: Final = "site_id"  # ID du site Enphase
 CONF_USER_ID: Final = "user_id"  # ID utilisateur Enphase (optionnel)
-CONF_CONNECTION_MODE: Final = "connection_mode"  # Mode de connexion (local/cloud)
+CONF_CONNECTION_MODE: Final = "connection_mode"  # Connection mode (local/cloud)
 CONF_ENVOY_HOST: Final = "envoy_host"  # Hostname/IP Envoy pour mode local
 CONF_ENABLE_CLOUD_CONTROL: Final = "enable_cloud_control"  # Activer contrôle cloud en mode local
 
@@ -50,7 +50,7 @@ SENSOR_TYPE_BATTERY_TEMPERATURE: Final = "battery_temperature"
 SENSOR_TYPE_BATTERY_ENERGY_CHARGED: Final = "battery_energy_charged"
 SENSOR_TYPE_BATTERY_ENERGY_DISCHARGED: Final = "battery_energy_discharged"
 
-# Attributs
+# Attributes
 ATTR_BATTERY_SERIAL: Final = "serial_number"
 ATTR_BATTERY_MODEL: Final = "model"
 ATTR_BATTERY_FIRMWARE: Final = "firmware_version"
