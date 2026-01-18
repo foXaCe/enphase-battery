@@ -16,8 +16,12 @@
         "description": "{benefits}",
         "data": {
           "envoy_host": "Envoy Hostname or IP",
-          "username": "Username (default: installer)",
-          "password": "Password (optional, auto-generated from serial)"
+          "cloud_username": "Enphase account email (required for firmware 7.x/8.x)",
+          "cloud_password": "Enphase account password",
+          "enable_cloud_control": "Enable cloud control (hybrid mode)"
+        },
+        "data_description": {
+          "enable_cloud_control": "Hybrid mode: local data (fast) + cloud control (switch/select). Required because firmware 8.x no longer supports control via local API."
         }
       },
       "cloud": {
@@ -34,7 +38,7 @@
         "title": "Re-authenticate Enphase Battery",
         "description": "The credentials for your Enphase system need to be updated.",
         "data": {
-          "username": "Username",
+          "username": "Email / Username",
           "password": "Password"
         }
       }
@@ -50,15 +54,80 @@
     }
   },
   "entity": {
-    "sensor": {
-      "battery_state": {
+    "binary_sensor": {
+      "battery_charging": {
+        "name": "Battery Charging"
+      },
+      "battery_connected": {
+        "name": "Battery Connected"
+      }
+    },
+    "number": {
+      "battery_reserve": {
+        "name": "Battery Reserve Percentage"
+      }
+    },
+    "select": {
+      "battery_mode": {
+        "name": "Battery Mode",
         "state": {
-          "charging": "En charge",
-          "discharging": "En décharge",
-          "idle": "Inactif",
-          "full": "Pleine",
-          "empty": "Vide"
+          "backup": "Backup Only",
+          "savings": "Savings Mode",
+          "self_consumption": "Self Consumption"
         }
+      }
+    },
+    "sensor": {
+      "battery_capacity": {
+        "name": "Battery Capacity"
+      },
+      "battery_current": {
+        "name": "Battery Current"
+      },
+      "battery_energy_charged": {
+        "name": "Battery Energy Charged Today"
+      },
+      "battery_energy_discharged": {
+        "name": "Battery Energy Discharged Today"
+      },
+      "battery_health": {
+        "name": "Battery Health"
+      },
+      "battery_power": {
+        "name": "Battery Power"
+      },
+      "battery_soc": {
+        "name": "Battery State of Charge"
+      },
+      "battery_state": {
+        "name": "Battery State",
+        "state": {
+          "charging": "Charging",
+          "discharging": "Discharging",
+          "idle": "Idle",
+          "full": "Full",
+          "empty": "Empty"
+        }
+      },
+      "battery_temperature": {
+        "name": "Battery Temperature"
+      },
+      "battery_voltage": {
+        "name": "Battery Voltage"
+      }
+    },
+    "switch": {
+      "battery_backup_mode": {
+        "name": "Battery Backup Mode"
+      },
+      "charge_from_grid": {
+        "name": "Charge From Grid"
+      },
+      "discharge_to_grid": {
+        "name": "Allow Discharge To Grid"
+      },
+      "reserve_battery_discharge": {
+        "name": "Limit Battery Discharge"
       }
     }
   }

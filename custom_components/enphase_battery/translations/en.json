@@ -1,21 +1,21 @@
 {
   "config": {
     "abort": {
-      "already_configured": "This Enphase battery is already configured.",
+      "already_configured": "This Enphase system is already configured.",
       "reauth_successful": "Re-authentication successful."
     },
     "error": {
-      "cannot_connect": "Failed to connect to Enphase Cloud API. Check your internet connection.",
-      "invalid_auth": "Invalid credentials. Please check your email/username and password.",
+      "cannot_connect": "Failed to connect. Check the host address and network connection.",
+      "invalid_auth": "Invalid authentication credentials. Please check your username and password.",
       "unknown": "Unexpected error occurred. Check the logs for more details."
     },
     "step": {
       "cloud": {
         "data": {
-          "password": "Enphase account password",
+          "password": "Enphase Account Password",
           "site_id": "Site ID (optional, auto-detected)",
           "user_id": "User ID (optional, auto-detected)",
-          "username": "Enphase account email"
+          "username": "Enphase Account Email"
         },
         "description": "{benefits}",
         "title": "Cloud Enlighten Connection"
@@ -38,7 +38,7 @@
           "password": "Password",
           "username": "Email / Username"
         },
-        "description": "Your Enphase account credentials need to be updated.",
+        "description": "The credentials for your Enphase system need to be updated.",
         "title": "Re-authenticate Enphase Battery"
       },
       "user": {
@@ -46,7 +46,7 @@
           "connection_mode": "Connection Mode"
         },
         "data_description": {
-          "connection_mode": "Local: Direct Envoy connection (fast, no API limit)\nCloud: Enlighten Cloud (remote access, API limit)"
+          "connection_mode": "Local: Direct connection to Envoy (fast, no API limits)\nCloud: Enlighten cloud (remote access, API limits)"
         },
         "description": "Choose how to connect to your Enphase system.",
         "title": "Enphase Battery Connection Mode"
@@ -98,6 +98,16 @@
       },
       "battery_soc": {
         "name": "Battery State of Charge"
+      },
+      "battery_state": {
+        "name": "Battery State",
+        "state": {
+          "charging": "Charging",
+          "discharging": "Discharging",
+          "empty": "Empty",
+          "full": "Full",
+          "idle": "Idle"
+        }
       },
       "battery_temperature": {
         "name": "Battery Temperature"

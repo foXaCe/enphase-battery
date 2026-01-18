@@ -31,12 +31,12 @@
           "enable_cloud_control": "Mode hybride : données locales (rapide) + contrôle cloud (switch/select). Requis car le firmware 8.x ne supporte plus le contrôle via API locale."
         },
         "description": "{benefits}",
-        "title": "Connexion Locale à l'Envoy"
+        "title": "Connexion locale à l'Envoy"
       },
       "reauth_confirm": {
         "data": {
           "password": "Mot de passe",
-          "username": "Nom d'utilisateur"
+          "username": "Email / Nom d'utilisateur"
         },
         "description": "Les identifiants de votre système Enphase doivent être mis à jour.",
         "title": "Ré-authentification Enphase Battery"
@@ -49,7 +49,7 @@
           "connection_mode": "Local : Connexion directe à l'Envoy (rapide, pas de limite API)\nCloud : Cloud Enlighten (accès distant, limite API)"
         },
         "description": "Choisissez comment vous connecter à votre système Enphase.",
-        "title": "Mode de Connexion Enphase Battery"
+        "title": "Mode de connexion Enphase Battery"
       }
     }
   },

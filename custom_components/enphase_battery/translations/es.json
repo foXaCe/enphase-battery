@@ -1,0 +1,134 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "Este sistema Enphase ya está configurado.",
+      "reauth_successful": "Re-autenticación exitosa."
+    },
+    "error": {
+      "cannot_connect": "Error de conexión. Verifique la dirección y la conexión de red.",
+      "invalid_auth": "Credenciales inválidas. Verifique su nombre de usuario y contraseña.",
+      "unknown": "Ocurrió un error inesperado. Consulte los registros para más detalles."
+    },
+    "step": {
+      "cloud": {
+        "data": {
+          "password": "Contraseña de la cuenta Enphase",
+          "site_id": "Site ID (opcional, auto-detectado)",
+          "user_id": "User ID (opcional, auto-detectado)",
+          "username": "Email de la cuenta Enphase"
+        },
+        "description": "{benefits}",
+        "title": "Conexión Cloud Enlighten"
+      },
+      "local": {
+        "data": {
+          "cloud_password": "Contraseña de la cuenta Enphase",
+          "cloud_username": "Email de la cuenta Enphase (requerido para firmware 7.x/8.x)",
+          "enable_cloud_control": "Activar control cloud (modo híbrido)",
+          "envoy_host": "Hostname o IP del Envoy"
+        },
+        "data_description": {
+          "enable_cloud_control": "Modo híbrido: datos locales (rápido) + control cloud (switch/select). Requerido porque el firmware 8.x ya no soporta control vía API local."
+        },
+        "description": "{benefits}",
+        "title": "Conexión local al Envoy"
+      },
+      "reauth_confirm": {
+        "data": {
+          "password": "Contraseña",
+          "username": "Email / Nombre de usuario"
+        },
+        "description": "Las credenciales de su sistema Enphase deben actualizarse.",
+        "title": "Re-autenticación Enphase Battery"
+      },
+      "user": {
+        "data": {
+          "connection_mode": "Modo de conexión"
+        },
+        "data_description": {
+          "connection_mode": "Local: Conexión directa al Envoy (rápido, sin límite de API)\nCloud: Cloud Enlighten (acceso remoto, límite de API)"
+        },
+        "description": "Elija cómo conectarse a su sistema Enphase.",
+        "title": "Modo de conexión Enphase Battery"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "battery_charging": {
+        "name": "Batería cargando"
+      },
+      "battery_connected": {
+        "name": "Batería conectada"
+      }
+    },
+    "number": {
+      "battery_reserve": {
+        "name": "Porcentaje de reserva de la batería"
+      }
+    },
+    "select": {
+      "battery_mode": {
+        "name": "Modo de la batería",
+        "state": {
+          "backup": "Solo respaldo",
+          "savings": "Modo ahorro",
+          "self_consumption": "Autoconsumo"
+        }
+      }
+    },
+    "sensor": {
+      "battery_capacity": {
+        "name": "Capacidad de la batería"
+      },
+      "battery_current": {
+        "name": "Corriente de la batería"
+      },
+      "battery_energy_charged": {
+        "name": "Energía cargada hoy"
+      },
+      "battery_energy_discharged": {
+        "name": "Energía descargada hoy"
+      },
+      "battery_health": {
+        "name": "Estado de salud de la batería"
+      },
+      "battery_power": {
+        "name": "Potencia de la batería"
+      },
+      "battery_soc": {
+        "name": "Estado de carga de la batería"
+      },
+      "battery_state": {
+        "name": "Estado de la batería",
+        "state": {
+          "charging": "Cargando",
+          "discharging": "Descargando",
+          "empty": "Vacía",
+          "full": "Llena",
+          "idle": "Inactivo"
+        }
+      },
+      "battery_temperature": {
+        "name": "Temperatura de la batería"
+      },
+      "battery_voltage": {
+        "name": "Voltaje de la batería"
+      }
+    },
+    "switch": {
+      "battery_backup_mode": {
+        "name": "Modo respaldo de la batería"
+      },
+      "charge_from_grid": {
+        "name": "Cargar desde la red"
+      },
+      "discharge_to_grid": {
+        "name": "Permitir descarga a la red"
+      },
+      "reserve_battery_discharge": {
+        "name": "Limitar descarga de la batería"
+      }
+    }
+  }
+}
