@@ -1,74 +1,88 @@
 {
   "config": {
-    "step": {
-      "user": {
-        "title": "Mode de Connexion Enphase Battery",
-        "description": "Choisissez comment vous connecter à votre système Enphase.",
-        "data": {
-          "connection_mode": "Mode de connexion"
-        },
-        "data_description": {
-          "connection_mode": "Local : Connexion directe à l'Envoy (rapide, pas de limite API)\nCloud : Cloud Enlighten (accès distant, limite API)"
-        }
-      },
-      "local": {
-        "title": "Connexion Locale à l'Envoy",
-        "description": "{benefits}",
-        "data": {
-          "envoy_host": "Hostname ou IP de l'Envoy",
-          "cloud_username": "Email du compte Enphase (requis pour firmware 7.x/8.x)",
-          "cloud_password": "Mot de passe du compte Enphase",
-          "enable_cloud_control": "Activer le contrôle cloud (mode hybride)"
-        },
-        "data_description": {
-          "enable_cloud_control": "Mode hybride : données locales (rapide) + contrôle cloud (switch/select). Requis car le firmware 8.x ne supporte plus le contrôle via API locale."
-        }
-      },
-      "cloud": {
-        "title": "Connexion Cloud Enlighten",
-        "description": "{benefits}",
-        "data": {
-          "username": "Email du compte Enphase",
-          "password": "Mot de passe du compte Enphase",
-          "site_id": "Site ID (optionnel, auto-détecté)",
-          "user_id": "User ID (optionnel, auto-détecté)"
-        }
-      },
-      "reauth_confirm": {
-        "title": "Ré-authentification Enphase Battery",
-        "description": "Les identifiants de votre système Enphase doivent être mis à jour.",
-        "data": {
-          "username": "Nom d'utilisateur",
-          "password": "Mot de passe"
-        }
-      }
+    "abort": {
+      "already_configured": "Ce système Enphase est déjà configuré.",
+      "reauth_successful": "Ré-authentification réussie."
     },
     "error": {
       "cannot_connect": "Échec de connexion. Vérifiez l'adresse et la connexion réseau.",
       "invalid_auth": "Identifiants invalides. Veuillez vérifier votre nom d'utilisateur et mot de passe.",
       "unknown": "Une erreur inattendue s'est produite. Consultez les journaux pour plus de détails."
     },
-    "abort": {
-      "already_configured": "Ce système Enphase est déjà configuré.",
-      "reauth_successful": "Ré-authentification réussie."
+    "step": {
+      "cloud": {
+        "data": {
+          "password": "Mot de passe du compte Enphase",
+          "site_id": "Site ID (optionnel, auto-détecté)",
+          "user_id": "User ID (optionnel, auto-détecté)",
+          "username": "Email du compte Enphase"
+        },
+        "description": "{benefits}",
+        "title": "Connexion Cloud Enlighten"
+      },
+      "local": {
+        "data": {
+          "cloud_password": "Mot de passe du compte Enphase",
+          "cloud_username": "Email du compte Enphase (requis pour firmware 7.x/8.x)",
+          "enable_cloud_control": "Activer le contrôle cloud (mode hybride)",
+          "envoy_host": "Hostname ou IP de l'Envoy"
+        },
+        "data_description": {
+          "enable_cloud_control": "Mode hybride : données locales (rapide) + contrôle cloud (switch/select). Requis car le firmware 8.x ne supporte plus le contrôle via API locale."
+        },
+        "description": "{benefits}",
+        "title": "Connexion Locale à l'Envoy"
+      },
+      "reauth_confirm": {
+        "data": {
+          "password": "Mot de passe",
+          "username": "Nom d'utilisateur"
+        },
+        "description": "Les identifiants de votre système Enphase doivent être mis à jour.",
+        "title": "Ré-authentification Enphase Battery"
+      },
+      "user": {
+        "data": {
+          "connection_mode": "Mode de connexion"
+        },
+        "data_description": {
+          "connection_mode": "Local : Connexion directe à l'Envoy (rapide, pas de limite API)\nCloud : Cloud Enlighten (accès distant, limite API)"
+        },
+        "description": "Choisissez comment vous connecter à votre système Enphase.",
+        "title": "Mode de Connexion Enphase Battery"
+      }
     }
   },
   "entity": {
+    "binary_sensor": {
+      "battery_charging": {
+        "name": "Batterie en charge"
+      },
+      "battery_connected": {
+        "name": "Batterie connectée"
+      }
+    },
+    "number": {
+      "battery_reserve": {
+        "name": "Pourcentage de réserve de la batterie"
+      }
+    },
+    "select": {
+      "battery_mode": {
+        "name": "Mode de la batterie",
+        "state": {
+          "backup": "Backup uniquement",
+          "savings": "Mode économie",
+          "self_consumption": "Autoconsommation"
+        }
+      }
+    },
     "sensor": {
-      "battery_soc": {
-        "name": "État de charge de la batterie"
-      },
-      "battery_power": {
-        "name": "Puissance de la batterie"
-      },
-      "battery_voltage": {
-        "name": "Tension de la batterie"
+      "battery_capacity": {
+        "name": "Capacité de la batterie"
       },
       "battery_current": {
         "name": "Courant de la batterie"
-      },
-      "battery_temperature": {
-        "name": "Température de la batterie"
       },
       "battery_energy_charged": {
         "name": "Énergie chargée aujourd'hui"
@@ -76,29 +90,30 @@
       "battery_energy_discharged": {
         "name": "Énergie déchargée aujourd'hui"
       },
-      "battery_capacity": {
-        "name": "Capacité de la batterie"
-      },
       "battery_health": {
         "name": "État de santé de la batterie"
+      },
+      "battery_power": {
+        "name": "Puissance de la batterie"
+      },
+      "battery_soc": {
+        "name": "État de charge de la batterie"
       },
       "battery_state": {
         "name": "État de la batterie",
         "state": {
           "charging": "En charge",
           "discharging": "En décharge",
-          "idle": "Inactif",
+          "empty": "Vide",
           "full": "Pleine",
-          "empty": "Vide"
+          "idle": "Inactif"
         }
-      }
-    },
-    "binary_sensor": {
-      "battery_charging": {
-        "name": "Batterie en charge"
       },
-      "battery_connected": {
-        "name": "Batterie connectée"
+      "battery_temperature": {
+        "name": "Température de la batterie"
+      },
+      "battery_voltage": {
+        "name": "Tension de la batterie"
       }
     },
     "switch": {
@@ -113,21 +128,6 @@
       },
       "reserve_battery_discharge": {
         "name": "Limiter la décharge de la batterie"
-      }
-    },
-    "select": {
-      "battery_mode": {
-        "name": "Mode de la batterie",
-        "state": {
-          "self_consumption": "Autoconsommation",
-          "backup": "Backup uniquement",
-          "savings": "Mode économie"
-        }
-      }
-    },
-    "number": {
-      "battery_reserve": {
-        "name": "Pourcentage de réserve de la batterie"
       }
     }
   }

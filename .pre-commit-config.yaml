@@ -40,8 +40,9 @@ repos:
     rev: v2.4.1
     hooks:
       - id: codespell
-        args: ["--skip", "*.json,*.yaml,*.yml", "--ignore-words-list=hass"]
-        exclude: ^(captured_data/|\.gitignore)
+        args: ["--skip", "*.json,*.yaml,*.yml"]
+        # Exclude French documentation files
+        exclude: ^(captured_data/|\.gitignore|README\.md|\.github/)
 
   - repo: local
     hooks:

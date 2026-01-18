@@ -185,4 +185,3 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MAJOR** (X.0.0): Breaking changes
 - **MINOR** (0.X.0): New features, backward compatible
 - **PATCH** (0.0.X): Bug fixes, backward compatible
-
