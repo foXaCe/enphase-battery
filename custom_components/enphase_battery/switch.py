@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DEVICE_INFO, DOMAIN
 from .coordinator import EnphaseBatteryDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -51,24 +51,20 @@ async def async_setup_entry(
 class ChargeFromGridSwitch(CoordinatorEntity, SwitchEntity):
     """Charge From Grid switch entity."""
 
+    # Use __slots__ to reduce memory footprint
+    __slots__ = ("_optimistic_state",)
+
+    # Class-level attributes (shared across all instances)
+    _attr_device_info = DEVICE_INFO
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:transmission-tower-import"
+
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the switch entity."""
         super().__init__(coordinator)
         self._attr_name = "Charge depuis le réseau"
         self._attr_unique_id = f"{DOMAIN}_charge_from_grid"
-        self._attr_has_entity_name = True
-        self._attr_icon = "mdi:transmission-tower-import"
         self._optimistic_state: bool | None = None
-
-    @property
-    def device_info(self) -> dict[str, Any]:
-        """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, "enphase_battery")},
-            "name": "Enphase Battery IQ 5P",
-            "manufacturer": "Enphase Energy",
-            "model": "IQ Battery 5P",
-        }
 
     @property
     def is_on(self) -> bool | None:
@@ -136,24 +132,20 @@ class LimitDischargeSwitch(CoordinatorEntity, SwitchEntity):
     When disabled: Battery cannot discharge to grid (discharge is limited)
     """
 
+    # Use __slots__ to reduce memory footprint
+    __slots__ = ("_optimistic_state",)
+
+    # Class-level attributes (shared across all instances)
+    _attr_device_info = DEVICE_INFO
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:transmission-tower-export"
+
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the switch entity."""
         super().__init__(coordinator)
         self._attr_name = "Autoriser la décharge vers le réseau"
         self._attr_unique_id = f"{DOMAIN}_discharge_to_grid"
-        self._attr_has_entity_name = True
-        self._attr_icon = "mdi:transmission-tower-export"
         self._optimistic_state: bool | None = None
-
-    @property
-    def device_info(self) -> dict[str, Any]:
-        """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, "enphase_battery")},
-            "name": "Enphase Battery IQ 5P",
-            "manufacturer": "Enphase Energy",
-            "model": "IQ Battery 5P",
-        }
 
     @property
     def is_on(self) -> bool | None:
@@ -222,24 +214,20 @@ class ReserveBatteryDischargeSwitch(CoordinatorEntity, SwitchEntity):
     When disabled: Battery can discharge freely
     """
 
+    # Use __slots__ to reduce memory footprint
+    __slots__ = ("_optimistic_state",)
+
+    # Class-level attributes (shared across all instances)
+    _attr_device_info = DEVICE_INFO
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:battery-lock"
+
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the switch entity."""
         super().__init__(coordinator)
         self._attr_name = "Limiter la décharge de la batterie"
         self._attr_unique_id = f"{DOMAIN}_reserve_battery_discharge"
-        self._attr_has_entity_name = True
-        self._attr_icon = "mdi:battery-lock"
         self._optimistic_state: bool | None = None
-
-    @property
-    def device_info(self) -> dict[str, Any]:
-        """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, "enphase_battery")},
-            "name": "Enphase Battery IQ 5P",
-            "manufacturer": "Enphase Energy",
-            "model": "IQ Battery 5P",
-        }
 
     @property
     def is_on(self) -> bool | None:

@@ -353,8 +353,6 @@ class EnphaseEnvoyLocalAPI:
 
             # Parse XML if we have it
             if xml_content:
-                import re
-
                 # Extract serial number
                 serial_match = re.search(r"<sn>(\d+)</sn>", xml_content)
                 serial = serial_match.group(1) if serial_match else None

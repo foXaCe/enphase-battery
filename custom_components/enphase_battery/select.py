@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, ClassVar
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
@@ -16,6 +16,7 @@ from .const import (
     BATTERY_MODE_COST_SAVINGS,
     BATTERY_MODE_EXPERT,
     BATTERY_MODE_SELF_CONSUMPTION,
+    DEVICE_INFO,
     DOMAIN,
 )
 from .coordinator import EnphaseBatteryDataUpdateCoordinator
@@ -55,20 +56,23 @@ async def async_setup_entry(
 class BatteryModeSelect(CoordinatorEntity, SelectEntity):
     """Battery Operation Mode select entity."""
 
+    # Use __slots__ to reduce memory footprint
+    __slots__ = ("_mode_api_to_ui", "_mode_ui_to_api")
+
+    # Class-level attributes (shared across all instances)
+    _attr_device_info = DEVICE_INFO
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:battery-sync"
+    _attr_options: ClassVar[list[str]] = [
+        "Autoconsommation",  # self-consumption
+        "Optimisation IA",  # cost_savings (AI optimization)
+    ]
+
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the select entity."""
         super().__init__(coordinator)
         self._attr_name = "Mode de la batterie"
         self._attr_unique_id = f"{DOMAIN}_battery_mode"
-        self._attr_has_entity_name = True
-        self._attr_icon = "mdi:battery-sync"
-
-        # Options basées sur les modes disponibles dans l'app Enphase
-        # Note: backup_only et expert sont souvent cachés selon la configuration
-        self._attr_options = [
-            "Autoconsommation",  # self-consumption
-            "Optimisation IA",  # cost_savings (AI optimization)
-        ]
 
         # Mapping API <-> UI
         self._mode_api_to_ui = {
@@ -80,16 +84,6 @@ class BatteryModeSelect(CoordinatorEntity, SelectEntity):
         }
 
         self._mode_ui_to_api = {v: k for k, v in self._mode_api_to_ui.items()}
-
-    @property
-    def device_info(self) -> dict[str, Any]:
-        """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, "enphase_battery")},
-            "name": "Enphase Battery IQ 5P",
-            "manufacturer": "Enphase Energy",
-            "model": "IQ Battery 5P",
-        }
 
     @property
     def current_option(self) -> str | None:

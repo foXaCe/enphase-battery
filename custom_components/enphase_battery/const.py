@@ -56,3 +56,11 @@ ATTR_BATTERY_MODEL: Final = "model"
 ATTR_BATTERY_FIRMWARE: Final = "firmware_version"
 ATTR_BATTERY_CAPACITY: Final = "capacity"
 ATTR_BATTERY_HEALTH: Final = "health"
+
+# Device info (shared across all entities to reduce memory)
+DEVICE_INFO: Final = {
+    "identifiers": {(DOMAIN, "enphase_battery")},
+    "name": "Enphase Battery IQ 5P",
+    "manufacturer": "Enphase Energy",
+    "model": "IQ Battery 5P",
+}

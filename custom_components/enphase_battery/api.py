@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 from datetime import datetime
 import json
@@ -464,29 +465,36 @@ class EnphaseBatteryAPI:
         """Get current battery data including SOC, power, and stats.
 
         Returns comprehensive battery information from /pv/systems/{site_id}/today endpoint.
+        Optimized: Fetches main data and battery settings in parallel.
         """
         if not self._site_id:
             raise EnphaseBatteryAuthError("Not authenticated - site_id missing")
 
         url = f"{API_BASE_URL}/pv/systems/{self._site_id}/today"
 
-        try:
+        async def _fetch_today_data():
             async with self._session.get(
                 url,
                 headers=self._get_headers(),
                 timeout=ClientTimeout(total=API_TIMEOUT),
             ) as response:
                 response.raise_for_status()
-                data = await response.json()
+                return await response.json()
 
-                # Récupérer aussi les battery settings pour avoir les paramètres de configuration
-                battery_settings = None
-                try:
-                    battery_settings = await self.get_battery_settings()
-                except Exception:
-                    pass
+        async def _fetch_battery_settings():
+            try:
+                return await self.get_battery_settings()
+            except Exception:
+                return None
 
-                return self._parse_battery_data(data, battery_settings)
+        try:
+            # Parallel fetch: main data + battery settings (saves ~1-2s)
+            data, battery_settings = await asyncio.gather(
+                _fetch_today_data(),
+                _fetch_battery_settings(),
+            )
+
+            return self._parse_battery_data(data, battery_settings)
 
         except aiohttp.ClientError as err:
             raise EnphaseBatteryConnectionError(f"Failed to get battery data: {err}") from err

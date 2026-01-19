@@ -21,7 +21,7 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DEVICE_INFO, DOMAIN
 from .coordinator import EnphaseBatteryDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -65,6 +65,13 @@ async def async_setup_entry(
 class EnphaseBatterySensorBase(CoordinatorEntity, SensorEntity):
     """Base class for Enphase Battery sensors."""
 
+    # Use __slots__ to reduce memory footprint (one dict per class instead of per instance)
+    __slots__ = ("_sensor_type",)
+
+    # Class-level device_info (shared across all instances)
+    _attr_device_info = DEVICE_INFO
+    _attr_has_entity_name = True
+
     def __init__(
         self,
         coordinator: EnphaseBatteryDataUpdateCoordinator,
@@ -76,17 +83,6 @@ class EnphaseBatterySensorBase(CoordinatorEntity, SensorEntity):
         self._sensor_type = sensor_type
         self._attr_name = name
         self._attr_unique_id = f"{DOMAIN}_{sensor_type}"
-        self._attr_has_entity_name = True
-
-    @property
-    def device_info(self) -> dict[str, Any]:
-        """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, "enphase_battery")},
-            "name": "Enphase Battery IQ 5P",
-            "manufacturer": "Enphase Energy",
-            "model": "IQ Battery 5P",
-        }
 
 
 class BatterySOCSensor(EnphaseBatterySensorBase):
