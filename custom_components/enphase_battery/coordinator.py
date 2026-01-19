@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta
 import logging
 from typing import Any
@@ -112,24 +113,36 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         )
 
     async def _async_setup(self) -> None:
-        """Set up the coordinator based on connection mode."""
-        # Load persistent energy tracking data
-        await self._load_energy_tracking()
+        """Set up the coordinator based on connection mode.
 
+        Optimized for fast startup:
+        - Energy tracking loaded in parallel with authentication
+        - Local + cloud auth parallelized in hybrid mode
+        """
         session = async_get_clientsession(self.hass)
         enable_cloud_control = self.entry.data.get("enable_cloud_control", False)
 
         if self._connection_mode == CONNECTION_MODE_LOCAL:
-            # Local mode: Initialize Envoy local API
-            await self._setup_local_api(session)
-
-            # Hybrid mode: Also initialize cloud API for control if enabled
             if enable_cloud_control:
-                _LOGGER.debug("Hybrid mode enabled: initializing cloud API for control")
-                await self._setup_cloud_api_from_local_creds(session)
+                # Hybrid mode: Parallelize local API + cloud API + storage loading
+                _LOGGER.debug("Hybrid mode: parallelizing local + cloud auth + storage")
+                await asyncio.gather(
+                    self._setup_local_api(session),
+                    self._setup_cloud_api_from_local_creds(session),
+                    self._load_energy_tracking(),
+                )
+            else:
+                # Local mode only: Parallelize local API + storage loading
+                await asyncio.gather(
+                    self._setup_local_api(session),
+                    self._load_energy_tracking(),
+                )
         else:
-            # Cloud mode: Initialize cloud API
-            await self._setup_cloud_api(session)
+            # Cloud mode: Parallelize cloud API + storage loading
+            await asyncio.gather(
+                self._setup_cloud_api(session),
+                self._load_energy_tracking(),
+            )
 
     async def _setup_local_api(self, session) -> None:
         """Set up local Envoy API client."""
