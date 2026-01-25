@@ -37,7 +37,11 @@ class EnphaseBatteryRuntimeData:
 
 
 # Type alias for ConfigEntry with runtime_data
-EnphaseBatteryConfigEntry = ConfigEntry[EnphaseBatteryRuntimeData]
+# Use TYPE_CHECKING guard for Python 3.11 compatibility (ConfigEntry is not subscriptable at runtime)
+if TYPE_CHECKING:
+    EnphaseBatteryConfigEntry = ConfigEntry[EnphaseBatteryRuntimeData]
+else:
+    EnphaseBatteryConfigEntry = ConfigEntry
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
