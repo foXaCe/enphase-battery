@@ -8,7 +8,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
+from homeassistant.setup import async_setup_component
 import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.enphase_battery.const import (
     CONF_CONNECTION_MODE,
@@ -17,6 +19,12 @@ from custom_components.enphase_battery.const import (
     CONNECTION_MODE_LOCAL,
     DOMAIN,
 )
+
+
+@pytest.fixture(autouse=True)
+def auto_enable_custom_integrations(enable_custom_integrations):
+    """Enable custom integrations for all tests."""
+    yield
 
 
 @pytest.fixture

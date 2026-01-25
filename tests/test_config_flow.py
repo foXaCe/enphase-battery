@@ -9,6 +9,7 @@ from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.enphase_battery.config_flow import (
     CannotConnect,
@@ -197,14 +198,11 @@ async def test_form_already_configured(
     mock_setup_entry: AsyncMock,
 ) -> None:
     """Test handling already configured device."""
-    # Create an existing entry
-    entry = config_entries.ConfigEntry(
-        version=1,
-        minor_version=1,
+    # Create an existing entry using MockConfigEntry
+    entry = MockConfigEntry(
         domain=DOMAIN,
         title="Existing Entry",
         data={CONF_CONNECTION_MODE: CONNECTION_MODE_LOCAL},
-        source=config_entries.SOURCE_USER,
         unique_id="TEST123456",
     )
     entry.add_to_hass(hass)
