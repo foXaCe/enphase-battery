@@ -7,20 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.34.0] - 2025-01-25
+
 ### Added
 - **Multi-battery support** (Issue #1): Individual battery devices with per-battery sensors
   - Each battery appears as a separate device under "Enphase Battery System"
   - 7 sensors per battery: Temperature, Max Cell Temp, Capacity, Serial, Firmware, SOC, Grid State
   - Proper device hierarchy using `via_device`
+- **PowerMatch switch**: New switch entity to control PowerMatch feature
+- **Reconfigure options**: Integration settings can now be edited after setup (connection mode, local/cloud config)
 
 ### Fixed
 - Missing `DOMAIN` import in binary_sensor.py causing `NameError`
 - Number entity `BatteryBackupReserveNumber` now properly checks for cloud API availability
-- Removed dead code: unused system-level sensor classes replaced by individual battery sensors
+- `ConfigEntry` type alias compatibility with Python 3.11
+- Test suite updated for `pytest-homeassistant-custom-component` compatibility
 
 ### Changed
 - **Breaking**: System device identifier changed from `enphase_battery` to `enphase_battery_system`
   - Existing entities may need to be re-added after upgrade
+- GitHub Actions updated: `actions/checkout` v6, `actions/setup-python` v6
 
 ## [2.33.0] - 2025-01-24
 
@@ -186,7 +192,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 See git history for changes in versions prior to 2.26.0.
 
-[Unreleased]: https://github.com/foXaCe/enphase-battery/compare/v2.33.0...HEAD
+[Unreleased]: https://github.com/foXaCe/enphase-battery/compare/v2.34.0...HEAD
+[2.34.0]: https://github.com/foXaCe/enphase-battery/compare/v2.33.0...v2.34.0
 [2.33.0]: https://github.com/foXaCe/enphase-battery/compare/v2.32.0...v2.33.0
 [2.32.0]: https://github.com/foXaCe/enphase-battery/compare/v2.31.0...v2.32.0
 [2.31.0]: https://github.com/foXaCe/enphase-battery/compare/v2.30.1...v2.31.0
