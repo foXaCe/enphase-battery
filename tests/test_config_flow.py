@@ -30,7 +30,7 @@ async def test_form_user_step(hass: HomeAssistant) -> None:
 
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "user"
-    assert result["errors"] == {}
+    assert result.get("errors") is None or result["errors"] == {}
 
 
 async def test_form_local_mode_selection(

@@ -59,9 +59,7 @@ async def test_setup_entry_local(
     mock_local_config_entry.add_to_hass(hass)
 
     with (
-        patch("custom_components.enphase_battery.coordinator.EnphaseBatteryDataUpdateCoordinator") as mock_coord_class,
-        patch("custom_components.enphase_battery.coordinator.EnphaseEnvoyLocalAPI"),
-        patch("custom_components.enphase_battery.coordinator.async_get_clientsession"),
+        patch("custom_components.enphase_battery.EnphaseBatteryDataUpdateCoordinator") as mock_coord_class,
     ):
         mock_coord = MagicMock()
         mock_coord._async_setup = AsyncMock()
@@ -86,9 +84,7 @@ async def test_unload_entry(
     mock_local_config_entry.add_to_hass(hass)
 
     with (
-        patch("custom_components.enphase_battery.coordinator.EnphaseBatteryDataUpdateCoordinator") as mock_coord_class,
-        patch("custom_components.enphase_battery.coordinator.EnphaseEnvoyLocalAPI"),
-        patch("custom_components.enphase_battery.coordinator.async_get_clientsession"),
+        patch("custom_components.enphase_battery.EnphaseBatteryDataUpdateCoordinator") as mock_coord_class,
     ):
         mock_coord = MagicMock()
         mock_coord._async_setup = AsyncMock()
@@ -127,9 +123,7 @@ async def test_migrate_entry_adds_connection_mode(
     old_entry.add_to_hass(hass)
 
     with (
-        patch("custom_components.enphase_battery.coordinator.EnphaseBatteryDataUpdateCoordinator") as mock_coord_class,
-        patch("custom_components.enphase_battery.coordinator.EnphaseBatteryAPI"),
-        patch("custom_components.enphase_battery.coordinator.async_get_clientsession"),
+        patch("custom_components.enphase_battery.EnphaseBatteryDataUpdateCoordinator") as mock_coord_class,
     ):
         mock_coord = MagicMock()
         mock_coord._async_setup = AsyncMock()
