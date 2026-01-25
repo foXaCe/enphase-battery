@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.34.1] - 2025-01-25
+
+### Fixed
+- PowerMatch switch state now correctly reports from cloud API in hybrid mode
+- Filter non-battery devices from individual battery sensors (only IQ Battery 5P devices)
+
 ## [2.34.0] - 2025-01-25
 
 ### Added
@@ -192,7 +198,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 See git history for changes in versions prior to 2.26.0.
 
-[Unreleased]: https://github.com/foXaCe/enphase-battery/compare/v2.34.0...HEAD
+[Unreleased]: https://github.com/foXaCe/enphase-battery/compare/v2.34.1...HEAD
+[2.34.1]: https://github.com/foXaCe/enphase-battery/compare/v2.34.0...v2.34.1
 [2.34.0]: https://github.com/foXaCe/enphase-battery/compare/v2.33.0...v2.34.0
 [2.33.0]: https://github.com/foXaCe/enphase-battery/compare/v2.32.0...v2.33.0
 [2.32.0]: https://github.com/foXaCe/enphase-battery/compare/v2.31.0...v2.32.0
