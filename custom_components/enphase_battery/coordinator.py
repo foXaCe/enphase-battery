@@ -368,6 +368,11 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
                                     if isinstance(cloud_settings.get("rbdControl"), dict)
                                     else False
                                 ),
+                                "power_match": (
+                                    cloud_settings.get("powerMatchControl", {}).get("enabled", False)
+                                    if isinstance(cloud_settings.get("powerMatchControl"), dict)
+                                    else False
+                                ),
                             }
                             self._last_cloud_control_fetch = now
                         except Exception as err:
@@ -393,6 +398,9 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
                         )
                         data["reserve_battery_discharge"] = self._cloud_control_cache.get(
                             "reserve_battery_discharge", data.get("reserve_battery_discharge", False)
+                        )
+                        data["power_match"] = self._cloud_control_cache.get(
+                            "power_match", data.get("power_match", False)
                         )
 
             else:

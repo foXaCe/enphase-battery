@@ -75,37 +75,62 @@ async def async_setup_entry(
         if not devices:
             return
 
+        # Debug: log raw devices data
+        _LOGGER.debug("Raw devices data: %s", devices)
+
         individual_entities: list[SensorEntity] = []
+        battery_count = 0
 
         for idx, device in enumerate(devices):
             serial_num = device.get("serial_num")
             if not serial_num:
-                _LOGGER.warning("Battery device %d has no serial number, skipping", idx)
+                _LOGGER.debug("Device %d has no serial number, skipping: %s", idx, device)
+                continue
+
+            # Filter: Only include actual ENCHARGE batteries (have part_num starting with 500-)
+            part_num = device.get("part_num", "")
+            device_type = device.get("type", device.get("device_type", ""))
+
+            # Skip non-battery devices (ENPOWER controller, etc.)
+            # ENCHARGE batteries have part_num like "500-00xxx" or type "ENCHARGE"
+            is_battery = (
+                (part_num and part_num.startswith("500-"))
+                or device_type == "ENCHARGE"
+                or "percentFull" in device  # Has battery-specific field
+            )
+
+            if not is_battery:
+                _LOGGER.debug(
+                    "Device %d (%s) is not an ENCHARGE battery, skipping. part_num=%s, type=%s",
+                    idx,
+                    serial_num,
+                    part_num,
+                    device_type,
+                )
                 continue
 
             # Skip if already added
             if serial_num in added_batteries:
                 continue
 
-            part_num = device.get("part_num")
-            battery_num = idx + 1
+            battery_count += 1
 
             _LOGGER.info(
                 "Adding individual battery sensors for battery %d (serial: %s)",
-                battery_num,
+                battery_count,
                 serial_num,
             )
 
             # Create individual battery sensors
             individual_entities.extend(
                 [
-                    IndividualBatteryTemperatureSensor(coordinator, serial_num, part_num, battery_num),
-                    IndividualBatteryMaxCellTempSensor(coordinator, serial_num, part_num, battery_num),
-                    IndividualBatteryCapacitySensor(coordinator, serial_num, part_num, battery_num),
-                    IndividualBatterySerialSensor(coordinator, serial_num, part_num, battery_num),
-                    IndividualBatteryFirmwareSensor(coordinator, serial_num, part_num, battery_num),
-                    IndividualBatterySOCSensor(coordinator, serial_num, part_num, battery_num),
-                    IndividualBatteryGridStateSensor(coordinator, serial_num, part_num, battery_num),
+                    IndividualBatteryTemperatureSensor(coordinator, serial_num, part_num, battery_count),
+                    IndividualBatteryMaxCellTempSensor(coordinator, serial_num, part_num, battery_count),
+                    IndividualBatteryCapacitySensor(coordinator, serial_num, part_num, battery_count),
+                    IndividualBatterySerialSensor(coordinator, serial_num, part_num, battery_count),
+                    IndividualBatteryFirmwareSensor(coordinator, serial_num, part_num, battery_count),
+                    IndividualBatterySOCSensor(coordinator, serial_num, part_num, battery_count),
+                    IndividualBatteryGridStateSensor(coordinator, serial_num, part_num, battery_count),
                 ]
             )
 
