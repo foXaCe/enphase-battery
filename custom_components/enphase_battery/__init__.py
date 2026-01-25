@@ -111,7 +111,8 @@ async def async_setup_entry(
     # Otherwise, wait for HA to finish starting
     if hass.is_running:
         task = hass.async_create_background_task(_async_deferred_setup(), "enphase_battery_deferred_setup")
-        entry.async_on_unload(task.cancel)
+        # Use lambda to avoid returning True from task.cancel() which HA tries to await
+        entry.async_on_unload(lambda: task.cancel())
     else:
         hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _async_deferred_setup)
 
