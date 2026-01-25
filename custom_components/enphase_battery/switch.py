@@ -3,27 +3,30 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.switch import SwitchEntity
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DEVICE_INFO, DOMAIN
 from .coordinator import EnphaseBatteryDataUpdateCoordinator
+
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+    from . import EnphaseBatteryConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: EnphaseBatteryConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Enphase Battery switch platform."""
-    coordinator: EnphaseBatteryDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data.coordinator
 
     entities = []
 
@@ -37,6 +40,7 @@ async def async_setup_entry(
         entities.append(ChargeFromGridSwitch(coordinator))
         entities.append(LimitDischargeSwitch(coordinator))
         entities.append(ReserveBatteryDischargeSwitch(coordinator))
+        entities.append(PowerMatchSwitch(coordinator))
     else:
         _LOGGER.warning(
             "Charge From Grid switch disabled. "
@@ -286,4 +290,85 @@ class ReserveBatteryDischargeSwitch(CoordinatorEntity, SwitchEntity):
             self._optimistic_state = None
             self.async_write_ha_state()
             _LOGGER.error("Failed to disable Reserve Battery Discharge: %s", err)
+            raise
+
+
+class PowerMatchSwitch(CoordinatorEntity, SwitchEntity):
+    """PowerMatch switch entity (powerMatchControl).
+
+    PowerMatch optimizes battery usage to match grid power patterns.
+    """
+
+    # Use __slots__ to reduce memory footprint
+    __slots__ = ("_optimistic_state",)
+
+    # Class-level attributes (shared across all instances)
+    _attr_device_info = DEVICE_INFO
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:sine-wave"
+
+    def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
+        """Initialize the switch entity."""
+        super().__init__(coordinator)
+        self._attr_name = "PowerMatch"
+        self._attr_unique_id = f"{DOMAIN}_power_match"
+        self._optimistic_state: bool | None = None
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return true if switch is on."""
+        # Return optimistic state if set (during API call)
+        if self._optimistic_state is not None:
+            return self._optimistic_state
+
+        if not self.coordinator.data:
+            return None
+
+        # Read from powerMatchControl.enabled
+        return self.coordinator.data.get("power_match", False)
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Turn the switch on."""
+        # Set optimistic state immediately for UI feedback
+        self._optimistic_state = True
+        self.async_write_ha_state()
+
+        try:
+            # Always use cloud API (pure cloud mode or hybrid mode)
+            if not self.coordinator.api:
+                raise Exception("Cloud API not initialized. Enable cloud control in settings.")
+            await self.coordinator.api.set_power_match(True)
+
+            # Clear optimistic state and invalidate cache to force immediate cloud refresh
+            self._optimistic_state = None
+            self.coordinator.invalidate_cloud_control_cache()
+            await self.coordinator.async_request_refresh()
+        except Exception as err:
+            # Clear optimistic state on error
+            self._optimistic_state = None
+            self.async_write_ha_state()
+            _LOGGER.error("Failed to enable PowerMatch: %s", err)
+            raise
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Turn the switch off."""
+        # Set optimistic state immediately for UI feedback
+        self._optimistic_state = False
+        self.async_write_ha_state()
+
+        try:
+            # Always use cloud API (pure cloud mode or hybrid mode)
+            if not self.coordinator.api:
+                raise Exception("Cloud API not initialized. Enable cloud control in settings.")
+            await self.coordinator.api.set_power_match(False)
+
+            # Clear optimistic state and invalidate cache to force immediate cloud refresh
+            self._optimistic_state = None
+            self.coordinator.invalidate_cloud_control_cache()
+            await self.coordinator.async_request_refresh()
+        except Exception as err:
+            # Clear optimistic state on error
+            self._optimistic_state = None
+            self.async_write_ha_state()
+            _LOGGER.error("Failed to disable PowerMatch: %s", err)
             raise

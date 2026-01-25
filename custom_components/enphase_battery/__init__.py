@@ -5,15 +5,19 @@ Intégration pour batteries Enphase IQ 5P
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import logging
 import time
+from typing import TYPE_CHECKING
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, Platform
-from homeassistant.core import Event, HomeAssistant
 
 from .const import CONF_CONNECTION_MODE, CONNECTION_MODE_CLOUD, DOMAIN
 from .coordinator import EnphaseBatteryDataUpdateCoordinator
+
+if TYPE_CHECKING:
+    from homeassistant.core import Event, HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,24 +29,43 @@ PLATFORMS: list[Platform] = [
 ]
 
 
+@dataclass(slots=True)
+class EnphaseBatteryRuntimeData:
+    """Runtime data for Enphase Battery integration."""
+
+    coordinator: EnphaseBatteryDataUpdateCoordinator
+
+
+# Type alias for ConfigEntry with runtime_data
+EnphaseBatteryConfigEntry = ConfigEntry[EnphaseBatteryRuntimeData]
+
+
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Migrate old config entries to new format with connection_mode."""
-    # Check if this is an old config (before v2.0.0 - no connection_mode)
-    if CONF_CONNECTION_MODE not in entry.data:
-        _LOGGER.info("⚙️ Migrating old config entry to dual-mode format")
+    """Migrate old config entries to new format.
 
+    Migration history:
+    - Version 1: Initial version (cloud-only mode)
+    - Version 2: Added connection_mode field for dual-mode support
+    """
+    _LOGGER.debug("Migrating from version %s to %s", entry.version, 2)
+
+    if entry.version == 1:
+        # Migrate from v1 to v2: Add connection_mode field
         # Old configs were always cloud-based
-        new_data = {**entry.data, CONF_CONNECTION_MODE: CONNECTION_MODE_CLOUD}
+        new_data = {**entry.data}
+        if CONF_CONNECTION_MODE not in new_data:
+            new_data[CONF_CONNECTION_MODE] = CONNECTION_MODE_CLOUD
 
-        # Update config entry
-        hass.config_entries.async_update_entry(entry, data=new_data)
-
-        _LOGGER.info("Migration successful: Added connection_mode='cloud' to existing config")
+        hass.config_entries.async_update_entry(entry, data=new_data, version=2)
+        _LOGGER.info("Migrated config entry from version 1 to 2: added connection_mode='cloud'")
 
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: EnphaseBatteryConfigEntry,
+) -> bool:
     """Set up Enphase Battery from a config entry.
 
     Optimized for fast startup (<2s):
@@ -51,18 +74,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     - First data refresh happens after HA startup or in background
     """
     start_time = time.perf_counter()
-    _LOGGER.info("Starting Enphase Battery setup")
-
-    # Migrate old entries if needed (fast, no I/O)
-    await async_migrate_entry(hass, entry)
-
-    hass.data.setdefault(DOMAIN, {})
+    _LOGGER.debug("Starting Enphase Battery setup")
 
     # Create coordinator (fast, no I/O)
+    # Note: Migration is handled automatically by HA before this function is called
     coordinator = EnphaseBatteryDataUpdateCoordinator(hass, entry)
 
-    # Store coordinator immediately so platforms can access it
-    hass.data[DOMAIN][entry.entry_id] = coordinator
+    # Store coordinator in runtime_data (modern pattern, replaces hass.data)
+    entry.runtime_data = EnphaseBatteryRuntimeData(coordinator=coordinator)
 
     # Setup platforms immediately (entities will show as unavailable until first refresh)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -101,17 +120,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_unload_entry(
+    hass: HomeAssistant,
+    entry: EnphaseBatteryConfigEntry,
+) -> bool:
     """Unload a config entry."""
     # Unload platforms
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
-        # Cleanup coordinator
-        coordinator: EnphaseBatteryDataUpdateCoordinator = hass.data[DOMAIN].pop(entry.entry_id)
-        await coordinator.async_shutdown()
+        # Cleanup coordinator (runtime_data is automatically cleaned up)
+        await entry.runtime_data.coordinator.async_shutdown()
 
     return unload_ok
 
 
-async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+async def async_reload_entry(
+    hass: HomeAssistant,
+    entry: EnphaseBatteryConfigEntry,
+) -> None:
     """Reload config entry when options change."""
     await hass.config_entries.async_reload(entry.entry_id)

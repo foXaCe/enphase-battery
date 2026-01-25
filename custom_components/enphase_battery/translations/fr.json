@@ -130,5 +130,44 @@
         "name": "Limiter la décharge de la batterie"
       }
     }
+  },
+  "options": {
+    "error": {
+      "cannot_connect": "Échec de connexion. Vérifiez l'adresse et la connexion réseau.",
+      "invalid_auth": "Identifiants invalides. Veuillez vérifier votre nom d'utilisateur et mot de passe.",
+      "unknown": "Une erreur inattendue s'est produite. Consultez les journaux pour plus de détails."
+    },
+    "step": {
+      "cloud": {
+        "data": {
+          "password": "Mot de passe du compte Enphase",
+          "site_id": "Site ID (optionnel)",
+          "user_id": "User ID (optionnel)",
+          "username": "Email du compte Enphase"
+        },
+        "description": "Configurez la connexion cloud Enlighten.",
+        "title": "Paramètres connexion cloud"
+      },
+      "init": {
+        "data": {
+          "connection_mode": "Mode de connexion"
+        },
+        "description": "Choisissez le mode de connexion pour votre système Enphase.",
+        "title": "Configurer Enphase Battery"
+      },
+      "local": {
+        "data": {
+          "cloud_password": "Mot de passe du compte Enphase",
+          "cloud_username": "Email du compte Enphase",
+          "enable_cloud_control": "Activer le contrôle cloud (mode hybride)",
+          "envoy_host": "Hostname ou IP de l'Envoy"
+        },
+        "data_description": {
+          "enable_cloud_control": "Mode hybride : données locales (rapide) + contrôle cloud (switch/select)."
+        },
+        "description": "Configurez la connexion locale à l'Envoy.",
+        "title": "Paramètres connexion locale"
+      }
+    }
   }
 }

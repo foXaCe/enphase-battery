@@ -130,5 +130,44 @@
         "name": "Limit Battery Discharge"
       }
     }
+  },
+  "options": {
+    "error": {
+      "cannot_connect": "Failed to connect. Check the host address and network connection.",
+      "invalid_auth": "Invalid authentication credentials. Please check your username and password.",
+      "unknown": "Unexpected error occurred. Check the logs for more details."
+    },
+    "step": {
+      "cloud": {
+        "data": {
+          "password": "Enphase Account Password",
+          "site_id": "Site ID (optional)",
+          "user_id": "User ID (optional)",
+          "username": "Enphase Account Email"
+        },
+        "description": "Configure cloud Enlighten connection.",
+        "title": "Cloud Connection Settings"
+      },
+      "init": {
+        "data": {
+          "connection_mode": "Connection Mode"
+        },
+        "description": "Choose connection mode for your Enphase system.",
+        "title": "Configure Enphase Battery"
+      },
+      "local": {
+        "data": {
+          "cloud_password": "Enphase account password",
+          "cloud_username": "Enphase account email",
+          "enable_cloud_control": "Enable cloud control (hybrid mode)",
+          "envoy_host": "Envoy Hostname or IP"
+        },
+        "data_description": {
+          "enable_cloud_control": "Hybrid mode: local data (fast) + cloud control (switch/select)."
+        },
+        "description": "Configure local Envoy connection.",
+        "title": "Local Connection Settings"
+      }
+    }
   }
 }

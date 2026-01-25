@@ -57,10 +57,30 @@ ATTR_BATTERY_FIRMWARE: Final = "firmware_version"
 ATTR_BATTERY_CAPACITY: Final = "capacity"
 ATTR_BATTERY_HEALTH: Final = "health"
 
-# Device info (shared across all entities to reduce memory)
+# Device info for the battery system (shared across system-level entities)
 DEVICE_INFO: Final = {
-    "identifiers": {(DOMAIN, "enphase_battery")},
-    "name": "Enphase Battery IQ 5P",
+    "identifiers": {(DOMAIN, "enphase_battery_system")},
+    "name": "Enphase Battery System",
     "manufacturer": "Enphase Energy",
-    "model": "IQ Battery 5P",
+    "model": "IQ Battery 5P System",
 }
+
+
+def get_battery_device_info(serial_num: str, part_num: str | None = None) -> dict:
+    """Get device info for an individual battery.
+
+    Args:
+        serial_num: Battery serial number (unique identifier)
+        part_num: Battery part number (model reference)
+
+    Returns:
+        Device info dictionary for Home Assistant
+    """
+    return {
+        "identifiers": {(DOMAIN, f"battery_{serial_num}")},
+        "name": f"Enphase Battery {serial_num[-4:]}",
+        "manufacturer": "Enphase Energy",
+        "model": part_num or "IQ Battery 5P",
+        "serial_number": serial_num,
+        "via_device": (DOMAIN, "enphase_battery_system"),
+    }

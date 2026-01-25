@@ -7,7 +7,7 @@ from typing import Any
 
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 import voluptuous as vol
 
@@ -138,11 +138,19 @@ async def validate_cloud_input(hass: HomeAssistant, data: dict[str, Any]) -> dic
 class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Enphase Battery."""
 
-    VERSION = 1
+    VERSION = 2
 
     def __init__(self) -> None:
         """Initialize config flow."""
         self._connection_mode: str | None = None
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> config_entries.OptionsFlow:
+        """Get the options flow for this handler."""
+        return EnphaseBatteryOptionsFlowHandler()
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle the initial step - select connection mode."""
@@ -274,6 +282,150 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="reauth_confirm",
+            data_schema=data_schema,
+            errors=errors,
+        )
+
+
+class EnphaseBatteryOptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle options flow for Enphase Battery."""
+
+    def __init__(self) -> None:
+        """Initialize options flow."""
+        self._connection_mode: str | None = None
+
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """First step - choose connection mode."""
+        current_data = self.config_entry.data
+        current_mode = current_data.get(CONF_CONNECTION_MODE, CONNECTION_MODE_CLOUD)
+
+        if user_input is not None:
+            self._connection_mode = user_input[CONF_CONNECTION_MODE]
+
+            # Redirect to appropriate config step
+            if self._connection_mode == CONNECTION_MODE_LOCAL:
+                return await self.async_step_local()
+            else:
+                return await self.async_step_cloud()
+
+        data_schema = vol.Schema(
+            {
+                vol.Required(CONF_CONNECTION_MODE, default=current_mode): vol.In(
+                    {
+                        CONNECTION_MODE_LOCAL: "Local (Envoy direct)",
+                        CONNECTION_MODE_CLOUD: "Cloud (Enlighten)",
+                    }
+                ),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=data_schema,
+        )
+
+    async def async_step_local(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Configure local mode."""
+        errors: dict[str, str] = {}
+        current_data = self.config_entry.data
+
+        if user_input is not None:
+            # Add connection mode
+            user_input[CONF_CONNECTION_MODE] = CONNECTION_MODE_LOCAL
+
+            try:
+                await validate_local_input(self.hass, user_input)
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except InvalidAuth:
+                errors["base"] = "invalid_auth"
+            except Exception:  # pylint: disable=broad-except
+                _LOGGER.exception("Unexpected exception during options validation")
+                errors["base"] = "unknown"
+            else:
+                # Update the config entry
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry,
+                    data=user_input,
+                )
+                return self.async_create_entry(title="", data={})
+
+        data_schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_ENVOY_HOST,
+                    default=current_data.get(CONF_ENVOY_HOST, "envoy.local"),
+                ): str,
+                vol.Required(
+                    "cloud_username",
+                    default=current_data.get("cloud_username", current_data.get(CONF_USERNAME, "")),
+                ): str,
+                vol.Required(
+                    "cloud_password",
+                    default=current_data.get("cloud_password", current_data.get(CONF_PASSWORD, "")),
+                ): str,
+                vol.Optional(
+                    "enable_cloud_control",
+                    default=current_data.get("enable_cloud_control", False),
+                ): bool,
+            }
+        )
+
+        return self.async_show_form(
+            step_id="local",
+            data_schema=data_schema,
+            errors=errors,
+        )
+
+    async def async_step_cloud(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Configure cloud mode."""
+        errors: dict[str, str] = {}
+        current_data = self.config_entry.data
+
+        if user_input is not None:
+            # Add connection mode
+            user_input[CONF_CONNECTION_MODE] = CONNECTION_MODE_CLOUD
+
+            try:
+                await validate_cloud_input(self.hass, user_input)
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except InvalidAuth:
+                errors["base"] = "invalid_auth"
+            except Exception:  # pylint: disable=broad-except
+                _LOGGER.exception("Unexpected exception during options validation")
+                errors["base"] = "unknown"
+            else:
+                # Update the config entry
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry,
+                    data=user_input,
+                )
+                return self.async_create_entry(title="", data={})
+
+        data_schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_USERNAME,
+                    default=current_data.get(CONF_USERNAME, current_data.get("cloud_username", "")),
+                ): str,
+                vol.Required(
+                    CONF_PASSWORD,
+                    default=current_data.get(CONF_PASSWORD, current_data.get("cloud_password", "")),
+                ): str,
+                vol.Optional(
+                    CONF_SITE_ID,
+                    default=current_data.get(CONF_SITE_ID, ""),
+                ): str,
+                vol.Optional(
+                    CONF_USER_ID,
+                    default=current_data.get(CONF_USER_ID, ""),
+                ): str,
+            }
+        )
+
+        return self.async_show_form(
+            step_id="cloud",
             data_schema=data_schema,
             errors=errors,
         )

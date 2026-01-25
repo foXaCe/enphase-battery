@@ -32,6 +32,16 @@ class EnphaseBatteryConnectionError(EnphaseBatteryApiError):
     """Connection error."""
 
 
+class EnphaseBatteryRateLimitError(EnphaseBatteryApiError):
+    """Rate limit exceeded error."""
+
+
+# Retry configuration
+MAX_RETRIES = 3
+RETRY_BACKOFF_FACTOR = 2  # Exponential backoff: 1s, 2s, 4s
+RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+
+
 class EnphaseBatteryAPI:
     """API client for Enphase Battery system."""
 
@@ -51,6 +61,116 @@ class EnphaseBatteryAPI:
         self._user_id: int | None = user_id  # Peut être fourni manuellement
         self._session_token: str | None = None
         self._envoy_serial: str | None = None
+        self._is_authenticated: bool = False
+
+    async def _request_with_reauth(
+        self,
+        method: str,
+        url: str,
+        return_json: bool = True,
+        **kwargs,
+    ) -> dict[str, Any] | list[Any] | None:
+        """Make HTTP request with retry, backoff, and automatic re-authentication.
+
+        Features:
+        - Automatic retry with exponential backoff for transient errors
+        - Re-authentication on 401 Unauthorized
+        - Rate limit handling with 429 responses
+
+        Args:
+            method: HTTP method (GET, POST, PUT, etc.)
+            url: Full URL to request
+            return_json: Whether to parse and return JSON response
+            **kwargs: Additional arguments for aiohttp request
+
+        Returns:
+            Parsed JSON response (dict or list)
+
+        Raises:
+            EnphaseBatteryConnectionError: Connection failed after retries
+            EnphaseBatteryAuthError: Authentication failed after retry
+            EnphaseBatteryRateLimitError: Rate limit exceeded
+        """
+        # Ensure headers are set
+        if "headers" not in kwargs:
+            kwargs["headers"] = self._get_headers()
+
+        # Set default timeout if not provided
+        if "timeout" not in kwargs:
+            kwargs["timeout"] = ClientTimeout(total=API_TIMEOUT)
+
+        last_error: Exception | None = None
+
+        for attempt in range(MAX_RETRIES):
+            try:
+                async with self._session.request(method, url, **kwargs) as response:
+                    # Handle 401 Unauthorized - re-authenticate
+                    if response.status == 401:
+                        _LOGGER.info("Session expired (401), re-authenticating...")
+                        self._is_authenticated = False
+
+                        try:
+                            await self._login()
+                            self._is_authenticated = True
+                        except Exception as err:
+                            raise EnphaseBatteryAuthError(f"Re-authentication failed: {err}") from err
+
+                        # Update headers with new session cookies and retry
+                        kwargs["headers"] = self._get_headers()
+                        async with self._session.request(method, url, **kwargs) as retry_response:
+                            if retry_response.status == 401:
+                                raise EnphaseBatteryAuthError("Authentication failed after re-login")
+                            retry_response.raise_for_status()
+                            if return_json:
+                                return await retry_response.json()
+                            return None
+
+                    # Handle rate limiting (429)
+                    if response.status == 429:
+                        retry_after = int(response.headers.get("Retry-After", 60))
+                        _LOGGER.warning("Rate limited by Enphase API, retry after %ds", retry_after)
+                        if attempt < MAX_RETRIES - 1:
+                            await asyncio.sleep(min(retry_after, 120))  # Cap at 2 minutes
+                            continue
+                        raise EnphaseBatteryRateLimitError(f"Rate limit exceeded, retry after {retry_after}s")
+
+                    # Handle retryable server errors (500, 502, 503, 504)
+                    if response.status in RETRYABLE_STATUS_CODES:
+                        if attempt < MAX_RETRIES - 1:
+                            wait_time = RETRY_BACKOFF_FACTOR**attempt
+                            _LOGGER.debug(
+                                "Server error %d, retrying in %ds (attempt %d/%d)",
+                                response.status,
+                                wait_time,
+                                attempt + 1,
+                                MAX_RETRIES,
+                            )
+                            await asyncio.sleep(wait_time)
+                            continue
+                        response.raise_for_status()
+
+                    response.raise_for_status()
+                    if return_json:
+                        return await response.json()
+                    return None
+
+            except aiohttp.ClientError as err:
+                last_error = err
+                if attempt < MAX_RETRIES - 1:
+                    wait_time = RETRY_BACKOFF_FACTOR**attempt
+                    _LOGGER.debug(
+                        "Connection error: %s, retrying in %ds (attempt %d/%d)",
+                        err,
+                        wait_time,
+                        attempt + 1,
+                        MAX_RETRIES,
+                    )
+                    await asyncio.sleep(wait_time)
+                    continue
+                raise EnphaseBatteryConnectionError(f"Request failed after {MAX_RETRIES} retries: {err}") from err
+
+        # Should not reach here, but handle edge case
+        raise EnphaseBatteryConnectionError(f"Request failed: {last_error}")
 
     def _get_headers(self) -> dict[str, str]:
         """Get headers for API requests with token if available.
@@ -127,9 +247,11 @@ class EnphaseBatteryAPI:
             # This saves 1-2 seconds during authentication
 
             _LOGGER.info("Authenticated successfully - site_id: %s", self._site_id)
+            self._is_authenticated = True
             return True
 
         except EnphaseBatteryAuthError:
+            self._is_authenticated = False
             raise
         except aiohttp.ClientError as err:
             raise EnphaseBatteryConnectionError(f"Connection error: {err}") from err
@@ -526,6 +648,12 @@ class EnphaseBatteryAPI:
             rbd_control.get("enabled", False) if isinstance(rbd_control, dict) else False
         )
 
+        # Extract powerMatchControl (PowerMatch) setting
+        power_match_control = config_source.get("powerMatchControl", {})
+        power_match_enabled = (
+            power_match_control.get("enabled", False) if isinstance(power_match_control, dict) else False
+        )
+
         return {
             # État de charge
             "soc": battery_details.get("aggregate_soc", latest_soc),
@@ -544,6 +672,7 @@ class EnphaseBatteryAPI:
             "charge_from_grid": config_source.get("chargeFromGrid", battery_config.get("charge_from_grid", False)),
             "discharge_to_grid": discharge_to_grid_enabled,
             "reserve_battery_discharge": reserve_battery_discharge_enabled,
+            "power_match": power_match_enabled,
             "very_low_soc": config_source.get("veryLowSoc", battery_config.get("very_low_soc", 5)),
             # Totaux du jour
             "energy_charged_today": stats.get("totals", {}).get("charge", 0) / 1000,  # Wh -> kWh
@@ -569,7 +698,10 @@ class EnphaseBatteryAPI:
         return discharge_val - charge_val
 
     async def get_battery_settings(self) -> dict[str, Any]:
-        """Get battery settings and configuration."""
+        """Get battery settings and configuration.
+
+        Uses automatic re-authentication on 401 to handle session expiry.
+        """
         if not self._site_id or not self._user_id:
             raise EnphaseBatteryAuthError("Not authenticated")
 
@@ -577,18 +709,32 @@ class EnphaseBatteryAPI:
         params = {"source": "enho", "userId": self._user_id}
 
         try:
-            async with self._session.get(
-                url,
-                params=params,
-                headers=self._get_headers(),
-                timeout=ClientTimeout(total=API_TIMEOUT),
-            ) as response:
-                response.raise_for_status()
-                result = await response.json()
-                return result.get("data", {})
-
-        except aiohttp.ClientError as err:
+            result = await self._request_with_reauth("GET", url, params=params)
+            return result.get("data", {}) if result else {}
+        except (EnphaseBatteryAuthError, EnphaseBatteryConnectionError):
+            raise
+        except Exception as err:
             raise EnphaseBatteryConnectionError(f"Failed to get battery settings: {err}") from err
+
+    async def _update_battery_settings(self, data: dict[str, Any]) -> bool:
+        """Update battery settings with automatic re-authentication on 401.
+
+        Args:
+            data: Battery settings data to update
+
+        Returns:
+            True if successful
+        """
+        url = f"{API_BASE_URL}/service/batteryConfig/api/v1/batterySettings/{self._site_id}"
+        params = {"userId": self._user_id, "source": "enho"}
+
+        try:
+            result = await self._request_with_reauth("PUT", url, params=params, json=data)
+            return result.get("message") == "success" if result else False
+        except (EnphaseBatteryAuthError, EnphaseBatteryConnectionError):
+            raise
+        except Exception as err:
+            raise EnphaseBatteryConnectionError(f"Failed to update battery settings: {err}") from err
 
     async def get_battery_profile(self) -> dict[str, Any]:
         """Get battery profile details."""
@@ -663,35 +809,13 @@ class EnphaseBatteryAPI:
             raise EnphaseBatteryAuthError("Not authenticated")
 
         # Get current battery settings to preserve other values
-        try:
-            current_settings = await self.get_battery_settings()
-        except Exception as err:
-            raise EnphaseBatteryConnectionError(f"Failed to get current settings: {err}") from err
+        current_settings = await self.get_battery_settings()
 
         # Update the profile field (battery mode)
         data = current_settings.copy()
         data["profile"] = mode
 
-        # Send PUT request
-        url = f"{API_BASE_URL}/service/batteryConfig/api/v1/batterySettings/{self._site_id}"
-        params = {"userId": self._user_id, "source": "enho"}
-
-        try:
-            async with self._session.put(
-                url,
-                params=params,
-                json=data,
-                headers=self._get_headers(),
-                timeout=ClientTimeout(total=API_TIMEOUT),
-            ) as response:
-                response.raise_for_status()
-                result = await response.json()
-
-                # Check for success message
-                return result.get("message") == "success"
-
-        except aiohttp.ClientError as err:
-            raise EnphaseBatteryConnectionError(f"Failed to set battery mode: {err}") from err
+        return await self._update_battery_settings(data)
 
     async def set_backup_reserve(self, percentage: int) -> bool:
         """Set battery backup reserve percentage (batteryBackupPercentage).
@@ -703,34 +827,13 @@ class EnphaseBatteryAPI:
             raise EnphaseBatteryAuthError("Not authenticated")
 
         # Get current battery settings to preserve other values
-        try:
-            current_settings = await self.get_battery_settings()
-        except Exception as err:
-            raise EnphaseBatteryConnectionError(f"Failed to get current settings: {err}") from err
+        current_settings = await self.get_battery_settings()
 
         # Update the batteryBackupPercentage field
         data = current_settings.copy()
         data["batteryBackupPercentage"] = percentage
 
-        # Send PUT request
-        url = f"{API_BASE_URL}/service/batteryConfig/api/v1/batterySettings/{self._site_id}"
-        params = {"userId": self._user_id, "source": "enho"}
-
-        try:
-            async with self._session.put(
-                url,
-                params=params,
-                json=data,
-                headers=self._get_headers(),
-                timeout=ClientTimeout(total=API_TIMEOUT),
-            ) as response:
-                response.raise_for_status()
-                result = await response.json()
-
-                return result.get("message") == "success"
-
-        except aiohttp.ClientError as err:
-            raise EnphaseBatteryConnectionError(f"Failed to set backup reserve: {err}") from err
+        return await self._update_battery_settings(data)
 
     async def set_very_low_soc(self, percentage: int) -> bool:
         """Set battery very low SOC (minimum discharge level).
@@ -742,34 +845,13 @@ class EnphaseBatteryAPI:
             raise EnphaseBatteryAuthError("Not authenticated")
 
         # Get current battery settings to preserve other values
-        try:
-            current_settings = await self.get_battery_settings()
-        except Exception as err:
-            raise EnphaseBatteryConnectionError(f"Failed to get current settings: {err}") from err
+        current_settings = await self.get_battery_settings()
 
         # Update the veryLowSoc field
         data = current_settings.copy()
         data["veryLowSoc"] = percentage
 
-        # Send PUT request
-        url = f"{API_BASE_URL}/service/batteryConfig/api/v1/batterySettings/{self._site_id}"
-        params = {"userId": self._user_id, "source": "enho"}
-
-        try:
-            async with self._session.put(
-                url,
-                params=params,
-                json=data,
-                headers=self._get_headers(),
-                timeout=ClientTimeout(total=API_TIMEOUT),
-            ) as response:
-                response.raise_for_status()
-                result = await response.json()
-
-                return result.get("message") == "success"
-
-        except aiohttp.ClientError as err:
-            raise EnphaseBatteryConnectionError(f"Failed to set very low SOC: {err}") from err
+        return await self._update_battery_settings(data)
 
     async def set_charge_from_grid(self, enabled: bool) -> bool:
         """Enable/disable charging from grid.
@@ -783,37 +865,14 @@ class EnphaseBatteryAPI:
         if not self._site_id or not self._user_id:
             raise EnphaseBatteryAuthError("Not authenticated")
 
-        # First, get current battery settings to preserve other values
-        try:
-            current_settings = await self.get_battery_settings()
-        except Exception as err:
-            raise EnphaseBatteryConnectionError(f"Failed to get current settings: {err}") from err
+        # Get current battery settings to preserve other values
+        current_settings = await self.get_battery_settings()
 
         # Update the charge_from_grid field
-        # Note: current_settings is already the "data" object from get_battery_settings()
-        data = current_settings.copy()  # Make a copy to avoid modifying cached data
+        data = current_settings.copy()
         data["chargeFromGrid"] = enabled
 
-        # Send PUT request
-        url = f"{API_BASE_URL}/service/batteryConfig/api/v1/batterySettings/{self._site_id}"
-        params = {"userId": self._user_id, "source": "enho"}
-
-        try:
-            async with self._session.put(
-                url,
-                params=params,
-                json=data,
-                headers=self._get_headers(),
-                timeout=ClientTimeout(total=API_TIMEOUT),
-            ) as response:
-                response.raise_for_status()
-                result = await response.json()
-
-                # Check for success message
-                return result.get("message") == "success"
-
-        except aiohttp.ClientError as err:
-            raise EnphaseBatteryConnectionError(f"Failed to set charge from grid: {err}") from err
+        return await self._update_battery_settings(data)
 
     async def set_limit_discharge(self, enabled: bool) -> bool:
         """Enable/disable battery discharge to grid limit (Discharge To Grid control).
@@ -828,10 +887,7 @@ class EnphaseBatteryAPI:
             raise EnphaseBatteryAuthError("Not authenticated")
 
         # Get current battery settings to preserve other values
-        try:
-            current_settings = await self.get_battery_settings()
-        except Exception as err:
-            raise EnphaseBatteryConnectionError(f"Failed to get current settings: {err}") from err
+        current_settings = await self.get_battery_settings()
 
         # Update the dtgControl.enabled field (Discharge To Grid)
         data = current_settings.copy()
@@ -851,26 +907,7 @@ class EnphaseBatteryAPI:
             # Update only the enabled field
             data["dtgControl"]["enabled"] = enabled
 
-        # Send PUT request
-        url = f"{API_BASE_URL}/service/batteryConfig/api/v1/batterySettings/{self._site_id}"
-        params = {"userId": self._user_id, "source": "enho"}
-
-        try:
-            async with self._session.put(
-                url,
-                params=params,
-                json=data,
-                headers=self._get_headers(),
-                timeout=ClientTimeout(total=API_TIMEOUT),
-            ) as response:
-                response.raise_for_status()
-                result = await response.json()
-
-                # Check for success message
-                return result.get("message") == "success"
-
-        except aiohttp.ClientError as err:
-            raise EnphaseBatteryConnectionError(f"Failed to set limit discharge: {err}") from err
+        return await self._update_battery_settings(data)
 
     async def set_reserve_battery_discharge(self, enabled: bool) -> bool:
         """Enable/disable reserve battery discharge (rbdControl).
@@ -885,10 +922,7 @@ class EnphaseBatteryAPI:
             raise EnphaseBatteryAuthError("Not authenticated")
 
         # Get current battery settings to preserve other values
-        try:
-            current_settings = await self.get_battery_settings()
-        except Exception as err:
-            raise EnphaseBatteryConnectionError(f"Failed to get current settings: {err}") from err
+        current_settings = await self.get_battery_settings()
 
         # Update the rbdControl.enabled field (Reserve Battery Discharge)
         data = current_settings.copy()
@@ -908,23 +942,36 @@ class EnphaseBatteryAPI:
             # Update only the enabled field
             data["rbdControl"]["enabled"] = enabled
 
-        # Send PUT request
-        url = f"{API_BASE_URL}/service/batteryConfig/api/v1/batterySettings/{self._site_id}"
-        params = {"userId": self._user_id, "source": "enho"}
+        return await self._update_battery_settings(data)
 
-        try:
-            async with self._session.put(
-                url,
-                params=params,
-                json=data,
-                headers=self._get_headers(),
-                timeout=ClientTimeout(total=API_TIMEOUT),
-            ) as response:
-                response.raise_for_status()
-                result = await response.json()
+    async def set_power_match(self, enabled: bool) -> bool:
+        """Enable/disable PowerMatch (powerMatchControl).
 
-                # Check for success message
-                return result.get("message") == "success"
+        PowerMatch optimizes battery usage to match grid power patterns.
 
-        except aiohttp.ClientError as err:
-            raise EnphaseBatteryConnectionError(f"Failed to set reserve battery discharge: {err}") from err
+        Args:
+            enabled: True to enable, False to disable
+
+        Returns:
+            True if successful
+        """
+        if not self._site_id or not self._user_id:
+            raise EnphaseBatteryAuthError("Not authenticated")
+
+        # Get current battery settings to preserve other values
+        current_settings = await self.get_battery_settings()
+
+        # Update the powerMatchControl.enabled field
+        data = current_settings.copy()
+
+        # Ensure powerMatchControl exists
+        if "powerMatchControl" not in data:
+            data["powerMatchControl"] = {
+                "show": True,
+                "enabled": enabled,
+            }
+        else:
+            # Update only the enabled field
+            data["powerMatchControl"]["enabled"] = enabled
+
+        return await self._update_battery_settings(data)

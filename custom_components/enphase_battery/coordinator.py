@@ -10,14 +10,16 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
 )
 
-from .api import EnphaseBatteryAPI, EnphaseBatteryApiError
+from .api import EnphaseBatteryAPI, EnphaseBatteryApiError, EnphaseBatteryAuthError
 from .const import (
     CONF_CONNECTION_MODE,
     CONF_ENVOY_HOST,
@@ -29,13 +31,16 @@ from .const import (
     DOMAIN,
     LOCAL_SCAN_INTERVAL,
 )
-from .envoy_local_api import EnphaseEnvoyLocalAPI, EnvoyLocalApiError
+from .envoy_local_api import EnphaseEnvoyLocalAPI, EnvoyAuthError, EnvoyLocalApiError
 
 _LOGGER = logging.getLogger(__name__)
 
 # Storage version and key for persistent energy tracking
 STORAGE_VERSION = 1
 STORAGE_KEY = "enphase_battery_energy_tracking"
+
+# Debounce delay for refresh requests (prevents rapid consecutive refreshes)
+REQUEST_REFRESH_DEBOUNCE_COOLDOWN = 1.0  # seconds
 
 
 class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
@@ -104,6 +109,12 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER,
             name=DOMAIN,
             update_interval=update_interval,
+            request_refresh_debouncer=Debouncer(
+                hass,
+                _LOGGER,
+                cooldown=REQUEST_REFRESH_DEBOUNCE_COOLDOWN,
+                immediate=False,
+            ),
         )
 
         _LOGGER.debug(
@@ -323,6 +334,9 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
                 # Local mode: Get data from Envoy
                 try:
                     data = await self.local_api.get_battery_data()
+                except EnvoyAuthError as err:
+                    # Auth failed - trigger reauth flow
+                    raise ConfigEntryAuthFailed(f"Authentication failed: {err}") from err
                 except EnvoyLocalApiError as err:
                     raise UpdateFailed(f"Error fetching local data: {err}") from err
 
@@ -385,6 +399,9 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
                 # Cloud mode: Get data from Enlighten API
                 try:
                     data = await self.api.get_battery_data()
+                except EnphaseBatteryAuthError as err:
+                    # Auth failed - trigger reauth flow
+                    raise ConfigEntryAuthFailed(f"Authentication failed: {err}") from err
                 except EnphaseBatteryApiError as err:
                     raise UpdateFailed(f"Error fetching cloud data: {err}") from err
 

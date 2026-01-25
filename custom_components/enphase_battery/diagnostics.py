@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.diagnostics import async_redact_data
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
-from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN
 from .coordinator import EnphaseBatteryDataUpdateCoordinator
+
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
+
+    from . import EnphaseBatteryConfigEntry
 
 # Keys to redact from diagnostics
 TO_REDACT = {
@@ -29,9 +31,9 @@ TO_REDACT = {
 }
 
 
-async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any]:
+async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: EnphaseBatteryConfigEntry) -> dict[str, Any]:
     """Return diagnostics for a config entry."""
-    coordinator: EnphaseBatteryDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator: EnphaseBatteryDataUpdateCoordinator = entry.runtime_data.coordinator
 
     diagnostics_data = {
         "config_entry": {
@@ -61,7 +63,7 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
     # Add cloud API info if available
     if coordinator.api:
         diagnostics_data["cloud_api"] = {
-            "authenticated": coordinator.api._session_id is not None,
+            "authenticated": coordinator.api._session_token is not None,
             "site_id": "**REDACTED**" if coordinator.api._site_id else None,
             "user_id": "**REDACTED**" if coordinator.api._user_id else None,
         }

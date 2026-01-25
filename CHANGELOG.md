@@ -7,7 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.30.0] - 2025-11-12
+### Added
+- **Multi-battery support** (Issue #1): Individual battery devices with per-battery sensors
+  - Each battery appears as a separate device under "Enphase Battery System"
+  - 7 sensors per battery: Temperature, Max Cell Temp, Capacity, Serial, Firmware, SOC, Grid State
+  - Proper device hierarchy using `via_device`
+
+### Fixed
+- Missing `DOMAIN` import in binary_sensor.py causing `NameError`
+- Number entity `BatteryBackupReserveNumber` now properly checks for cloud API availability
+- Removed dead code: unused system-level sensor classes replaced by individual battery sensors
+
+### Changed
+- **Breaking**: System device identifier changed from `enphase_battery` to `enphase_battery_system`
+  - Existing entities may need to be re-added after upgrade
+
+## [2.33.0] - 2025-01-24
+
+### Performance
+- Defer authentication to background task for ultra-fast startup (<2s)
+- Entities show as unavailable briefly until first data refresh
+
+## [2.32.0] - 2025-01-19
+
+### Performance
+- Optimize startup and memory usage
+- Use `__slots__` on entity classes to reduce memory footprint
+- Use `TYPE_CHECKING` for lazy imports
+
+## [2.31.0] - 2025-01-18
+
+### Fixed
+- Remove invalid `homeassistant` key from manifest.json
+
+### Added
+- Improve Home Assistant compliance
+- Add French and Spanish translations
+
+## [2.30.1] - 2025-01-18
+
+### Fixed
+- Correct `async_on_unload` TypeError on entry unload
+
+## [2.30.0] - 2025-01-17
 
 ### Performance
 - **Hybrid mode startup optimization**: Eliminated 5-7 second auto-detection delay on every restart
@@ -144,7 +186,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 See git history for changes in versions prior to 2.26.0.
 
-[Unreleased]: https://github.com/foXaCe/enphase-battery/compare/v2.30.0...HEAD
+[Unreleased]: https://github.com/foXaCe/enphase-battery/compare/v2.33.0...HEAD
+[2.33.0]: https://github.com/foXaCe/enphase-battery/compare/v2.32.0...v2.33.0
+[2.32.0]: https://github.com/foXaCe/enphase-battery/compare/v2.31.0...v2.32.0
+[2.31.0]: https://github.com/foXaCe/enphase-battery/compare/v2.30.1...v2.31.0
+[2.30.1]: https://github.com/foXaCe/enphase-battery/compare/v2.30.0...v2.30.1
 [2.30.0]: https://github.com/foXaCe/enphase-battery/compare/v2.29.0...v2.30.0
 [2.29.0]: https://github.com/foXaCe/enphase-battery/compare/v2.28.0...v2.29.0
 [2.28.0]: https://github.com/foXaCe/enphase-battery/compare/v2.27.3...v2.28.0

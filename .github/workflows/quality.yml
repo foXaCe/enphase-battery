@@ -48,6 +48,26 @@ jobs:
         run: mypy custom_components/enphase_battery --ignore-missing-imports
         continue-on-error: true
 
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements-test.txt
+          pip install PyJWT aiohttp
+
+      - name: Run pytest
+        run: pytest tests/ -v --tb=short --cov=custom_components/enphase_battery --cov-report=term-missing
+
   validate:
     name: Validate Home Assistant Integration
     runs-on: ubuntu-latest
@@ -79,7 +99,7 @@ jobs:
   summary:
     name: Quality Check Summary
     runs-on: ubuntu-latest
-    needs: [lint, type-check, validate]
+    needs: [lint, type-check, validate, test]
     if: always()
     steps:
       - name: Check results
@@ -90,6 +110,10 @@ jobs:
           fi
           if [ "${{ needs.validate.result }}" != "success" ]; then
             echo "❌ Validation failed"
+            exit 1
+          fi
+          if [ "${{ needs.test.result }}" != "success" ]; then
+            echo "❌ Tests failed"
             exit 1
           fi
           echo "✅ All quality checks passed!"
