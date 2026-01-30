@@ -167,7 +167,7 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         config_entry: config_entries.ConfigEntry,
     ) -> config_entries.OptionsFlow:
         """Get the options flow for this handler."""
-        return EnphaseBatteryOptionsFlowHandler()
+        return EnphaseBatteryOptionsFlowHandler(config_entry)
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle the initial step - select connection mode."""
@@ -434,9 +434,16 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class EnphaseBatteryOptionsFlowHandler(config_entries.OptionsFlow):
     """Handle options flow for Enphase Battery."""
 
-    def __init__(self) -> None:
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize options flow."""
+        super().__init__()
+        self._config_entry = config_entry
         self._connection_mode: str | None = None
+
+    @property
+    def config_entry(self) -> config_entries.ConfigEntry:
+        """Return config entry."""
+        return self._config_entry
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """First step - choose connection mode."""
