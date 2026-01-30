@@ -1,21 +1,22 @@
 {
   "config": {
     "abort": {
-      "already_configured": "Ce systeme Enphase est deja configure.",
-      "reauth_successful": "Re-authentification reussie.",
-      "reconfigure_successful": "Reconfiguration reussie."
+      "already_configured": "Ce système Enphase est déjà configuré.",
+      "reauth_successful": "Ré-authentification réussie.",
+      "reconfigure_successful": "Reconfiguration réussie.",
+      "unknown": "Une erreur inconnue s'est produite."
     },
     "error": {
-      "cannot_connect": "Echec de connexion. Verifiez l'adresse et la connexion reseau.",
-      "invalid_auth": "Identifiants invalides. Veuillez verifier votre nom d'utilisateur et mot de passe.",
-      "unknown": "Une erreur inattendue s'est produite. Consultez les journaux pour plus de details."
+      "cannot_connect": "Échec de connexion. Vérifiez l'adresse et la connexion réseau.",
+      "invalid_auth": "Identifiants invalides. Veuillez vérifier votre nom d'utilisateur et mot de passe.",
+      "unknown": "Une erreur inattendue s'est produite. Consultez les journaux pour plus de détails."
     },
     "step": {
       "cloud": {
         "data": {
           "password": "Mot de passe du compte Enphase",
-          "site_id": "Site ID (optionnel, auto-detecte)",
-          "user_id": "User ID (optionnel, auto-detecte)",
+          "site_id": "Site ID (optionnel, auto-détecté)",
+          "user_id": "User ID (optionnel, auto-détecté)",
           "username": "Email du compte Enphase"
         },
         "description": "{benefits}",
@@ -25,31 +26,58 @@
         "data": {
           "cloud_password": "Mot de passe du compte Enphase",
           "cloud_username": "Email du compte Enphase (requis pour firmware 7.x/8.x)",
-          "enable_cloud_control": "Activer le controle cloud (mode hybride)",
+          "enable_cloud_control": "Activer le contrôle cloud (mode hybride)",
           "envoy_host": "Hostname ou IP de l'Envoy"
         },
         "data_description": {
-          "enable_cloud_control": "Mode hybride : donnees locales (rapide) + controle cloud (switch/select). Requis car le firmware 8.x ne supporte plus le controle via API locale."
+          "enable_cloud_control": "Mode hybride : données locales (rapide) + contrôle cloud (switch/select). Requis car le firmware 8.x ne supporte plus le contrôle via API locale."
         },
         "description": "{benefits}",
-        "title": "Connexion locale a l'Envoy"
+        "title": "Connexion locale à l'Envoy"
       },
       "reauth_confirm": {
         "data": {
           "password": "Mot de passe",
           "username": "Email / Nom d'utilisateur"
         },
-        "description": "Les identifiants de votre systeme Enphase doivent etre mis a jour.",
-        "title": "Re-authentification Enphase Battery"
+        "description": "Les identifiants de votre système Enphase doivent être mis à jour.",
+        "title": "Ré-authentification Enphase Battery"
+      },
+      "reconfigure": {
+        "data": {
+          "connection_mode": "Mode de connexion"
+        },
+        "description": "Changez le mode de connexion de votre système Enphase.",
+        "title": "Reconfigurer Enphase Battery"
+      },
+      "reconfigure_cloud": {
+        "data": {
+          "password": "Mot de passe du compte Enphase",
+          "site_id": "Site ID (optionnel)",
+          "user_id": "User ID (optionnel)",
+          "username": "Email du compte Enphase"
+        },
+        "description": "Mettez à jour les paramètres de connexion cloud Enlighten.",
+        "title": "Reconfigurer la connexion cloud"
+      },
+      "reconfigure_local": {
+        "data": {
+          "cloud_password": "Mot de passe du compte Enphase",
+          "cloud_username": "Email du compte Enphase",
+          "enable_cloud_control": "Activer le contrôle cloud (mode hybride)",
+          "envoy_host": "Hostname ou IP de l'Envoy"
+        },
+        "description": "Mettez à jour les paramètres de connexion locale à l'Envoy.",
+        "title": "Reconfigurer la connexion locale"
       },
       "user": {
         "data": {
           "connection_mode": "Mode de connexion"
         },
         "data_description": {
-          "connection_mode": "Local : Connexion directe a l'Envoy (rapide, pas de limite API)\nCloud : Cloud Enlighten (acces distant, limite API)"
+          "connection_mode": "Local : Connexion directe à l'Envoy (rapide, pas de limite API)\nCloud : Cloud Enlighten (accès distant, limite API)"
         },
-        "description": "Choisissez comment vous connecter a votre systeme Enphase.",
+        "description": "Choisissez comment vous connecter à votre système Enphase.",
         "title": "Mode de connexion Enphase Battery"
       }
     }
@@ -57,18 +85,18 @@
   "entity": {
     "binary_sensor": {
       "envoy_connected": {
-        "name": "Envoy connecte"
+        "name": "Envoy connecté"
       },
       "grid_tied": {
-        "name": "Connecte au reseau"
+        "name": "Connecté au réseau"
       },
       "healthy": {
-        "name": "Probleme de sante batterie"
+        "name": "Problème de santé batterie"
       }
     },
     "number": {
       "battery_reserve": {
-        "name": "Niveau d'arret de la batterie"
+        "name": "Niveau d'arrêt de la batterie"
       }
     },
     "select": {
@@ -84,10 +112,10 @@
     },
     "sensor": {
       "battery_available_energy": {
-        "name": "Energie disponible"
+        "name": "Énergie disponible"
       },
       "battery_backup_time": {
-        "name": "Temps de backup estime"
+        "name": "Temps de backup estimé"
       },
       "battery_charge_power": {
         "name": "Puissance de charge"
@@ -96,31 +124,36 @@
         "name": "Consommation 24h"
       },
       "battery_discharge_power": {
-        "name": "Puissance de decharge"
+        "name": "Puissance de décharge"
       },
       "battery_energy_charged": {
-        "name": "Energie chargee aujourd'hui"
+        "name": "Énergie chargée aujourd'hui"
       },
       "battery_energy_discharged": {
-        "name": "Energie dechargee aujourd'hui"
+        "name": "Énergie déchargée aujourd'hui"
       },
       "battery_grid_mode": {
-        "name": "Mode reseau"
+        "name": "Mode réseau",
+        "state": {
+          "grid_forming": "Îlotage",
+          "grid_tied": "Connecté au réseau",
+          "unknown": "Inconnu"
+        }
       },
       "battery_health": {
-        "name": "Sante de la batterie"
+        "name": "Santé de la batterie"
       },
       "battery_power": {
         "name": "Puissance"
       },
       "battery_soc": {
-        "name": "Etat de charge"
+        "name": "État de charge"
       },
       "battery_state": {
-        "name": "Etat de la batterie",
+        "name": "État de la batterie",
         "state": {
           "charging": "En charge",
-          "discharging": "En decharge",
+          "discharging": "En décharge",
           "empty": "Vide",
           "full": "Pleine",
           "idle": "Inactif"
@@ -130,55 +163,60 @@
         "name": "Firmware Envoy"
       },
       "envoy_serial": {
-        "name": "Numero de serie Envoy"
+        "name": "Numéro de série Envoy"
       },
       "individual_capacity": {
-        "name": "Capacite"
+        "name": "Capacité"
       },
       "individual_firmware": {
         "name": "Firmware"
       },
       "individual_grid_state": {
-        "name": "Etat reseau"
+        "name": "État réseau",
+        "state": {
+          "grid_forming": "Îlotage",
+          "grid_tied": "Connecté au réseau",
+          "unknown": "Inconnu"
+        }
       },
       "individual_max_cell_temp": {
-        "name": "Temperature max cellule"
+        "name": "Température max cellule"
       },
       "individual_serial": {
-        "name": "Numero de serie"
+        "name": "Numéro de série"
       },
       "individual_soc": {
-        "name": "Etat de charge"
+        "name": "État de charge"
       },
       "individual_temperature": {
-        "name": "Temperature"
+        "name": "Température"
       }
     },
     "switch": {
       "charge_from_grid": {
-        "name": "Charge depuis le reseau"
+        "name": "Charge depuis le réseau"
       },
       "discharge_to_grid": {
-        "name": "Autoriser la decharge vers le reseau"
+        "name": "Autoriser la décharge vers le réseau"
       },
       "power_match": {
         "name": "PowerMatch"
       },
       "reserve_battery_discharge": {
-        "name": "Limiter la decharge de la batterie"
+        "name": "Limiter la décharge de la batterie"
       }
     }
   },
   "exceptions": {
     "cloud_api_not_initialized": {
-      "message": "API Cloud non initialisee. Activez le controle cloud dans les parametres de l'integration."
+      "message": "API Cloud non initialisée. Activez le contrôle cloud dans les paramètres de l'intégration."
     }
   },
   "options": {
     "error": {
-      "cannot_connect": "Echec de connexion. Verifiez l'adresse et la connexion reseau.",
-      "invalid_auth": "Identifiants invalides. Veuillez verifier votre nom d'utilisateur et mot de passe.",
-      "unknown": "Une erreur inattendue s'est produite. Consultez les journaux pour plus de details."
+      "cannot_connect": "Échec de connexion. Vérifiez l'adresse et la connexion réseau.",
+      "invalid_auth": "Identifiants invalides. Veuillez vérifier votre nom d'utilisateur et mot de passe.",
+      "unknown": "Une erreur inattendue s'est produite. Consultez les journaux pour plus de détails."
     },
     "step": {
       "cloud": {
@@ -189,27 +227,27 @@
           "username": "Email du compte Enphase"
         },
         "description": "Configurez la connexion cloud Enlighten.",
-        "title": "Parametres connexion cloud"
+        "title": "Paramètres connexion cloud"
       },
       "init": {
         "data": {
           "connection_mode": "Mode de connexion"
         },
-        "description": "Choisissez le mode de connexion pour votre systeme Enphase.",
+        "description": "Choisissez le mode de connexion pour votre système Enphase.",
         "title": "Configurer Enphase Battery"
       },
       "local": {
         "data": {
           "cloud_password": "Mot de passe du compte Enphase",
           "cloud_username": "Email du compte Enphase",
-          "enable_cloud_control": "Activer le controle cloud (mode hybride)",
+          "enable_cloud_control": "Activer le contrôle cloud (mode hybride)",
           "envoy_host": "Hostname ou IP de l'Envoy"
         },
         "data_description": {
-          "enable_cloud_control": "Mode hybride : donnees locales (rapide) + controle cloud (switch/select)."
+          "enable_cloud_control": "Mode hybride : données locales (rapide) + contrôle cloud (switch/select)."
         },
-        "description": "Configurez la connexion locale a l'Envoy.",
-        "title": "Parametres connexion locale"
+        "description": "Configurez la connexion locale à l'Envoy.",
+        "title": "Paramètres connexion locale"
       }
     }
   }

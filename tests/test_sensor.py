@@ -464,7 +464,7 @@ class TestBatteryGridModeSensor:
     def test_native_value_from_devices(self):
         coord = _mock_coordinator({"devices": [{"reported_enc_grid_state": "grid-tied"}]})
         sensor = BatteryGridModeSensor(coord)
-        assert sensor.native_value == "grid-tied"
+        assert sensor.native_value == "grid_tied"
 
     def test_native_value_from_devices_missing_state(self):
         coord = _mock_coordinator({"devices": [{"serial_num": "ABC"}]})
@@ -474,7 +474,7 @@ class TestBatteryGridModeSensor:
     def test_native_value_from_status_fallback(self):
         coord = _mock_coordinator({"devices": [], "status": "grid-tied"})
         sensor = BatteryGridModeSensor(coord)
-        assert sensor.native_value == "grid-tied"
+        assert sensor.native_value == "grid_tied"
 
     def test_native_value_no_devices_no_status(self):
         coord = _mock_coordinator({"soc": 50})
@@ -736,7 +736,7 @@ class TestIndividualBatteryGridStateSensor:
     def test_native_value(self):
         coord = _mock_coordinator({"devices": [{"serial_num": "SN001", "reported_enc_grid_state": "grid-tied"}]})
         sensor = IndividualBatteryGridStateSensor(coord, "SN001", "500-00001", 1)
-        assert sensor.native_value == "grid-tied"
+        assert sensor.native_value == "grid_tied"
 
     def test_native_value_default_unknown(self):
         coord = _mock_coordinator({"devices": [{"serial_num": "SN001"}]})

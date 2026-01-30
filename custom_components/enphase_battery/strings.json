@@ -41,6 +41,33 @@
           "username": "Email / Username",
           "password": "Password"
         }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Enphase Battery",
+        "description": "Change the connection mode for your Enphase system.",
+        "data": {
+          "connection_mode": "Connection Mode"
+        }
+      },
+      "reconfigure_local": {
+        "title": "Reconfigure Local Connection",
+        "description": "Update local Envoy connection settings.",
+        "data": {
+          "envoy_host": "Envoy Hostname or IP",
+          "cloud_username": "Enphase account email",
+          "cloud_password": "Enphase account password",
+          "enable_cloud_control": "Enable cloud control (hybrid mode)"
+        }
+      },
+      "reconfigure_cloud": {
+        "title": "Reconfigure Cloud Connection",
+        "description": "Update cloud Enlighten connection settings.",
+        "data": {
+          "username": "Enphase Account Email",
+          "password": "Enphase Account Password",
+          "site_id": "Site ID (optional)",
+          "user_id": "User ID (optional)"
+        }
       }
     },
     "error": {
@@ -51,7 +78,8 @@
     "abort": {
       "already_configured": "This Enphase system is already configured.",
       "reauth_successful": "Re-authentication successful.",
-      "reconfigure_successful": "Reconfiguration successful."
+      "reconfigure_successful": "Reconfiguration successful.",
+      "unknown": "An unknown error occurred."
     }
   },
   "entity": {
@@ -124,7 +152,12 @@
         "name": "Battery Health"
       },
       "battery_grid_mode": {
-        "name": "Grid Mode"
+        "name": "Grid Mode",
+        "state": {
+          "grid_tied": "Grid Tied",
+          "grid_forming": "Grid Forming",
+          "unknown": "Unknown"
+        }
       },
       "envoy_serial": {
         "name": "Envoy Serial Number"
@@ -151,7 +184,12 @@
         "name": "State of Charge"
       },
       "individual_grid_state": {
-        "name": "Grid State"
+        "name": "Grid State",
+        "state": {
+          "grid_tied": "Grid Tied",
+          "grid_forming": "Grid Forming",
+          "unknown": "Unknown"
+        }
       }
     },
     "switch": {

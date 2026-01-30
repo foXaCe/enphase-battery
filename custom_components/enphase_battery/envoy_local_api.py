@@ -124,8 +124,14 @@ class EnphaseEnvoyLocalAPI:
                     text = await response.text()
                     return {"raw": text}
 
+        except aiohttp.ClientResponseError as err:
+            if err.status == 503:
+                _LOGGER.debug("Envoy temporarily unavailable at %s (503)", url)
+            else:
+                _LOGGER.debug("HTTP error from Envoy at %s: %s", url, err)
+            raise EnvoyConnectionError(f"Failed to connect to Envoy: {err}") from err
         except aiohttp.ClientError as err:
-            _LOGGER.error("Connection error to Envoy at %s: %s", url, err)
+            _LOGGER.debug("Connection error to Envoy at %s: %s", url, err)
             raise EnvoyConnectionError(f"Failed to connect to Envoy: {err}") from err
 
     async def authenticate(self) -> bool:

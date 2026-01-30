@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -524,6 +524,9 @@ class BatteryHealthSensor(EnphaseBatterySensorBase):
 class BatteryGridModeSensor(EnphaseBatterySensorBase):
     """Battery Grid Mode sensor."""
 
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options: ClassVar[list[str]] = ["grid_tied", "grid_forming", "unknown"]
+
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator, "grid_mode", "battery_grid_mode")
@@ -537,8 +540,10 @@ class BatteryGridModeSensor(EnphaseBatterySensorBase):
             return None
         devices = self.coordinator.data.get("devices", [])
         if devices and len(devices) > 0:
-            return devices[0].get("reported_enc_grid_state", "unknown")
-        return self.coordinator.data.get("status")
+            raw = devices[0].get("reported_enc_grid_state", "unknown")
+            return raw.replace("-", "_")
+        status = self.coordinator.data.get("status")
+        return status.replace("-", "_") if status else None
 
 
 class EnvoySerialNumberSensor(EnphaseBatterySensorBase):
@@ -772,11 +777,14 @@ class IndividualBatteryGridStateSensor(IndividualBatterySensorBase):
         super().__init__(coordinator, serial_num, part_num, battery_num, "grid_state", "individual_grid_state")
         self._attr_icon = "mdi:transmission-tower"
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        self._attr_device_class = SensorDeviceClass.ENUM
+        self._attr_options = ["grid_tied", "grid_forming", "unknown"]
 
     @property
     def native_value(self) -> str | None:
         """Return the grid state of this specific battery."""
         device = self._get_device_data()
         if device:
-            return device.get("reported_enc_grid_state", "unknown")
+            raw = device.get("reported_enc_grid_state", "unknown")
+            return raw.replace("-", "_")
         return None
