@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.35.0] - 2026-01-30
+
+### Added
+- Full Quality Scale audit with comprehensive test suite (704 tests, 99% coverage)
+- CI workflows: quality checks, HACS validation, stale issues management
+- `py.typed` marker for PEP 561 compliance
+- Reconfigure and reauth steps in translations (strings.json, en.json, fr.json, es.json)
+- Grid mode sensors converted to `SensorDeviceClass.ENUM` with translated states
+
+### Fixed
+- French translations: all missing accents restored (~50 corrections)
+- Spanish translations: all missing accents restored (~40 corrections)
+- Grid mode values normalized (`grid-tied` → `grid_tied`) for translation compatibility
+- Envoy 503 response log spam reduced (debug level instead of error)
+- OptionsFlow `config_entry` compatibility with older Home Assistant versions
+- Proper `loggers` field in manifest.json
+
+### Changed
+- Battery number entity platform properly registered via `Platform.NUMBER`
+- All loggers use `logging.getLogger(__name__)` pattern
+- Generic typing (`dict` instead of `Dict`, `list` instead of `List`)
+
 ## [2.34.2] - 2025-01-25
 
 ### Fixed
@@ -203,7 +225,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 See git history for changes in versions prior to 2.26.0.
 
-[Unreleased]: https://github.com/foXaCe/enphase-battery/compare/v2.34.2...HEAD
+[Unreleased]: https://github.com/foXaCe/enphase-battery/compare/v2.35.0...HEAD
+[2.35.0]: https://github.com/foXaCe/enphase-battery/compare/v2.34.2...v2.35.0
 [2.34.2]: https://github.com/foXaCe/enphase-battery/compare/v2.34.1...v2.34.2
 [2.34.1]: https://github.com/foXaCe/enphase-battery/compare/v2.34.0...v2.34.1
 [2.34.0]: https://github.com/foXaCe/enphase-battery/compare/v2.33.0...v2.34.0
