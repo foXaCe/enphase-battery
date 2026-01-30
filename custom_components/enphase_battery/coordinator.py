@@ -43,13 +43,15 @@ STORAGE_KEY = "enphase_battery_energy_tracking"
 REQUEST_REFRESH_DEBOUNCE_COOLDOWN = 1.0  # seconds
 
 
-class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
+class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Class to manage fetching Enphase Battery data.
 
     Supports dual connection modes:
     - Local mode: Direct connection to Envoy (10s polling, no API limits)
     - Cloud mode: Enphase Enlighten API (60s polling)
     """
+
+    config_entry: ConfigEntry
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialize the coordinator."""
@@ -84,6 +86,9 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
 
         # Track last warning time for rate limiting repeated errors
         self._last_cloud_error_warning: datetime | None = None
+
+        # Track unavailable state for log-when-unavailable pattern
+        self._previously_unavailable: bool = False
 
         # Track last save time for batching storage writes (save every 5 minutes)
         self._last_storage_save: datetime | None = None
@@ -416,11 +421,22 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
             # Calculate daily energy and 24h consumption
             self._calculate_daily_values(data)
 
+            # Log once when connection is restored after being unavailable
+            if self._previously_unavailable:
+                _LOGGER.info("Connection restored to Enphase system")
+                self._previously_unavailable = False
+
             return data
 
         except UpdateFailed:
+            if not self._previously_unavailable:
+                _LOGGER.warning("Connection lost to Enphase system")
+                self._previously_unavailable = True
             raise
         except Exception as err:
+            if not self._previously_unavailable:
+                _LOGGER.warning("Connection lost to Enphase system")
+                self._previously_unavailable = True
             raise UpdateFailed(f"Unexpected error fetching data: {err}") from err
 
     def _calculate_daily_values(self, data: dict[str, Any]) -> None:
@@ -529,7 +545,14 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator):
         now_time = datetime.now()
         if self._last_storage_save is None or (now_time - self._last_storage_save) >= self._storage_save_interval:
             self._last_storage_save = now_time
-            self.hass.async_create_task(self._save_energy_tracking())
+            self.hass.async_create_task(self._save_energy_tracking_safe(), "enphase_battery_save_energy")
+
+    async def _save_energy_tracking_safe(self) -> None:
+        """Save energy tracking with error logging for background task."""
+        try:
+            await self._save_energy_tracking()
+        except Exception as err:
+            _LOGGER.error("Background save of energy tracking failed: %s", err)
 
     def invalidate_cloud_control_cache(self) -> None:
         """Invalidate cached cloud control states to force immediate refresh.

@@ -23,6 +23,8 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+PARALLEL_UPDATES = 1
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -42,7 +44,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class EnphaseBatteryBinarySensorBase(CoordinatorEntity, BinarySensorEntity):
+class EnphaseBatteryBinarySensorBase(CoordinatorEntity[EnphaseBatteryDataUpdateCoordinator], BinarySensorEntity):
     """Base class for Enphase Battery binary sensors."""
 
     # Use __slots__ to reduce memory footprint
@@ -56,12 +58,12 @@ class EnphaseBatteryBinarySensorBase(CoordinatorEntity, BinarySensorEntity):
         self,
         coordinator: EnphaseBatteryDataUpdateCoordinator,
         sensor_type: str,
-        name: str,
+        translation_key: str,
     ) -> None:
         """Initialize the binary sensor."""
         super().__init__(coordinator)
         self._sensor_type = sensor_type
-        self._attr_name = name
+        self._attr_translation_key = translation_key
         self._attr_unique_id = f"{DOMAIN}_{sensor_type}"
 
 
@@ -73,7 +75,7 @@ class BatteryGridTiedBinarySensor(EnphaseBatteryBinarySensorBase):
 
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator, "grid_tied", "Connecté au réseau")
+        super().__init__(coordinator, "grid_tied", "grid_tied")
         self._attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
@@ -104,7 +106,7 @@ class BatteryHealthyBinarySensor(EnphaseBatteryBinarySensorBase):
 
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator, "healthy", "Batterie en bonne santé")
+        super().__init__(coordinator, "healthy", "healthy")
         self._attr_device_class = BinarySensorDeviceClass.PROBLEM
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
@@ -138,7 +140,7 @@ class EnvoyConnectedBinarySensor(EnphaseBatteryBinarySensorBase):
 
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator, "envoy_connected", "Envoy connecté")
+        super().__init__(coordinator, "envoy_connected", "envoy_connected")
         self._attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
 

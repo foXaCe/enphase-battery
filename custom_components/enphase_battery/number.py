@@ -21,6 +21,8 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+PARALLEL_UPDATES = 1
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -37,7 +39,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class BatteryBackupReserveNumber(CoordinatorEntity, NumberEntity):
+class BatteryBackupReserveNumber(CoordinatorEntity[EnphaseBatteryDataUpdateCoordinator], NumberEntity):
     """Battery minimum discharge level (Very Low SOC) number entity."""
 
     # Use __slots__ to reduce memory footprint
@@ -50,7 +52,7 @@ class BatteryBackupReserveNumber(CoordinatorEntity, NumberEntity):
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the number entity."""
         super().__init__(coordinator)
-        self._attr_name = "Niveau d'arrêt de la batterie"
+        self._attr_translation_key = "battery_reserve"
         self._attr_unique_id = f"{DOMAIN}_very_low_soc"
         self._attr_icon = "mdi:battery-alert"
         self._attr_native_unit_of_measurement = PERCENTAGE
@@ -79,7 +81,10 @@ class BatteryBackupReserveNumber(CoordinatorEntity, NumberEntity):
         """Set new value."""
         if not self.coordinator.api:
             _LOGGER.error("Cloud API not initialized. Enable cloud control in settings.")
-            raise HomeAssistantError("Cloud API not initialized. Enable cloud control in settings.")
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="cloud_api_not_initialized",
+            )
 
         try:
             await self.coordinator.api.set_very_low_soc(int(value))

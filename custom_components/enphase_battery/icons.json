@@ -1,0 +1,104 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "envoy_connected": {
+        "default": "mdi:router-wireless"
+      },
+      "grid_tied": {
+        "default": "mdi:transmission-tower"
+      },
+      "healthy": {
+        "default": "mdi:alert-circle"
+      }
+    },
+    "number": {
+      "battery_reserve": {
+        "default": "mdi:battery-alert"
+      }
+    },
+    "select": {
+      "battery_mode": {
+        "default": "mdi:battery-sync"
+      }
+    },
+    "sensor": {
+      "battery_available_energy": {
+        "default": "mdi:battery-heart-variant"
+      },
+      "battery_backup_time": {
+        "default": "mdi:clock-outline"
+      },
+      "battery_charge_power": {
+        "default": "mdi:battery-charging"
+      },
+      "battery_consumption_24h": {
+        "default": "mdi:home-lightning-bolt"
+      },
+      "battery_discharge_power": {
+        "default": "mdi:battery-arrow-down"
+      },
+      "battery_energy_charged": {
+        "default": "mdi:battery-plus"
+      },
+      "battery_energy_discharged": {
+        "default": "mdi:battery-minus"
+      },
+      "battery_grid_mode": {
+        "default": "mdi:transmission-tower"
+      },
+      "battery_health": {
+        "default": "mdi:heart-pulse"
+      },
+      "battery_power": {
+        "default": "mdi:battery"
+      },
+      "battery_soc": {
+        "default": "mdi:battery"
+      },
+      "battery_state": {
+        "default": "mdi:battery"
+      },
+      "envoy_firmware": {
+        "default": "mdi:chip"
+      },
+      "envoy_serial": {
+        "default": "mdi:identifier"
+      },
+      "individual_capacity": {
+        "default": "mdi:battery-high"
+      },
+      "individual_firmware": {
+        "default": "mdi:chip"
+      },
+      "individual_grid_state": {
+        "default": "mdi:transmission-tower"
+      },
+      "individual_max_cell_temp": {
+        "default": "mdi:thermometer-alert"
+      },
+      "individual_serial": {
+        "default": "mdi:identifier"
+      },
+      "individual_soc": {
+        "default": "mdi:battery"
+      },
+      "individual_temperature": {
+        "default": "mdi:thermometer"
+      }
+    },
+    "switch": {
+      "charge_from_grid": {
+        "default": "mdi:transmission-tower-import"
+      },
+      "discharge_to_grid": {
+        "default": "mdi:transmission-tower-export"
+      },
+      "power_match": {
+        "default": "mdi:sine-wave"
+      },
+      "reserve_battery_discharge": {
+        "default": "mdi:battery-lock"
+      }
+    }
+  }
+}

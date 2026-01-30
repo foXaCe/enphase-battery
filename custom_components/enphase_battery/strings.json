@@ -50,16 +50,20 @@
     },
     "abort": {
       "already_configured": "This Enphase system is already configured.",
-      "reauth_successful": "Re-authentication successful."
+      "reauth_successful": "Re-authentication successful.",
+      "reconfigure_successful": "Reconfiguration successful."
     }
   },
   "entity": {
     "binary_sensor": {
-      "battery_charging": {
-        "name": "Battery Charging"
+      "grid_tied": {
+        "name": "Grid Connected"
       },
-      "battery_connected": {
-        "name": "Battery Connected"
+      "healthy": {
+        "name": "Battery Health Problem"
+      },
+      "envoy_connected": {
+        "name": "Envoy Connected"
       }
     },
     "number": {
@@ -71,31 +75,14 @@
       "battery_mode": {
         "name": "Battery Mode",
         "state": {
+          "self_consumption": "Self Consumption",
+          "savings": "AI Optimization",
           "backup": "Backup Only",
-          "savings": "Savings Mode",
-          "self_consumption": "Self Consumption"
+          "expert": "Expert"
         }
       }
     },
     "sensor": {
-      "battery_capacity": {
-        "name": "Battery Capacity"
-      },
-      "battery_current": {
-        "name": "Battery Current"
-      },
-      "battery_energy_charged": {
-        "name": "Battery Energy Charged Today"
-      },
-      "battery_energy_discharged": {
-        "name": "Battery Energy Discharged Today"
-      },
-      "battery_health": {
-        "name": "Battery Health"
-      },
-      "battery_power": {
-        "name": "Battery Power"
-      },
       "battery_soc": {
         "name": "Battery State of Charge"
       },
@@ -109,17 +96,65 @@
           "empty": "Empty"
         }
       },
-      "battery_temperature": {
-        "name": "Battery Temperature"
+      "battery_power": {
+        "name": "Battery Power"
       },
-      "battery_voltage": {
-        "name": "Battery Voltage"
+      "battery_charge_power": {
+        "name": "Charge Power"
+      },
+      "battery_discharge_power": {
+        "name": "Discharge Power"
+      },
+      "battery_available_energy": {
+        "name": "Available Energy"
+      },
+      "battery_energy_charged": {
+        "name": "Energy Charged Today"
+      },
+      "battery_energy_discharged": {
+        "name": "Energy Discharged Today"
+      },
+      "battery_consumption_24h": {
+        "name": "Consumption Last 24h"
+      },
+      "battery_backup_time": {
+        "name": "Estimated Backup Time"
+      },
+      "battery_health": {
+        "name": "Battery Health"
+      },
+      "battery_grid_mode": {
+        "name": "Grid Mode"
+      },
+      "envoy_serial": {
+        "name": "Envoy Serial Number"
+      },
+      "envoy_firmware": {
+        "name": "Envoy Firmware"
+      },
+      "individual_temperature": {
+        "name": "Temperature"
+      },
+      "individual_max_cell_temp": {
+        "name": "Max Cell Temperature"
+      },
+      "individual_capacity": {
+        "name": "Capacity"
+      },
+      "individual_serial": {
+        "name": "Serial Number"
+      },
+      "individual_firmware": {
+        "name": "Firmware"
+      },
+      "individual_soc": {
+        "name": "State of Charge"
+      },
+      "individual_grid_state": {
+        "name": "Grid State"
       }
     },
     "switch": {
-      "battery_backup_mode": {
-        "name": "Battery Backup Mode"
-      },
       "charge_from_grid": {
         "name": "Charge From Grid"
       },
@@ -128,6 +163,53 @@
       },
       "reserve_battery_discharge": {
         "name": "Limit Battery Discharge"
+      },
+      "power_match": {
+        "name": "PowerMatch"
+      }
+    }
+  },
+  "exceptions": {
+    "cloud_api_not_initialized": {
+      "message": "Cloud API not initialized. Enable cloud control in integration settings."
+    }
+  },
+  "options": {
+    "error": {
+      "cannot_connect": "Failed to connect. Check the host address and network connection.",
+      "invalid_auth": "Invalid authentication credentials. Please check your username and password.",
+      "unknown": "Unexpected error occurred. Check the logs for more details."
+    },
+    "step": {
+      "init": {
+        "title": "Configure Enphase Battery",
+        "description": "Choose connection mode for your Enphase system.",
+        "data": {
+          "connection_mode": "Connection Mode"
+        }
+      },
+      "local": {
+        "title": "Local Connection Settings",
+        "description": "Configure local Envoy connection.",
+        "data": {
+          "envoy_host": "Envoy Hostname or IP",
+          "cloud_username": "Enphase account email",
+          "cloud_password": "Enphase account password",
+          "enable_cloud_control": "Enable cloud control (hybrid mode)"
+        },
+        "data_description": {
+          "enable_cloud_control": "Hybrid mode: local data (fast) + cloud control (switch/select)."
+        }
+      },
+      "cloud": {
+        "title": "Cloud Connection Settings",
+        "description": "Configure cloud Enlighten connection.",
+        "data": {
+          "username": "Enphase Account Email",
+          "password": "Enphase Account Password",
+          "site_id": "Site ID (optional)",
+          "user_id": "User ID (optional)"
+        }
       }
     }
   }

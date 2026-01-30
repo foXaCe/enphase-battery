@@ -6,6 +6,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.switch import SwitchEntity
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DEVICE_INFO, DOMAIN
@@ -18,6 +19,8 @@ if TYPE_CHECKING:
     from . import EnphaseBatteryConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
+
+PARALLEL_UPDATES = 1
 
 
 async def async_setup_entry(
@@ -52,7 +55,7 @@ async def async_setup_entry(
         async_add_entities(entities)
 
 
-class ChargeFromGridSwitch(CoordinatorEntity, SwitchEntity):
+class ChargeFromGridSwitch(CoordinatorEntity[EnphaseBatteryDataUpdateCoordinator], SwitchEntity):
     """Charge From Grid switch entity."""
 
     # Use __slots__ to reduce memory footprint
@@ -66,7 +69,7 @@ class ChargeFromGridSwitch(CoordinatorEntity, SwitchEntity):
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the switch entity."""
         super().__init__(coordinator)
-        self._attr_name = "Charge depuis le réseau"
+        self._attr_translation_key = "charge_from_grid"
         self._attr_unique_id = f"{DOMAIN}_charge_from_grid"
         self._optimistic_state: bool | None = None
 
@@ -91,7 +94,10 @@ class ChargeFromGridSwitch(CoordinatorEntity, SwitchEntity):
         try:
             # Always use cloud API (pure cloud mode or hybrid mode)
             if not self.coordinator.api:
-                raise Exception("Cloud API not initialized. Enable cloud control in settings.")
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN,
+                    translation_key="cloud_api_not_initialized",
+                )
             await self.coordinator.api.set_charge_from_grid(True)
 
             # Clear optimistic state and invalidate cache to force immediate cloud refresh
@@ -114,7 +120,10 @@ class ChargeFromGridSwitch(CoordinatorEntity, SwitchEntity):
         try:
             # Always use cloud API (pure cloud mode or hybrid mode)
             if not self.coordinator.api:
-                raise Exception("Cloud API not initialized. Enable cloud control in settings.")
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN,
+                    translation_key="cloud_api_not_initialized",
+                )
             await self.coordinator.api.set_charge_from_grid(False)
 
             # Clear optimistic state and invalidate cache to force immediate cloud refresh
@@ -129,7 +138,7 @@ class ChargeFromGridSwitch(CoordinatorEntity, SwitchEntity):
             raise
 
 
-class LimitDischargeSwitch(CoordinatorEntity, SwitchEntity):
+class LimitDischargeSwitch(CoordinatorEntity[EnphaseBatteryDataUpdateCoordinator], SwitchEntity):
     """Discharge To Grid switch entity (dtgControl).
 
     When enabled: Battery can discharge to grid
@@ -147,7 +156,7 @@ class LimitDischargeSwitch(CoordinatorEntity, SwitchEntity):
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the switch entity."""
         super().__init__(coordinator)
-        self._attr_name = "Autoriser la décharge vers le réseau"
+        self._attr_translation_key = "discharge_to_grid"
         self._attr_unique_id = f"{DOMAIN}_discharge_to_grid"
         self._optimistic_state: bool | None = None
 
@@ -173,7 +182,10 @@ class LimitDischargeSwitch(CoordinatorEntity, SwitchEntity):
         try:
             # Always use cloud API (pure cloud mode or hybrid mode)
             if not self.coordinator.api:
-                raise Exception("Cloud API not initialized. Enable cloud control in settings.")
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN,
+                    translation_key="cloud_api_not_initialized",
+                )
             await self.coordinator.api.set_limit_discharge(True)
 
             # Clear optimistic state and invalidate cache to force immediate cloud refresh
@@ -196,7 +208,10 @@ class LimitDischargeSwitch(CoordinatorEntity, SwitchEntity):
         try:
             # Always use cloud API (pure cloud mode or hybrid mode)
             if not self.coordinator.api:
-                raise Exception("Cloud API not initialized. Enable cloud control in settings.")
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN,
+                    translation_key="cloud_api_not_initialized",
+                )
             await self.coordinator.api.set_limit_discharge(False)
 
             # Clear optimistic state and invalidate cache to force immediate cloud refresh
@@ -211,7 +226,7 @@ class LimitDischargeSwitch(CoordinatorEntity, SwitchEntity):
             raise
 
 
-class ReserveBatteryDischargeSwitch(CoordinatorEntity, SwitchEntity):
+class ReserveBatteryDischargeSwitch(CoordinatorEntity[EnphaseBatteryDataUpdateCoordinator], SwitchEntity):
     """Reserve Battery Discharge switch entity (rbdControl).
 
     When enabled: Battery discharge is limited/reserved
@@ -229,7 +244,7 @@ class ReserveBatteryDischargeSwitch(CoordinatorEntity, SwitchEntity):
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the switch entity."""
         super().__init__(coordinator)
-        self._attr_name = "Limiter la décharge de la batterie"
+        self._attr_translation_key = "reserve_battery_discharge"
         self._attr_unique_id = f"{DOMAIN}_reserve_battery_discharge"
         self._optimistic_state: bool | None = None
 
@@ -255,7 +270,10 @@ class ReserveBatteryDischargeSwitch(CoordinatorEntity, SwitchEntity):
         try:
             # Always use cloud API (pure cloud mode or hybrid mode)
             if not self.coordinator.api:
-                raise Exception("Cloud API not initialized. Enable cloud control in settings.")
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN,
+                    translation_key="cloud_api_not_initialized",
+                )
             await self.coordinator.api.set_reserve_battery_discharge(True)
 
             # Clear optimistic state and invalidate cache to force immediate cloud refresh
@@ -278,7 +296,10 @@ class ReserveBatteryDischargeSwitch(CoordinatorEntity, SwitchEntity):
         try:
             # Always use cloud API (pure cloud mode or hybrid mode)
             if not self.coordinator.api:
-                raise Exception("Cloud API not initialized. Enable cloud control in settings.")
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN,
+                    translation_key="cloud_api_not_initialized",
+                )
             await self.coordinator.api.set_reserve_battery_discharge(False)
 
             # Clear optimistic state and invalidate cache to force immediate cloud refresh
@@ -293,7 +314,7 @@ class ReserveBatteryDischargeSwitch(CoordinatorEntity, SwitchEntity):
             raise
 
 
-class PowerMatchSwitch(CoordinatorEntity, SwitchEntity):
+class PowerMatchSwitch(CoordinatorEntity[EnphaseBatteryDataUpdateCoordinator], SwitchEntity):
     """PowerMatch switch entity (powerMatchControl).
 
     PowerMatch optimizes battery usage to match grid power patterns.
@@ -310,7 +331,7 @@ class PowerMatchSwitch(CoordinatorEntity, SwitchEntity):
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the switch entity."""
         super().__init__(coordinator)
-        self._attr_name = "PowerMatch"
+        self._attr_translation_key = "power_match"
         self._attr_unique_id = f"{DOMAIN}_power_match"
         self._optimistic_state: bool | None = None
 
@@ -336,7 +357,10 @@ class PowerMatchSwitch(CoordinatorEntity, SwitchEntity):
         try:
             # Always use cloud API (pure cloud mode or hybrid mode)
             if not self.coordinator.api:
-                raise Exception("Cloud API not initialized. Enable cloud control in settings.")
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN,
+                    translation_key="cloud_api_not_initialized",
+                )
             await self.coordinator.api.set_power_match(True)
 
             # Clear optimistic state and invalidate cache to force immediate cloud refresh
@@ -359,7 +383,10 @@ class PowerMatchSwitch(CoordinatorEntity, SwitchEntity):
         try:
             # Always use cloud API (pure cloud mode or hybrid mode)
             if not self.coordinator.api:
-                raise Exception("Cloud API not initialized. Enable cloud control in settings.")
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN,
+                    translation_key="cloud_api_not_initialized",
+                )
             await self.coordinator.api.set_power_match(False)
 
             # Clear optimistic state and invalidate cache to force immediate cloud refresh

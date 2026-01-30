@@ -1,0 +1,8 @@
+# Global owner for the entire repository
+* @foXaCe
+
+# Integration code
+custom_components/enphase_battery/ @foXaCe
+
+# CI/CD configuration
+.github/ @foXaCe

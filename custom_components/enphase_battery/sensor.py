@@ -29,6 +29,8 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+PARALLEL_UPDATES = 1
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -152,7 +154,7 @@ async def async_setup_entry(
     _add_individual_batteries()
 
 
-class EnphaseBatterySensorBase(CoordinatorEntity, SensorEntity):
+class EnphaseBatterySensorBase(CoordinatorEntity[EnphaseBatteryDataUpdateCoordinator], SensorEntity):
     """Base class for Enphase Battery system-level sensors."""
 
     # Use __slots__ to reduce memory footprint (one dict per class instead of per instance)
@@ -166,16 +168,16 @@ class EnphaseBatterySensorBase(CoordinatorEntity, SensorEntity):
         self,
         coordinator: EnphaseBatteryDataUpdateCoordinator,
         sensor_type: str,
-        name: str,
+        translation_key: str,
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._sensor_type = sensor_type
-        self._attr_name = name
+        self._attr_translation_key = translation_key
         self._attr_unique_id = f"{DOMAIN}_{sensor_type}"
 
 
-class IndividualBatterySensorBase(CoordinatorEntity, SensorEntity):
+class IndividualBatterySensorBase(CoordinatorEntity[EnphaseBatteryDataUpdateCoordinator], SensorEntity):
     """Base class for individual battery sensors."""
 
     __slots__ = ("_battery_num", "_sensor_type", "_serial_num")
@@ -189,14 +191,14 @@ class IndividualBatterySensorBase(CoordinatorEntity, SensorEntity):
         part_num: str | None,
         battery_num: int,
         sensor_type: str,
-        name: str,
+        translation_key: str,
     ) -> None:
         """Initialize the individual battery sensor."""
         super().__init__(coordinator)
         self._serial_num = serial_num
         self._battery_num = battery_num
         self._sensor_type = sensor_type
-        self._attr_name = name
+        self._attr_translation_key = translation_key
         self._attr_unique_id = f"{DOMAIN}_battery_{serial_num}_{sensor_type}"
         self._attr_device_info = get_battery_device_info(serial_num, part_num)
 
@@ -216,7 +218,7 @@ class BatterySOCSensor(EnphaseBatterySensorBase):
 
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator, "soc", "État de charge")
+        super().__init__(coordinator, "soc", "battery_soc")
         self._attr_device_class = SensorDeviceClass.BATTERY
         self._attr_native_unit_of_measurement = PERCENTAGE
         self._attr_state_class = SensorStateClass.MEASUREMENT
@@ -255,7 +257,7 @@ class BatteryStateSensor(EnphaseBatterySensorBase):
 
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator, "state", "État Batterie")
+        super().__init__(coordinator, "state", "battery_state")
         self._attr_device_class = SensorDeviceClass.ENUM
         self._attr_options = ["charging", "discharging", "idle", "full", "empty"]
 
@@ -334,18 +336,13 @@ class BatteryStateSensor(EnphaseBatterySensorBase):
             else:
                 return "mdi:battery-30"
 
-    @property
-    def translation_key(self) -> str:
-        """Return translation key for state values."""
-        return "battery_state"
-
 
 class BatteryPowerSensor(EnphaseBatterySensorBase):
     """Battery Power sensor (net power, - = charging, + = discharging)."""
 
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator, "power", "Puissance")
+        super().__init__(coordinator, "power", "battery_power")
         self._attr_device_class = SensorDeviceClass.POWER
         self._attr_native_unit_of_measurement = UnitOfPower.WATT
         self._attr_state_class = SensorStateClass.MEASUREMENT
@@ -374,7 +371,7 @@ class BatteryChargePowerSensor(EnphaseBatterySensorBase):
 
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator, "charge_power", "Puissance de charge")
+        super().__init__(coordinator, "charge_power", "battery_charge_power")
         self._attr_device_class = SensorDeviceClass.POWER
         self._attr_native_unit_of_measurement = UnitOfPower.WATT
         self._attr_state_class = SensorStateClass.MEASUREMENT
@@ -393,7 +390,7 @@ class BatteryDischargePowerSensor(EnphaseBatterySensorBase):
 
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator, "discharge_power", "Puissance de décharge")
+        super().__init__(coordinator, "discharge_power", "battery_discharge_power")
         self._attr_device_class = SensorDeviceClass.POWER
         self._attr_native_unit_of_measurement = UnitOfPower.WATT
         self._attr_state_class = SensorStateClass.MEASUREMENT
@@ -412,7 +409,7 @@ class BatteryAvailableEnergySensor(EnphaseBatterySensorBase):
 
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator, "available_energy", "Énergie disponible de la batterie")
+        super().__init__(coordinator, "available_energy", "battery_available_energy")
         self._attr_device_class = SensorDeviceClass.ENERGY
         self._attr_native_unit_of_measurement = UnitOfEnergy.WATT_HOUR
         # No state_class for available energy (not cumulative, fluctuates)
@@ -431,7 +428,7 @@ class BatteryEnergyChargedTodaySensor(EnphaseBatterySensorBase):
 
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator, "energy_charged_today", "Énergie chargée aujourd'hui")
+        super().__init__(coordinator, "energy_charged_today", "battery_energy_charged")
         self._attr_device_class = SensorDeviceClass.ENERGY
         self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
         self._attr_state_class = SensorStateClass.TOTAL_INCREASING
@@ -450,7 +447,7 @@ class BatteryEnergyDischargedTodaySensor(EnphaseBatterySensorBase):
 
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator, "energy_discharged_today", "Énergie déchargée aujourd'hui")
+        super().__init__(coordinator, "energy_discharged_today", "battery_energy_discharged")
         self._attr_device_class = SensorDeviceClass.ENERGY
         self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
         self._attr_state_class = SensorStateClass.TOTAL_INCREASING
@@ -469,7 +466,7 @@ class BatteryConsumption24hSensor(EnphaseBatterySensorBase):
 
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator, "consumption_24h", "Consommation 24h")
+        super().__init__(coordinator, "consumption_24h", "battery_consumption_24h")
         # Note: device_class ENERGY requires TOTAL/TOTAL_INCREASING, not MEASUREMENT
         # Since this is a 24h rolling window, we use MEASUREMENT without device_class
         self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
@@ -489,7 +486,7 @@ class BatteryBackupTimeSensor(EnphaseBatterySensorBase):
 
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator, "backup_time", "Temps de backup estimé")
+        super().__init__(coordinator, "backup_time", "battery_backup_time")
         self._attr_native_unit_of_measurement = "min"
         self._attr_state_class = SensorStateClass.MEASUREMENT
         self._attr_icon = "mdi:clock-outline"
@@ -510,7 +507,7 @@ class BatteryHealthSensor(EnphaseBatterySensorBase):
 
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator, "health", "État de Santé Batterie")
+        super().__init__(coordinator, "health", "battery_health")
         self._attr_native_unit_of_measurement = PERCENTAGE
         self._attr_state_class = SensorStateClass.MEASUREMENT
         self._attr_icon = "mdi:heart-pulse"
@@ -529,7 +526,7 @@ class BatteryGridModeSensor(EnphaseBatterySensorBase):
 
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator, "grid_mode", "Mode Réseau")
+        super().__init__(coordinator, "grid_mode", "battery_grid_mode")
         self._attr_icon = "mdi:transmission-tower"
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
@@ -549,9 +546,10 @@ class EnvoySerialNumberSensor(EnphaseBatterySensorBase):
 
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator, "envoy_serial", "Numéro de Série Envoy")
+        super().__init__(coordinator, "envoy_serial", "envoy_serial")
         self._attr_icon = "mdi:identifier"
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        self._attr_entity_registry_enabled_default = False
 
     @property
     def native_value(self) -> str | None:
@@ -567,9 +565,10 @@ class EnvoyFirmwareSensor(EnphaseBatterySensorBase):
 
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator, "envoy_firmware", "Firmware Envoy")
+        super().__init__(coordinator, "envoy_firmware", "envoy_firmware")
         self._attr_icon = "mdi:chip"
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        self._attr_entity_registry_enabled_default = False
 
     @property
     def native_value(self) -> str | None:
@@ -596,7 +595,7 @@ class IndividualBatteryTemperatureSensor(IndividualBatterySensorBase):
         battery_num: int,
     ) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator, serial_num, part_num, battery_num, "temperature", "Température")
+        super().__init__(coordinator, serial_num, part_num, battery_num, "temperature", "individual_temperature")
         self._attr_device_class = SensorDeviceClass.TEMPERATURE
         self._attr_native_unit_of_measurement = "°C"
         self._attr_state_class = SensorStateClass.MEASUREMENT
@@ -623,7 +622,7 @@ class IndividualBatteryMaxCellTempSensor(IndividualBatterySensorBase):
         battery_num: int,
     ) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator, serial_num, part_num, battery_num, "max_cell_temp", "Température Max Cellule")
+        super().__init__(coordinator, serial_num, part_num, battery_num, "max_cell_temp", "individual_max_cell_temp")
         self._attr_device_class = SensorDeviceClass.TEMPERATURE
         self._attr_native_unit_of_measurement = "°C"
         self._attr_state_class = SensorStateClass.MEASUREMENT
@@ -650,7 +649,7 @@ class IndividualBatteryCapacitySensor(IndividualBatterySensorBase):
         battery_num: int,
     ) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator, serial_num, part_num, battery_num, "capacity", "Capacité")
+        super().__init__(coordinator, serial_num, part_num, battery_num, "capacity", "individual_capacity")
         self._attr_device_class = SensorDeviceClass.ENERGY_STORAGE
         self._attr_native_unit_of_measurement = UnitOfEnergy.WATT_HOUR
         self._attr_state_class = SensorStateClass.MEASUREMENT
@@ -677,9 +676,10 @@ class IndividualBatterySerialSensor(IndividualBatterySensorBase):
         battery_num: int,
     ) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator, serial_num, part_num, battery_num, "serial", "Numéro de Série")
+        super().__init__(coordinator, serial_num, part_num, battery_num, "serial", "individual_serial")
         self._attr_icon = "mdi:identifier"
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        self._attr_entity_registry_enabled_default = False
 
     @property
     def native_value(self) -> str | None:
@@ -698,9 +698,10 @@ class IndividualBatteryFirmwareSensor(IndividualBatterySensorBase):
         battery_num: int,
     ) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator, serial_num, part_num, battery_num, "firmware", "Firmware")
+        super().__init__(coordinator, serial_num, part_num, battery_num, "firmware", "individual_firmware")
         self._attr_icon = "mdi:chip"
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        self._attr_entity_registry_enabled_default = False
 
     @property
     def native_value(self) -> str | None:
@@ -722,7 +723,7 @@ class IndividualBatterySOCSensor(IndividualBatterySensorBase):
         battery_num: int,
     ) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator, serial_num, part_num, battery_num, "soc", "État de charge")
+        super().__init__(coordinator, serial_num, part_num, battery_num, "soc", "individual_soc")
         self._attr_device_class = SensorDeviceClass.BATTERY
         self._attr_native_unit_of_measurement = PERCENTAGE
         self._attr_state_class = SensorStateClass.MEASUREMENT
@@ -768,7 +769,7 @@ class IndividualBatteryGridStateSensor(IndividualBatterySensorBase):
         battery_num: int,
     ) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator, serial_num, part_num, battery_num, "grid_state", "État Réseau")
+        super().__init__(coordinator, serial_num, part_num, battery_num, "grid_state", "individual_grid_state")
         self._attr_icon = "mdi:transmission-tower"
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
 

@@ -141,6 +141,41 @@ L'intégration officielle Enphase Envoy de Home Assistant ne gère pas correctem
   - Optimisation IA (cost_savings)
   - 🔄 En mode hybride : état synchronisé en temps réel depuis le cloud (visible en ~10s max)
 
+### 🔋 Appareils supportés
+
+| Appareil | Supporté | Notes |
+|----------|----------|-------|
+| Enphase IQ Battery 5P | ✅ Complet | Toutes les fonctionnalités |
+| Enphase IQ Battery 10T | ✅ Compatible | Via API Cloud/Enlighten |
+| Enphase Envoy (IQ Gateway) | ✅ Requis | Firmware 7.x et 8.x |
+| Enphase IQ Combiner 4C | ⚠️ Partiel | Données réseau uniquement |
+
+**Non supporté :**
+- Micro-onduleurs Enphase (utiliser l'intégration officielle)
+- Systèmes Enphase sans batterie
+
+### 💡 Cas d'usage
+
+**Optimisation autoconsommation solaire :**
+Utilisez le mode hybride pour surveiller le SOC en temps réel et créer des automatisations qui ajustent le mode de batterie selon la production solaire et les tarifs d'électricité.
+
+**Backup monitoring :**
+Surveillez l'autonomie estimée (`sensor.battery_backup_time`) et recevez une notification quand le niveau de charge descend sous un seuil critique.
+
+**Exemple d'automatisation :**
+```yaml
+automation:
+  - alias: "Alerte batterie faible"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.enphase_battery_iq_5p_etat_de_charge
+        below: 20
+    action:
+      - service: notify.mobile_app
+        data:
+          message: "Batterie Enphase sous 20%"
+```
+
 ### 🔍 Capture des données avec mitmdump
 
 Pour découvrir de nouvelles fonctionnalités ou déboguer :
@@ -309,6 +344,41 @@ The official Enphase Envoy integration in Home Assistant doesn't properly suppor
   - Self Consumption (self-consumption)
   - AI Optimization (cost_savings)
   - 🔄 In hybrid mode: state synced in real-time from cloud (visible within ~10s max)
+
+### 🔋 Supported Devices
+
+| Device | Supported | Notes |
+|--------|-----------|-------|
+| Enphase IQ Battery 5P | ✅ Full | All features |
+| Enphase IQ Battery 10T | ✅ Compatible | Via Cloud/Enlighten API |
+| Enphase Envoy (IQ Gateway) | ✅ Required | Firmware 7.x and 8.x |
+| Enphase IQ Combiner 4C | ⚠️ Partial | Grid data only |
+
+**Not supported:**
+- Enphase microinverters (use the official integration)
+- Enphase systems without battery
+
+### 💡 Use Cases
+
+**Solar self-consumption optimization:**
+Use hybrid mode to monitor SOC in real-time and create automations that adjust battery mode based on solar production and electricity rates.
+
+**Backup monitoring:**
+Monitor estimated backup time (`sensor.battery_backup_time`) and receive a notification when charge level drops below a critical threshold.
+
+**Automation example:**
+```yaml
+automation:
+  - alias: "Low battery alert"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.enphase_battery_iq_5p_etat_de_charge
+        below: 20
+    action:
+      - service: notify.mobile_app
+        data:
+          message: "Enphase battery below 20%"
+```
 
 ### 🔍 Data Capture with mitmdump
 

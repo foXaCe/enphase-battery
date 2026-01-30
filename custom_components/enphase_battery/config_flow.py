@@ -61,48 +61,48 @@ async def validate_local_input(hass: HomeAssistant, data: dict[str, Any]) -> dic
 
     Data has the keys from STEP_LOCAL_DATA_SCHEMA with values provided by the user.
     """
+    from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
     from .envoy_local_api import EnphaseEnvoyLocalAPI, EnvoyAuthError, EnvoyConnectionError
 
     host = data[CONF_ENVOY_HOST]
     cloud_username = data.get("cloud_username")
     cloud_password = data.get("cloud_password")
 
-    # Create temporary session for validation
-    import aiohttp
+    session = async_get_clientsession(hass, verify_ssl=False)
 
-    async with aiohttp.ClientSession() as session:
-        # For local mode, we always use cloud credentials (firmware 7.x/8.x)
-        api = EnphaseEnvoyLocalAPI(
-            session,
-            host,
-            username=None,
-            password=None,
-            cloud_username=cloud_username,
-            cloud_password=cloud_password,
-        )
+    # For local mode, we always use cloud credentials (firmware 7.x/8.x)
+    api = EnphaseEnvoyLocalAPI(
+        session,
+        host,
+        username=None,
+        password=None,
+        cloud_username=cloud_username,
+        cloud_password=cloud_password,
+    )
 
-        try:
-            await api.authenticate()
+    try:
+        await api.authenticate()
 
-            # Get basic info
-            info = await api._get_info()
-            serial = info.get("device", {}).get("sn") or info.get("sn") or api._serial_number or "UNKNOWN"
+        # Get basic info
+        info = await api._get_info()
+        serial = info.get("device", {}).get("sn") or info.get("sn") or api._serial_number or "UNKNOWN"
 
-            return {
-                "title": f"Enphase Battery Local ({host})",
-                "serial": serial,
-                "firmware": api._firmware_version,
-            }
+        return {
+            "title": f"Enphase Battery Local ({host})",
+            "serial": serial,
+            "firmware": api._firmware_version,
+        }
 
-        except EnvoyAuthError as err:
-            _LOGGER.error("Authentication failed: %s", err)
-            raise InvalidAuth from err
-        except EnvoyConnectionError as err:
-            _LOGGER.error("Connection failed: %s", err)
-            raise CannotConnect from err
-        except Exception as err:
-            _LOGGER.exception("Unexpected error during validation")
-            raise CannotConnect from err
+    except EnvoyAuthError as err:
+        _LOGGER.error("Authentication failed: %s", err)
+        raise InvalidAuth from err
+    except EnvoyConnectionError as err:
+        _LOGGER.error("Connection failed: %s", err)
+        raise CannotConnect from err
+    except Exception as err:
+        _LOGGER.exception("Unexpected error during validation")
+        raise CannotConnect from err
 
 
 async def validate_cloud_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
@@ -110,29 +110,46 @@ async def validate_cloud_input(hass: HomeAssistant, data: dict[str, Any]) -> dic
 
     Data has the keys from STEP_CLOUD_DATA_SCHEMA with values provided by the user.
     """
-    # TODO: Implémenter la validation avec l'API Cloud Enphase
-    # 1. Authenticate with username/password
-    # 2. Get user sites list
-    # 3. Get battery serial for unique_id
+    from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+    from .api import EnphaseBatteryAPI, EnphaseBatteryApiError, EnphaseBatteryAuthError
 
     username = data[CONF_USERNAME]
+    password = data[CONF_PASSWORD]
 
-    # from .api import EnphaseBatteryAPI
-    # api = EnphaseBatteryAPI(hass, username, data[CONF_PASSWORD])
-    # try:
-    #     await api.authenticate()
-    #     battery_info = await api.get_battery_info()
-    #     serial = battery_info["serial"]
-    # except AuthenticationError:
-    #     raise InvalidAuth
-    # except Exception as err:
-    #     raise CannotConnect from err
+    site_id_str = data.get(CONF_SITE_ID, "")
+    user_id_str = data.get(CONF_USER_ID, "")
+    site_id = int(site_id_str) if site_id_str else None
+    user_id = int(user_id_str) if user_id_str else None
 
-    # Retourner les infos pour créer l'entrée
-    return {
-        "title": f"Enphase Battery Cloud ({username})",
-        "serial": "TEMP_SERIAL",  # TODO: récupérer le vrai serial depuis l'API
-    }
+    session = async_get_clientsession(hass)
+    api = EnphaseBatteryAPI(
+        session=session,
+        username=username,
+        password=password,
+        site_id=site_id,
+        user_id=user_id,
+    )
+
+    try:
+        await api.authenticate()
+        # Use site_id as unique identifier for cloud entries
+        serial = str(api._site_id) if api._site_id else f"cloud_{username}"
+        return {
+            "title": f"Enphase Battery Cloud ({username})",
+            "serial": serial,
+            "site_id": api._site_id,
+            "user_id": api._user_id,
+        }
+    except EnphaseBatteryAuthError as err:
+        _LOGGER.error("Cloud authentication failed: %s", err)
+        raise InvalidAuth from err
+    except EnphaseBatteryApiError as err:
+        _LOGGER.error("Cloud connection failed: %s", err)
+        raise CannotConnect from err
+    except Exception as err:
+        _LOGGER.exception("Unexpected error during cloud validation")
+        raise CannotConnect from err
 
 
 class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -223,6 +240,12 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
             else:
+                # Save auto-detected IDs to avoid re-detection on next startup
+                if info.get("site_id"):
+                    user_input[CONF_SITE_ID] = str(info["site_id"])
+                if info.get("user_id"):
+                    user_input[CONF_USER_ID] = str(info["user_id"])
+
                 # Créer une entrée unique basée sur le serial
                 await self.async_set_unique_id(info["serial"])
                 self._abort_if_unique_id_configured()
@@ -282,6 +305,127 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="reauth_confirm",
+            data_schema=data_schema,
+            errors=errors,
+        )
+
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Handle reconfiguration of the integration."""
+        entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
+        if entry is None:
+            return self.async_abort(reason="unknown")
+
+        current_mode = entry.data.get(CONF_CONNECTION_MODE, CONNECTION_MODE_CLOUD)
+
+        if user_input is not None:
+            new_mode = user_input[CONF_CONNECTION_MODE]
+            if new_mode == CONNECTION_MODE_LOCAL:
+                self._reconfigure_entry = entry
+                return await self.async_step_reconfigure_local()
+            else:
+                self._reconfigure_entry = entry
+                return await self.async_step_reconfigure_cloud()
+
+        data_schema = vol.Schema(
+            {
+                vol.Required(CONF_CONNECTION_MODE, default=current_mode): vol.In(
+                    {
+                        CONNECTION_MODE_LOCAL: "Local (Envoy direct)",
+                        CONNECTION_MODE_CLOUD: "Cloud (Enlighten)",
+                    }
+                ),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=data_schema,
+        )
+
+    async def async_step_reconfigure_local(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Reconfigure local mode settings."""
+        errors: dict[str, str] = {}
+        entry = getattr(self, "_reconfigure_entry", None)
+        current_data = entry.data if entry else {}
+
+        if user_input is not None:
+            user_input[CONF_CONNECTION_MODE] = CONNECTION_MODE_LOCAL
+
+            try:
+                await validate_local_input(self.hass, user_input)
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except InvalidAuth:
+                errors["base"] = "invalid_auth"
+            except Exception:  # pylint: disable=broad-except
+                _LOGGER.exception("Unexpected exception during reconfigure")
+                errors["base"] = "unknown"
+            else:
+                if entry:
+                    self.hass.config_entries.async_update_entry(entry, data=user_input)
+                    await self.hass.config_entries.async_reload(entry.entry_id)
+                    return self.async_abort(reason="reconfigure_successful")
+
+        data_schema = vol.Schema(
+            {
+                vol.Required(CONF_ENVOY_HOST, default=current_data.get(CONF_ENVOY_HOST, "envoy.local")): str,
+                vol.Required(
+                    "cloud_username",
+                    default=current_data.get("cloud_username", current_data.get(CONF_USERNAME, "")),
+                ): str,
+                vol.Required(
+                    "cloud_password",
+                    default=current_data.get("cloud_password", current_data.get(CONF_PASSWORD, "")),
+                ): str,
+                vol.Optional("enable_cloud_control", default=current_data.get("enable_cloud_control", False)): bool,
+            }
+        )
+
+        return self.async_show_form(
+            step_id="reconfigure_local",
+            data_schema=data_schema,
+            errors=errors,
+        )
+
+    async def async_step_reconfigure_cloud(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Reconfigure cloud mode settings."""
+        errors: dict[str, str] = {}
+        entry = getattr(self, "_reconfigure_entry", None)
+        current_data = entry.data if entry else {}
+
+        if user_input is not None:
+            user_input[CONF_CONNECTION_MODE] = CONNECTION_MODE_CLOUD
+
+            try:
+                info = await validate_cloud_input(self.hass, user_input)
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except InvalidAuth:
+                errors["base"] = "invalid_auth"
+            except Exception:  # pylint: disable=broad-except
+                _LOGGER.exception("Unexpected exception during reconfigure")
+                errors["base"] = "unknown"
+            else:
+                if info.get("site_id"):
+                    user_input[CONF_SITE_ID] = str(info["site_id"])
+                if info.get("user_id"):
+                    user_input[CONF_USER_ID] = str(info["user_id"])
+                if entry:
+                    self.hass.config_entries.async_update_entry(entry, data=user_input)
+                    await self.hass.config_entries.async_reload(entry.entry_id)
+                    return self.async_abort(reason="reconfigure_successful")
+
+        data_schema = vol.Schema(
+            {
+                vol.Required(CONF_USERNAME, default=current_data.get(CONF_USERNAME, "")): str,
+                vol.Required(CONF_PASSWORD, default=current_data.get(CONF_PASSWORD, "")): str,
+                vol.Optional(CONF_SITE_ID, default=current_data.get(CONF_SITE_ID, "")): str,
+                vol.Optional(CONF_USER_ID, default=current_data.get(CONF_USER_ID, "")): str,
+            }
+        )
+
+        return self.async_show_form(
+            step_id="reconfigure_cloud",
             data_schema=data_schema,
             errors=errors,
         )

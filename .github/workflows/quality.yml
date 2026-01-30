@@ -66,7 +66,7 @@ jobs:
           pip install PyJWT aiohttp
 
       - name: Run pytest
-        run: pytest tests/ -v --tb=short --cov=custom_components/enphase_battery --cov-report=term-missing
+        run: pytest tests/ -v --tb=short --cov=custom_components/enphase_battery --cov-report=term-missing --cov-fail-under=98
 
   validate:
     name: Validate Home Assistant Integration
