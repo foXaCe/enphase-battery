@@ -74,10 +74,13 @@ jobs:
 
       - name: Generate release notes
         run: |
-          cat > /tmp/release_notes.md << 'EOF'
+          VERSION="${{ steps.version.outputs.version }}"
+          CHANGELOG=$(cat /tmp/changelog.txt)
+
+          cat > /tmp/release_notes.md << EOF
           ## Changes in this release
 
-          $(cat /tmp/changelog.txt)
+          ${CHANGELOG}
 
           ## Installation
 
@@ -87,14 +90,14 @@ jobs:
           2. Go to "Integrations"
           3. Click the three dots in the top right
           4. Select "Custom repositories"
-          5. Add `https://github.com/foXaCe/enphase-battery` as an Integration
+          5. Add \`https://github.com/foXaCe/enphase-battery\` as an Integration
           6. Click "Enphase Battery IQ 5P" and install
           7. Restart Home Assistant
 
           ### Manual Installation
 
-          1. Download `enphase_battery-${{ steps.version.outputs.version }}.zip`
-          2. Extract to `custom_components/` in your Home Assistant config directory
+          1. Download \`enphase_battery-${VERSION}.zip\`
+          2. Extract to \`custom_components/\` in your Home Assistant config directory
           3. Restart Home Assistant
 
           ## Configuration
