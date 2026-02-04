@@ -85,7 +85,7 @@ jobs:
             enphase_battery-${{ steps.version.outputs.version }}.zip
           draft: false
           prerelease: false
-          generate_release_notes: true
+          generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
