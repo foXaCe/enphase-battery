@@ -339,9 +339,18 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
                 # Local mode: Get data from Envoy
                 try:
                     data = await self.local_api.get_battery_data()
-                except EnvoyAuthError as err:
-                    # Auth failed - trigger reauth flow
-                    raise ConfigEntryAuthFailed(f"Authentication failed: {err}") from err
+                except EnvoyAuthError:
+                    # Token expired - try to re-authenticate automatically
+                    _LOGGER.info("Token expired, attempting automatic re-authentication")
+                    try:
+                        await self.local_api.authenticate()
+                        _LOGGER.info("Re-authentication successful, retrying data fetch")
+                        data = await self.local_api.get_battery_data()
+                    except EnvoyAuthError as err:
+                        # Re-auth also failed - trigger reauth flow
+                        raise ConfigEntryAuthFailed(f"Authentication failed: {err}") from err
+                    except EnvoyLocalApiError as err:
+                        raise UpdateFailed(f"Error fetching local data after reauth: {err}") from err
                 except EnvoyLocalApiError as err:
                     raise UpdateFailed(f"Error fetching local data: {err}") from err
 
@@ -412,9 +421,17 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
                 # Cloud mode: Get data from Enlighten API
                 try:
                     data = await self.api.get_battery_data()
-                except EnphaseBatteryAuthError as err:
-                    # Auth failed - trigger reauth flow
-                    raise ConfigEntryAuthFailed(f"Authentication failed: {err}") from err
+                except EnphaseBatteryAuthError:
+                    # Token expired - try to re-authenticate automatically
+                    _LOGGER.info("Cloud token expired, attempting automatic re-authentication")
+                    try:
+                        await self.api.authenticate()
+                        _LOGGER.info("Cloud re-authentication successful, retrying data fetch")
+                        data = await self.api.get_battery_data()
+                    except EnphaseBatteryAuthError as err:
+                        raise ConfigEntryAuthFailed(f"Authentication failed: {err}") from err
+                    except EnphaseBatteryApiError as err:
+                        raise UpdateFailed(f"Error fetching cloud data after reauth: {err}") from err
                 except EnphaseBatteryApiError as err:
                     raise UpdateFailed(f"Error fetching cloud data: {err}") from err
 
