@@ -487,6 +487,27 @@ class EnphaseEnvoyLocalAPI:
                 return_exceptions=True,
             )
 
+            # Check for auth errors first - propagate immediately for reauth flow
+            for result in results:
+                if isinstance(result, EnvoyAuthError):
+                    raise result
+
+            # Check if ALL endpoints failed - raise to trigger UpdateFailed
+            endpoint_names = ["ensemble_status", "meters_readings", "ensemble_inventory", "ensemble_power"]
+            failures = [
+                (name, result)
+                for name, result in zip(endpoint_names, results, strict=True)
+                if isinstance(result, Exception)
+            ]
+
+            if len(failures) == len(results):
+                error_details = ", ".join(f"{name}: {err}" for name, err in failures)
+                raise EnvoyConnectionError(f"All Envoy endpoints failed: {error_details}")
+
+            if failures:
+                failed_names = [name for name, _ in failures]
+                _LOGGER.debug("Some Envoy endpoints failed (partial data): %s", ", ".join(failed_names))
+
             ensemble_status = results[0] if not isinstance(results[0], Exception) else {}
             meters = results[1] if not isinstance(results[1], Exception) else {}
             inventory = results[2] if not isinstance(results[2], Exception) else {}
