@@ -656,6 +656,8 @@ class EnphaseEnvoyLocalAPI:
 
             return battery_data
 
+        except EnvoyAuthError:
+            raise
         except Exception as err:
             _LOGGER.error("Failed to get battery data: %s", err)
             raise EnvoyLocalApiError(f"Failed to retrieve battery data: {err}") from err
