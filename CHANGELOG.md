@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.35.6] - 2026-02-06
+
+### Fixed
+- Auto-refresh expired JWT token instead of triggering manual reauth flow (local and cloud modes)
+
 ## [2.35.5] - 2026-02-06
 
 ### Fixed
@@ -252,7 +257,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 See git history for changes in versions prior to 2.26.0.
 
-[Unreleased]: https://github.com/foXaCe/enphase-battery/compare/v2.35.5...HEAD
+[Unreleased]: https://github.com/foXaCe/enphase-battery/compare/v2.35.6...HEAD
+[2.35.6]: https://github.com/foXaCe/enphase-battery/compare/v2.35.5...v2.35.6
 [2.35.5]: https://github.com/foXaCe/enphase-battery/compare/v2.35.4...v2.35.5
 [2.35.4]: https://github.com/foXaCe/enphase-battery/compare/v2.35.3...v2.35.4
 [2.35.3]: https://github.com/foXaCe/enphase-battery/compare/v2.35.2...v2.35.3
