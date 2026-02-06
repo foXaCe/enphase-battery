@@ -433,6 +433,8 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
                 _LOGGER.warning("Connection lost to Enphase system")
                 self._previously_unavailable = True
             raise
+        except ConfigEntryAuthFailed:
+            raise
         except Exception as err:
             if not self._previously_unavailable:
                 _LOGGER.warning("Connection lost to Enphase system")

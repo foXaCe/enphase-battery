@@ -898,21 +898,13 @@ class TestAsyncUpdateData:
         mock_local_api,
         mock_session,
     ):
-        """Test local EnvoyAuthError triggers ConfigEntryAuthFailed.
-
-        Note: ConfigEntryAuthFailed is raised inside the inner try/except,
-        but then caught by the outer generic `except Exception` handler
-        and wrapped in UpdateFailed. The DataUpdateCoordinator base class
-        unwraps it at a higher level via __cause__.
-        """
+        """Test local EnvoyAuthError triggers ConfigEntryAuthFailed directly."""
         mock_local_api.get_battery_data = AsyncMock(side_effect=EnvoyAuthError("Token expired"))
         coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
         coordinator.local_api = mock_local_api
 
-        with pytest.raises(UpdateFailed, match="Unexpected error") as exc_info:
+        with pytest.raises(ConfigEntryAuthFailed, match="Authentication failed"):
             await coordinator._async_update_data()
-        # The __cause__ chain should contain ConfigEntryAuthFailed
-        assert isinstance(exc_info.value.__cause__, ConfigEntryAuthFailed)
 
     async def test_local_api_error_raises_update_failed(
         self,
@@ -938,18 +930,13 @@ class TestAsyncUpdateData:
         mock_cloud_api,
         mock_session,
     ):
-        """Test cloud EnphaseBatteryAuthError triggers ConfigEntryAuthFailed.
-
-        Note: Same wrapping behavior as local auth error - ConfigEntryAuthFailed
-        is caught by the outer generic handler and wrapped in UpdateFailed.
-        """
+        """Test cloud EnphaseBatteryAuthError triggers ConfigEntryAuthFailed directly."""
         mock_cloud_api.get_battery_data = AsyncMock(side_effect=EnphaseBatteryAuthError("Invalid token"))
         coordinator = EnphaseBatteryDataUpdateCoordinator(hass, cloud_entry)
         coordinator.api = mock_cloud_api
 
-        with pytest.raises(UpdateFailed, match="Unexpected error") as exc_info:
+        with pytest.raises(ConfigEntryAuthFailed, match="Authentication failed"):
             await coordinator._async_update_data()
-        assert isinstance(exc_info.value.__cause__, ConfigEntryAuthFailed)
 
     async def test_cloud_api_error_raises_update_failed(
         self,
@@ -1795,8 +1782,8 @@ class TestLogWhenUnavailable:
         local_entry: MockConfigEntry,
         mock_local_api,
     ):
-        """Generic Exception (ConfigEntryAuthFailed) should set flag."""
-        mock_local_api.get_battery_data = AsyncMock(side_effect=EnvoyAuthError("Token expired"))
+        """Generic Exception should set unavailable flag."""
+        mock_local_api.get_battery_data = AsyncMock(side_effect=RuntimeError("Unexpected failure"))
         coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
         coordinator.local_api = mock_local_api
 
