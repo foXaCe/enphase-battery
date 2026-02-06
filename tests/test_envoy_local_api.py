@@ -1242,8 +1242,8 @@ class TestGetBatteryData:
             result = await api_with_token.get_battery_data()
         assert result["charge_from_grid"] is False
 
-    async def test_all_endpoints_fail_gracefully(self, api_with_token: EnphaseEnvoyLocalAPI):
-        """All sub-endpoints failing should still return base structure."""
+    async def test_all_endpoints_fail_raises_error(self, api_with_token: EnphaseEnvoyLocalAPI):
+        """All sub-endpoints failing should raise EnvoyLocalApiError."""
         with aioresponses() as m:
             _mock_battery_endpoints(
                 m,
@@ -1253,10 +1253,8 @@ class TestGetBatteryData:
                 power_exc=aiohttp.ClientError("fail4"),
                 tariff_exc=aiohttp.ClientError("fail5"),
             )
-            result = await api_with_token.get_battery_data()
-        assert result["source"] == "local_envoy"
-        assert result["charge_from_grid"] is False
-        assert "timestamp" in result
+            with pytest.raises(EnvoyLocalApiError, match="All Envoy endpoints failed"):
+                await api_with_token.get_battery_data()
 
     async def test_raw_json_parsing(self, api_with_token: EnphaseEnvoyLocalAPI):
         """Responses with 'raw' key (firmware 8.x text format) should be parsed."""
