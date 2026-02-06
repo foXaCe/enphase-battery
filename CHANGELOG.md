@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.35.2] - 2026-02-06
+
+### Fixed
+- Properly handle Envoy connection failures: entities now go "unavailable" instead of showing stale/zero values when all endpoints fail (503/timeout)
+- Propagate authentication errors (401) to trigger reauth flow when JWT token expires
+
 ## [2.35.1] - 2026-02-04
 
 ### Changed
@@ -231,7 +237,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 See git history for changes in versions prior to 2.26.0.
 
-[Unreleased]: https://github.com/foXaCe/enphase-battery/compare/v2.35.0...HEAD
+[Unreleased]: https://github.com/foXaCe/enphase-battery/compare/v2.35.2...HEAD
+[2.35.2]: https://github.com/foXaCe/enphase-battery/compare/v2.35.1...v2.35.2
+[2.35.1]: https://github.com/foXaCe/enphase-battery/compare/v2.35.0...v2.35.1
 [2.35.0]: https://github.com/foXaCe/enphase-battery/compare/v2.34.2...v2.35.0
 [2.34.2]: https://github.com/foXaCe/enphase-battery/compare/v2.34.1...v2.34.2
 [2.34.1]: https://github.com/foXaCe/enphase-battery/compare/v2.34.0...v2.34.1
