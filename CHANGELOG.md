@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.35.4] - 2026-02-06
+
+### Fixed
+- Let `EnvoyAuthError` propagate through `get_battery_data()` to trigger reauth flow when JWT token expires, instead of wrapping it as generic `EnvoyLocalApiError`
+
 ## [2.35.3] - 2026-02-06
 
 ### Fixed
@@ -242,7 +247,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 See git history for changes in versions prior to 2.26.0.
 
-[Unreleased]: https://github.com/foXaCe/enphase-battery/compare/v2.35.3...HEAD
+[Unreleased]: https://github.com/foXaCe/enphase-battery/compare/v2.35.4...HEAD
+[2.35.4]: https://github.com/foXaCe/enphase-battery/compare/v2.35.3...v2.35.4
 [2.35.3]: https://github.com/foXaCe/enphase-battery/compare/v2.35.2...v2.35.3
 [2.35.2]: https://github.com/foXaCe/enphase-battery/compare/v2.35.1...v2.35.2
 [2.35.1]: https://github.com/foXaCe/enphase-battery/compare/v2.35.0...v2.35.1
