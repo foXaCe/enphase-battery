@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.35.7] - 2026-02-17
+
+### Changed
+- Offset first poll by 5s to desynchronize from official Enphase Envoy integration and reduce 503 errors
+- Shorten cloud control cache from 5 minutes to 1 minute for faster UI updates
+
+### Fixed
+- Reduce log noise: Envoy connection errors in `get_battery_data` logged at debug level instead of error (coordinator already logs once)
+
 ## [2.35.6] - 2026-02-06
 
 ### Fixed
@@ -257,7 +266,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 See git history for changes in versions prior to 2.26.0.
 
-[Unreleased]: https://github.com/foXaCe/enphase-battery/compare/v2.35.6...HEAD
+[Unreleased]: https://github.com/foXaCe/enphase-battery/compare/v2.35.7...HEAD
+[2.35.7]: https://github.com/foXaCe/enphase-battery/compare/v2.35.6...v2.35.7
 [2.35.6]: https://github.com/foXaCe/enphase-battery/compare/v2.35.5...v2.35.6
 [2.35.5]: https://github.com/foXaCe/enphase-battery/compare/v2.35.4...v2.35.5
 [2.35.4]: https://github.com/foXaCe/enphase-battery/compare/v2.35.3...v2.35.4
