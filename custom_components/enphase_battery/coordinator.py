@@ -90,6 +90,9 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
         # Track unavailable state for log-when-unavailable pattern
         self._previously_unavailable: bool = False
 
+        # Offset first poll to avoid colliding with official enphase_envoy integration
+        self._first_poll: bool = True
+
         # Track last save time for batching storage writes (save every 5 minutes)
         self._last_storage_save: datetime | None = None
         self._storage_save_interval = timedelta(minutes=5)
@@ -326,6 +329,13 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
         - Cloud mode: Primary data source (every 60s)
         """
         try:
+            # Offset first poll by 5s to desynchronize from official enphase_envoy integration
+            # Both integrations start at HA boot, so without offset their cycles collide
+            # causing Envoy 503 overload errors
+            if self._first_poll and self._connection_mode == CONNECTION_MODE_LOCAL:
+                self._first_poll = False
+                await asyncio.sleep(5)
+
             # Ensure API is initialized
             if self._connection_mode == CONNECTION_MODE_LOCAL:
                 if not self.local_api:
