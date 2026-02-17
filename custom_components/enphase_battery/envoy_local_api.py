@@ -659,7 +659,7 @@ class EnphaseEnvoyLocalAPI:
         except EnvoyAuthError:
             raise
         except Exception as err:
-            _LOGGER.error("Failed to get battery data: %s", err)
+            _LOGGER.debug("Failed to get battery data: %s", err)
             raise EnvoyLocalApiError(f"Failed to retrieve battery data: {err}") from err
 
     async def set_battery_mode(self, mode: str) -> bool:

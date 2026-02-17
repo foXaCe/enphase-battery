@@ -97,7 +97,7 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
         # Cache for cloud control states in hybrid mode (refresh every 5 minutes)
         self._last_cloud_control_fetch: datetime | None = None
         self._cloud_control_cache: dict[str, Any] = {}
-        self._cloud_control_cache_interval = timedelta(minutes=5)
+        self._cloud_control_cache_interval = timedelta(minutes=1)
 
         # Determine update interval based on connection mode
         if self._connection_mode == CONNECTION_MODE_LOCAL:
