@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.35.8] - 2026-04-07
+
+### Changed
+- Enable mypy strict mode with targeted type annotations
+- Convert DEVICE_INFO and get_battery_device_info to use DeviceInfo objects
+- Use ConfigFlowResult instead of FlowResult for config flow methods
+
+### Added
+- Removal/uninstall instructions in README (FR + EN)
+
+### Build
+- Pre-commit autoupdate
+
 ## [2.35.7] - 2026-02-17
 
 ### Changed
