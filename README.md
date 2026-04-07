@@ -141,6 +141,14 @@ L'intégration officielle Enphase Envoy de Home Assistant ne gère pas correctem
   - Optimisation IA (cost_savings)
   - 🔄 En mode hybride : état synchronisé en temps réel depuis le cloud (visible en ~10s max)
 
+### 🗑️ Désinstallation
+
+1. Allez dans **Configuration** → **Intégrations**
+2. Trouvez **Enphase Battery IQ 5P**
+3. Cliquez sur les 3 points → **Supprimer**
+4. Redémarrez Home Assistant
+5. (Optionnel) Supprimez le dossier `custom_components/enphase_battery/`
+
 ### 🔋 Appareils supportés
 
 | Appareil | Supporté | Notes |
@@ -344,6 +352,14 @@ The official Enphase Envoy integration in Home Assistant doesn't properly suppor
   - Self Consumption (self-consumption)
   - AI Optimization (cost_savings)
   - 🔄 In hybrid mode: state synced in real-time from cloud (visible within ~10s max)
+
+### 🗑️ Removal
+
+1. Go to **Settings** → **Integrations**
+2. Find **Enphase Battery IQ 5P**
+3. Click the 3 dots → **Delete**
+4. Restart Home Assistant
+5. (Optional) Delete the `custom_components/enphase_battery/` folder
 
 ### 🔋 Supported Devices
 
