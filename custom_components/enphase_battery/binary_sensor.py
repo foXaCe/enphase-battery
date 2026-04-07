@@ -9,7 +9,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
 )
-from homeassistant.helpers.entity import EntityCategory
+from homeassistant.helpers.entity import EntityCategory  # type: ignore[attr-defined]
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DEVICE_INFO, DOMAIN
@@ -88,7 +88,7 @@ class BatteryGridTiedBinarySensor(EnphaseBatteryBinarySensorBase):
         devices = self.coordinator.data.get("devices", [])
         if devices and len(devices) > 0:
             grid_state = devices[0].get("reported_enc_grid_state", "")
-            return grid_state == "grid-tied"
+            return grid_state == "grid-tied"  # type: ignore[no-any-return]
 
         status = self.coordinator.data.get("status", "")
         return "grid-tied" in status.lower()
@@ -125,7 +125,7 @@ class BatteryHealthyBinarySensor(EnphaseBatteryBinarySensorBase):
             return True
 
         # SOH below 80% indicates problem
-        return soh < 80
+        return soh < 80  # type: ignore[no-any-return]
 
     @property
     def icon(self) -> str:

@@ -75,7 +75,7 @@ async def validate_local_input(hass: HomeAssistant, data: dict[str, Any]) -> dic
     api = EnphaseEnvoyLocalAPI(
         session,
         host,
-        username=None,
+        username=None,  # type: ignore[arg-type]
         password=None,
         cloud_username=cloud_username,
         cloud_password=cloud_password,
@@ -169,7 +169,7 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Get the options flow for this handler."""
         return EnphaseBatteryOptionsFlowHandler(config_entry)
 
-    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:  # type: ignore[name-defined]
         """Handle the initial step - select connection mode."""
         if user_input is not None:
             self._connection_mode = user_input[CONF_CONNECTION_MODE]
@@ -185,7 +185,7 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=STEP_MODE_SCHEMA,
         )
 
-    async def async_step_local(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_local(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:  # type: ignore[name-defined]
         """Handle local Envoy configuration."""
         errors: dict[str, str] = {}
 
@@ -222,7 +222,7 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             },
         )
 
-    async def async_step_cloud(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_cloud(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:  # type: ignore[name-defined]
         """Handle cloud Enlighten configuration."""
         errors: dict[str, str] = {}
 
@@ -265,12 +265,12 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             },
         )
 
-    async def async_step_reauth(self, entry_data: dict[str, Any]) -> FlowResult:
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:  # type: ignore[name-defined]
         """Handle re-authentication."""
         self._reauth_entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
         return await self.async_step_reauth_confirm()
 
-    async def async_step_reauth_confirm(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_reauth_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:  # type: ignore[name-defined]
         """Handle re-authentication confirmation."""
         errors: dict[str, str] = {}
 
@@ -309,7 +309,7 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:  # type: ignore[name-defined]
         """Handle reconfiguration of the integration."""
         entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
         if entry is None:
@@ -342,7 +342,7 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=data_schema,
         )
 
-    async def async_step_reconfigure_local(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_reconfigure_local(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:  # type: ignore[name-defined]
         """Reconfigure local mode settings."""
         errors: dict[str, str] = {}
         entry = getattr(self, "_reconfigure_entry", None)
@@ -387,7 +387,7 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_reconfigure_cloud(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_reconfigure_cloud(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:  # type: ignore[name-defined]
         """Reconfigure cloud mode settings."""
         errors: dict[str, str] = {}
         entry = getattr(self, "_reconfigure_entry", None)
@@ -445,7 +445,7 @@ class EnphaseBatteryOptionsFlowHandler(config_entries.OptionsFlow):
         """Return config entry."""
         return self._config_entry
 
-    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:  # type: ignore[name-defined]
         """First step - choose connection mode."""
         current_data = self.config_entry.data
         current_mode = current_data.get(CONF_CONNECTION_MODE, CONNECTION_MODE_CLOUD)
@@ -475,7 +475,7 @@ class EnphaseBatteryOptionsFlowHandler(config_entries.OptionsFlow):
             data_schema=data_schema,
         )
 
-    async def async_step_local(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_local(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:  # type: ignore[name-defined]
         """Configure local mode."""
         errors: dict[str, str] = {}
         current_data = self.config_entry.data
@@ -528,7 +528,7 @@ class EnphaseBatteryOptionsFlowHandler(config_entries.OptionsFlow):
             errors=errors,
         )
 
-    async def async_step_cloud(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_cloud(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:  # type: ignore[name-defined]
         """Configure cloud mode."""
         errors: dict[str, str] = {}
         current_data = self.config_entry.data

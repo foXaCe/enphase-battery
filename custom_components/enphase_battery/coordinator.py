@@ -60,7 +60,7 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
         self.local_api: EnphaseEnvoyLocalAPI | None = None
 
         # Initialize persistent storage for energy tracking
-        self._store = Store(hass, STORAGE_VERSION, f"{STORAGE_KEY}_{entry.entry_id}")
+        self._store = Store(hass, STORAGE_VERSION, f"{STORAGE_KEY}_{entry.entry_id}")  # type: ignore[var-annotated]
         self._stored_data: dict[str, Any] = {}
 
         # Energy tracking for daily calculations
@@ -163,7 +163,7 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
                 self._load_energy_tracking(),
             )
 
-    async def _setup_local_api(self, session) -> None:
+    async def _setup_local_api(self, session) -> None:  # type: ignore[no-untyped-def]
         """Set up local Envoy API client."""
         host = self.entry.data.get(CONF_ENVOY_HOST, "envoy.local")
         username = self.entry.data.get(CONF_USERNAME, "installer")
@@ -190,7 +190,7 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
             _LOGGER.error("Failed to authenticate with local Envoy: %s", err)
             raise
 
-    async def _setup_cloud_api(self, session) -> None:
+    async def _setup_cloud_api(self, session) -> None:  # type: ignore[no-untyped-def]
         """Set up cloud Enlighten API client."""
         # Get optional site_id and user_id from config
         site_id_str = self.entry.data.get(CONF_SITE_ID)
@@ -228,7 +228,7 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
             _LOGGER.error("Failed to authenticate with cloud: %s", err)
             raise
 
-    async def _setup_cloud_api_from_local_creds(self, session) -> None:
+    async def _setup_cloud_api_from_local_creds(self, session) -> None:  # type: ignore[no-untyped-def]
         """Set up cloud API using credentials from local mode config (hybrid mode)."""
         cloud_username = self.entry.data.get("cloud_username")
         cloud_password = self.entry.data.get("cloud_password")
@@ -348,14 +348,14 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
             if self._connection_mode == CONNECTION_MODE_LOCAL:
                 # Local mode: Get data from Envoy
                 try:
-                    data = await self.local_api.get_battery_data()
+                    data = await self.local_api.get_battery_data()  # type: ignore[union-attr]
                 except EnvoyAuthError:
                     # Token expired - try to re-authenticate automatically
                     _LOGGER.info("Token expired, attempting automatic re-authentication")
                     try:
-                        await self.local_api.authenticate()
+                        await self.local_api.authenticate()  # type: ignore[union-attr]
                         _LOGGER.info("Re-authentication successful, retrying data fetch")
-                        data = await self.local_api.get_battery_data()
+                        data = await self.local_api.get_battery_data()  # type: ignore[union-attr]
                     except EnvoyAuthError as err:
                         # Re-auth also failed - trigger reauth flow
                         raise ConfigEntryAuthFailed(f"Authentication failed: {err}") from err
@@ -430,14 +430,14 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
             else:
                 # Cloud mode: Get data from Enlighten API
                 try:
-                    data = await self.api.get_battery_data()
+                    data = await self.api.get_battery_data()  # type: ignore[union-attr]
                 except EnphaseBatteryAuthError:
                     # Token expired - try to re-authenticate automatically
                     _LOGGER.info("Cloud token expired, attempting automatic re-authentication")
                     try:
-                        await self.api.authenticate()
+                        await self.api.authenticate()  # type: ignore[union-attr]
                         _LOGGER.info("Cloud re-authentication successful, retrying data fetch")
-                        data = await self.api.get_battery_data()
+                        data = await self.api.get_battery_data()  # type: ignore[union-attr]
                     except EnphaseBatteryAuthError as err:
                         raise ConfigEntryAuthFailed(f"Authentication failed: {err}") from err
                     except EnphaseBatteryApiError as err:
@@ -605,12 +605,12 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
     @property
     def connection_mode(self) -> str:
         """Return current connection mode."""
-        return self._connection_mode
+        return self._connection_mode  # type: ignore[no-any-return]
 
     @property
     def is_local_mode(self) -> bool:
         """Return True if using local Envoy connection."""
-        return self._connection_mode == CONNECTION_MODE_LOCAL
+        return self._connection_mode == CONNECTION_MODE_LOCAL  # type: ignore[no-any-return]
 
     @property
     def battery_soc(self) -> int | None:

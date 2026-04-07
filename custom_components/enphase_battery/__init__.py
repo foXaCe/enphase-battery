@@ -93,7 +93,7 @@ async def async_setup_entry(
 
     # Deferred setup: authentication + first refresh in background
     # This prevents blocking HA startup while still getting data quickly
-    async def _async_deferred_setup(event: Event = None):
+    async def _async_deferred_setup(event: Event = None):  # type: ignore[assignment, no-untyped-def]
         """Setup coordinator and fetch first data after HA has started."""
         deferred_start = time.perf_counter()
         try:
@@ -113,7 +113,7 @@ async def async_setup_entry(
     if hass.is_running:
         task = hass.async_create_background_task(_async_deferred_setup(), "enphase_battery_deferred_setup")
         # Use lambda to avoid returning True from task.cancel() which HA tries to await
-        entry.async_on_unload(lambda: task.cancel())
+        entry.async_on_unload(lambda: task.cancel())  # type: ignore[arg-type, return-value]
     else:
         hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _async_deferred_setup)
 

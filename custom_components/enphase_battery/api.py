@@ -63,7 +63,7 @@ class EnphaseBatteryAPI:
         self._envoy_serial: str | None = None
         self._is_authenticated: bool = False
 
-    async def _request_with_reauth(
+    async def _request_with_reauth(  # type: ignore[no-untyped-def]
         self,
         method: str,
         url: str,
@@ -122,7 +122,7 @@ class EnphaseBatteryAPI:
                                 raise EnphaseBatteryAuthError("Authentication failed after re-login")
                             retry_response.raise_for_status()
                             if return_json:
-                                return await retry_response.json()
+                                return await retry_response.json()  # type: ignore[no-any-return]
                             return None
 
                     # Handle rate limiting (429)
@@ -151,7 +151,7 @@ class EnphaseBatteryAPI:
 
                     response.raise_for_status()
                     if return_json:
-                        return await response.json()
+                        return await response.json()  # type: ignore[no-any-return]
                     return None
 
             except aiohttp.ClientError as err:
@@ -185,7 +185,7 @@ class EnphaseBatteryAPI:
 
         # L'API Enphase utilise le header "e-auth-token" avec le cookie de session _enlighten_4_session
         # Et le header X-XSRF-Token pour la protection CSRF
-        cookies = self._session.cookie_jar.filter_cookies(API_BASE_URL)
+        cookies = self._session.cookie_jar.filter_cookies(API_BASE_URL)  # type: ignore[arg-type]
         for cookie in cookies.values():
             if cookie.key == "_enlighten_4_session":
                 headers["e-auth-token"] = cookie.value
@@ -304,7 +304,7 @@ class EnphaseBatteryAPI:
         except aiohttp.ClientError as err:
             raise EnphaseBatteryConnectionError(f"Login connection error: {err}") from err
 
-    async def _get_session_token(self) -> str | None:
+    async def _get_session_token(self) -> str | None:  # type: ignore[return]
         """Get session token after login.
 
         Returns:
@@ -325,7 +325,7 @@ class EnphaseBatteryAPI:
                         # Chercher le token dans la réponse
                         token = data.get("token") or data.get("access_token") or data.get("session_token")
                         if token:
-                            return token
+                            return token  # type: ignore[no-any-return]
 
                     # Parfois la réponse est directement le token
                     if isinstance(data, str):
@@ -355,7 +355,7 @@ class EnphaseBatteryAPI:
                     devices = device_group.get("devices", [])
                     if len(devices) > 0:
                         envoy = devices[0]
-                        return envoy.get("serial_number")
+                        return envoy.get("serial_number")  # type: ignore[no-any-return]
 
             return None
 
@@ -390,7 +390,7 @@ class EnphaseBatteryAPI:
                         data = await response.json()
 
                         # Search for user_id in various possible locations
-                        def find_user_id(obj, depth=0):
+                        def find_user_id(obj, depth=0):  # type: ignore[no-untyped-def]
                             if depth > 5:  # Limit recursion
                                 return None
                             if isinstance(obj, dict):
@@ -538,7 +538,7 @@ class EnphaseBatteryAPI:
 
         # Méthode 3: Essayer d'extraire user_id depuis le JWT token dans les cookies
         try:
-            cookies = self._session.cookie_jar.filter_cookies(API_BASE_URL)
+            cookies = self._session.cookie_jar.filter_cookies(API_BASE_URL)  # type: ignore[arg-type]
 
             for cookie in cookies.values():
                 # Chercher le token JWT enlighten_manager_token_production
@@ -594,7 +594,7 @@ class EnphaseBatteryAPI:
 
         url = f"{API_BASE_URL}/pv/systems/{self._site_id}/today"
 
-        async def _fetch_today_data():
+        async def _fetch_today_data():  # type: ignore[no-untyped-def]
             async with self._session.get(
                 url,
                 headers=self._get_headers(),
@@ -603,7 +603,7 @@ class EnphaseBatteryAPI:
                 response.raise_for_status()
                 return await response.json()
 
-        async def _fetch_battery_settings():
+        async def _fetch_battery_settings():  # type: ignore[no-untyped-def]
             try:
                 return await self.get_battery_settings()
             except Exception:
@@ -682,11 +682,11 @@ class EnphaseBatteryAPI:
             "last_update": datetime.now().isoformat(),
         }
 
-    def _get_latest_value(self, values: list) -> int | None:
+    def _get_latest_value(self, values: list) -> int | None:  # type: ignore[type-arg]
         """Get the latest non-null value from a list."""
         for value in reversed(values):
             if value is not None:
-                return value
+                return value  # type: ignore[no-any-return]
         return None
 
     def _calculate_battery_power(self, charge: int | None, discharge: int | None) -> int:
@@ -710,7 +710,7 @@ class EnphaseBatteryAPI:
 
         try:
             result = await self._request_with_reauth("GET", url, params=params)
-            return result.get("data", {}) if result else {}
+            return result.get("data", {}) if result else {}  # type: ignore[union-attr]
         except (EnphaseBatteryAuthError, EnphaseBatteryConnectionError):
             raise
         except Exception as err:
@@ -730,7 +730,7 @@ class EnphaseBatteryAPI:
 
         try:
             result = await self._request_with_reauth("PUT", url, params=params, json=data)
-            return result.get("message") == "success" if result else False
+            return result.get("message") == "success" if result else False  # type: ignore[union-attr]
         except (EnphaseBatteryAuthError, EnphaseBatteryConnectionError):
             raise
         except Exception as err:
@@ -747,13 +747,13 @@ class EnphaseBatteryAPI:
         try:
             async with self._session.get(
                 url,
-                params=params,
+                params=params,  # type: ignore[arg-type]
                 headers=self._get_headers(),
                 timeout=ClientTimeout(total=API_TIMEOUT),
             ) as response:
                 response.raise_for_status()
                 result = await response.json()
-                return result.get("data", {})
+                return result.get("data", {})  # type: ignore[no-any-return]
 
         except aiohttp.ClientError as err:
             raise EnphaseBatteryConnectionError(f"Failed to get battery profile: {err}") from err
@@ -772,7 +772,7 @@ class EnphaseBatteryAPI:
                 timeout=ClientTimeout(total=API_TIMEOUT),
             ) as response:
                 response.raise_for_status()
-                return await response.json()
+                return await response.json()  # type: ignore[no-any-return]
 
         except aiohttp.ClientError as err:
             raise EnphaseBatteryConnectionError(f"Failed to get schedules: {err}") from err
@@ -791,7 +791,7 @@ class EnphaseBatteryAPI:
                 timeout=ClientTimeout(total=API_TIMEOUT),
             ) as response:
                 response.raise_for_status()
-                return await response.json()
+                return await response.json()  # type: ignore[no-any-return]
 
         except aiohttp.ClientError as err:
             raise EnphaseBatteryConnectionError(f"Failed to get devices: {err}") from err

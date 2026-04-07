@@ -1,6 +1,10 @@
 """Constants for the Enphase Battery integration."""
 
-from typing import Final
+from __future__ import annotations
+
+from typing import Any, Final
+
+from homeassistant.helpers.device_registry import DeviceInfo
 
 DOMAIN: Final = "enphase_battery"
 
@@ -58,29 +62,21 @@ ATTR_BATTERY_CAPACITY: Final = "capacity"
 ATTR_BATTERY_HEALTH: Final = "health"
 
 # Device info for the battery system (shared across system-level entities)
-DEVICE_INFO: Final = {
-    "identifiers": {(DOMAIN, "enphase_battery_system")},
-    "name": "Enphase Battery System",
-    "manufacturer": "Enphase Energy",
-    "model": "IQ Battery 5P System",
-}
+DEVICE_INFO: Final = DeviceInfo(
+    identifiers={(DOMAIN, "enphase_battery_system")},
+    name="Enphase Battery System",
+    manufacturer="Enphase Energy",
+    model="IQ Battery 5P System",
+)
 
 
-def get_battery_device_info(serial_num: str, part_num: str | None = None) -> dict:
-    """Get device info for an individual battery.
-
-    Args:
-        serial_num: Battery serial number (unique identifier)
-        part_num: Battery part number (model reference)
-
-    Returns:
-        Device info dictionary for Home Assistant
-    """
-    return {
-        "identifiers": {(DOMAIN, f"battery_{serial_num}")},
-        "name": f"Enphase Battery {serial_num[-4:]}",
-        "manufacturer": "Enphase Energy",
-        "model": part_num or "IQ Battery 5P",
-        "serial_number": serial_num,
-        "via_device": (DOMAIN, "enphase_battery_system"),
-    }
+def get_battery_device_info(serial_num: str, part_num: str | None = None) -> DeviceInfo:
+    """Get device info for an individual battery."""
+    return DeviceInfo(
+        identifiers={(DOMAIN, f"battery_{serial_num}")},
+        name=f"Enphase Battery {serial_num[-4:]}",
+        manufacturer="Enphase Energy",
+        model=part_num or "IQ Battery 5P",
+        serial_number=serial_num,
+        via_device=(DOMAIN, "enphase_battery_system"),
+    )

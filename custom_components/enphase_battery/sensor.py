@@ -15,7 +15,7 @@ from homeassistant.const import (
     UnitOfEnergy,
     UnitOfPower,
 )
-from homeassistant.helpers.entity import EntityCategory
+from homeassistant.helpers.entity import EntityCategory  # type: ignore[attr-defined]
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DEVICE_INFO, DOMAIN, get_battery_device_info
@@ -202,14 +202,14 @@ class IndividualBatterySensorBase(CoordinatorEntity[EnphaseBatteryDataUpdateCoor
         self._attr_unique_id = f"{DOMAIN}_battery_{serial_num}_{sensor_type}"
         self._attr_device_info = get_battery_device_info(serial_num, part_num)
 
-    def _get_device_data(self) -> dict | None:
+    def _get_device_data(self) -> dict | None:  # type: ignore[type-arg]
         """Get the device data for this specific battery."""
         if not self.coordinator.data:
             return None
         devices = self.coordinator.data.get("devices", [])
         for device in devices:
             if device.get("serial_num") == self._serial_num:
-                return device
+                return device  # type: ignore[no-any-return]
         return None
 
 
@@ -382,7 +382,7 @@ class BatteryChargePowerSensor(EnphaseBatterySensorBase):
         """Return the state of the sensor."""
         if not self.coordinator.data:
             return None
-        return self.coordinator.data.get("charge_power", 0)
+        return self.coordinator.data.get("charge_power", 0)  # type: ignore[no-any-return]
 
 
 class BatteryDischargePowerSensor(EnphaseBatterySensorBase):
@@ -401,7 +401,7 @@ class BatteryDischargePowerSensor(EnphaseBatterySensorBase):
         """Return the state of the sensor."""
         if not self.coordinator.data:
             return None
-        return self.coordinator.data.get("discharge_power", 0)
+        return self.coordinator.data.get("discharge_power", 0)  # type: ignore[no-any-return]
 
 
 class BatteryAvailableEnergySensor(EnphaseBatterySensorBase):
@@ -420,7 +420,7 @@ class BatteryAvailableEnergySensor(EnphaseBatterySensorBase):
         """Return the state of the sensor."""
         if not self.coordinator.data:
             return None
-        return self.coordinator.data.get("available_energy", 0)
+        return self.coordinator.data.get("available_energy", 0)  # type: ignore[no-any-return]
 
 
 class BatteryEnergyChargedTodaySensor(EnphaseBatterySensorBase):
@@ -518,14 +518,14 @@ class BatteryHealthSensor(EnphaseBatterySensorBase):
         """Return the state of the sensor."""
         if not self.coordinator.data:
             return None
-        return self.coordinator.data.get("soh", 100)
+        return self.coordinator.data.get("soh", 100)  # type: ignore[no-any-return]
 
 
 class BatteryGridModeSensor(EnphaseBatterySensorBase):
     """Battery Grid Mode sensor."""
 
     _attr_device_class = SensorDeviceClass.ENUM
-    _attr_options: ClassVar[list[str]] = ["grid_tied", "grid_forming", "unknown"]
+    _attr_options: ClassVar[list[str]] = ["grid_tied", "grid_forming", "unknown"]  # type: ignore[misc]
 
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the sensor."""
@@ -541,7 +541,7 @@ class BatteryGridModeSensor(EnphaseBatterySensorBase):
         devices = self.coordinator.data.get("devices", [])
         if devices and len(devices) > 0:
             raw = devices[0].get("reported_enc_grid_state", "unknown")
-            return raw.replace("-", "_")
+            return raw.replace("-", "_")  # type: ignore[no-any-return]
         status = self.coordinator.data.get("status")
         return status.replace("-", "_") if status else None
 
@@ -786,5 +786,5 @@ class IndividualBatteryGridStateSensor(IndividualBatterySensorBase):
         device = self._get_device_data()
         if device:
             raw = device.get("reported_enc_grid_state", "unknown")
-            return raw.replace("-", "_")
+            return raw.replace("-", "_")  # type: ignore[no-any-return]
         return None

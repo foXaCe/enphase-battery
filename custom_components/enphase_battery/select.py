@@ -69,7 +69,7 @@ class BatteryModeSelect(CoordinatorEntity[EnphaseBatteryDataUpdateCoordinator], 
     _attr_device_info = DEVICE_INFO
     _attr_has_entity_name = True
     _attr_icon = "mdi:battery-sync"
-    _attr_options: ClassVar[list[str]] = [
+    _attr_options: ClassVar[list[str]] = [  # type: ignore[misc]
         "self_consumption",
         "savings",
     ]

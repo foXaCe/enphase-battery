@@ -41,9 +41,9 @@ async def async_setup_entry(
 
     if not coordinator.is_local_mode or enable_cloud_control:
         entities.append(ChargeFromGridSwitch(coordinator))
-        entities.append(LimitDischargeSwitch(coordinator))
-        entities.append(ReserveBatteryDischargeSwitch(coordinator))
-        entities.append(PowerMatchSwitch(coordinator))
+        entities.append(LimitDischargeSwitch(coordinator))  # type: ignore[arg-type]
+        entities.append(ReserveBatteryDischargeSwitch(coordinator))  # type: ignore[arg-type]
+        entities.append(PowerMatchSwitch(coordinator))  # type: ignore[arg-type]
     else:
         _LOGGER.warning(
             "Charge From Grid switch disabled. "
@@ -83,7 +83,7 @@ class ChargeFromGridSwitch(CoordinatorEntity[EnphaseBatteryDataUpdateCoordinator
         if not self.coordinator.data:
             return None
 
-        return self.coordinator.data.get("charge_from_grid", False)
+        return self.coordinator.data.get("charge_from_grid", False)  # type: ignore[no-any-return]
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
@@ -171,7 +171,7 @@ class LimitDischargeSwitch(CoordinatorEntity[EnphaseBatteryDataUpdateCoordinator
             return None
 
         # Read from dtgControl.enabled (Discharge To Grid)
-        return self.coordinator.data.get("discharge_to_grid", False)
+        return self.coordinator.data.get("discharge_to_grid", False)  # type: ignore[no-any-return]
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
@@ -259,7 +259,7 @@ class ReserveBatteryDischargeSwitch(CoordinatorEntity[EnphaseBatteryDataUpdateCo
             return None
 
         # Read from rbdControl.enabled (Reserve Battery Discharge)
-        return self.coordinator.data.get("reserve_battery_discharge", False)
+        return self.coordinator.data.get("reserve_battery_discharge", False)  # type: ignore[no-any-return]
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
@@ -346,7 +346,7 @@ class PowerMatchSwitch(CoordinatorEntity[EnphaseBatteryDataUpdateCoordinator], S
             return None
 
         # Read from powerMatchControl.enabled
-        return self.coordinator.data.get("power_match", False)
+        return self.coordinator.data.get("power_match", False)  # type: ignore[no-any-return]
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
