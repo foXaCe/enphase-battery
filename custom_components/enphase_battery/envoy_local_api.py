@@ -19,7 +19,7 @@ DEFAULT_ENVOY_HOST = "envoy.local"
 DEFAULT_TIMEOUT = 10  # Local network - faster timeout
 
 # Enphase Cloud endpoints for token retrieval (firmware 7.x+)
-ENLIGHTEN_LOGIN_URL = "https://enlighten.enphaseenergy.com/login/login"
+ENLIGHTEN_LOGIN_URL = "https://enlighten.enphaseenergy.com/login/login.json?"
 ENTREZ_TOKEN_URL = "https://entrez.enphaseenergy.com/tokens"
 
 
@@ -281,44 +281,61 @@ class EnphaseEnvoyLocalAPI:
             raise EnvoyAuthError("Serial number must be retrieved before obtaining token")
 
         try:
-            # Step 1: Login to Enlighten via form endpoint (sets session cookie)
-            # The old login/login.json endpoint was deprecated (returns 406)
-            login_data = aiohttp.FormData()
-            login_data.add_field("username", self._cloud_username)
-            login_data.add_field("password", self._cloud_password)
+            # Use a dedicated cloud session to avoid HA session headers causing 406
+            # In production, create a fresh session; in tests, _cloud_session can be injected
+            cloud_session = getattr(self, "_cloud_session", None)
+            created_session = False
+            if cloud_session is None:
+                cloud_session = aiohttp.ClientSession(timeout=ClientTimeout(total=30))
+                created_session = True
 
-            async with self._session.post(
-                ENLIGHTEN_LOGIN_URL,
-                data=login_data,
-                allow_redirects=False,
-                timeout=ClientTimeout(total=30),
-            ) as response:
-                if response.status not in (200, 302):
-                    text = await response.text()
-                    raise EnvoyAuthError(f"Failed to login to Enphase cloud: {response.status} - {text[:200]}")
-                _LOGGER.debug("Enlighten login successful (status=%s)", response.status)
+            try:
+                # Step 1: Login to Enlighten to get session ID
+                login_data = {
+                    "user[email]": self._cloud_username,
+                    "user[password]": self._cloud_password,
+                }
 
-            # Step 2: Request token from Entrez using session cookie
-            token_data = {
-                "serial_num": self._serial_number,
-                "username": self._cloud_username,
-            }
+                async with cloud_session.post(
+                    ENLIGHTEN_LOGIN_URL,
+                    data=login_data,
+                ) as response:
+                    if response.status != 200:
+                        text = await response.text()
+                        raise EnvoyAuthError(f"Failed to login to Enphase cloud: {response.status} - {text[:200]}")
+                    login_response = await response.json()
+                    _LOGGER.debug("Enlighten login successful (status=%s)", response.status)
 
-            async with self._session.post(
-                ENTREZ_TOKEN_URL,
-                json=token_data,
-                timeout=ClientTimeout(total=10),
-            ) as response:
-                response.raise_for_status()
-                token = await response.text()
+                session_id = login_response.get("session_id")
+                if not session_id:
+                    raise EnvoyAuthError(f"No session_id in login response. Keys: {list(login_response.keys())}")
 
-                # Response is plain text JWT token
-                if not token or len(token) < 50:
-                    raise EnvoyAuthError(f"Invalid token received: {token[:50]}")
+                # Step 2: Request token from Entrez using session ID
+                token_data = {
+                    "session_id": session_id,
+                    "serial_num": self._serial_number,
+                    "username": self._cloud_username,
+                }
 
-                _LOGGER.info("Cloud token obtained successfully")
+                async with cloud_session.post(
+                    ENTREZ_TOKEN_URL,
+                    json=token_data,
+                ) as response:
+                    if response.status != 200:
+                        text = await response.text()
+                        raise EnvoyAuthError(f"Failed to get token: {response.status} - {text[:200]}")
+                    token = await response.text()
+            finally:
+                if created_session:
+                    await cloud_session.close()
 
-                return token
+            # Response is plain text JWT token
+            if not token or len(token) < 50:
+                raise EnvoyAuthError(f"Invalid token received: {token[:50]}")
+
+            _LOGGER.info("Cloud token obtained successfully")
+
+            return token
 
         except aiohttp.ClientError as err:
             _LOGGER.error("Cloud token request failed: %s", err)

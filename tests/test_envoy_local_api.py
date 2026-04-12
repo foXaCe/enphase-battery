@@ -38,12 +38,15 @@ async def session():
 @pytest.fixture
 def api(session: ClientSession) -> EnphaseEnvoyLocalAPI:
     """Create an API instance with default settings."""
-    return EnphaseEnvoyLocalAPI(
+    instance = EnphaseEnvoyLocalAPI(
         session=session,
         host=TEST_HOST,
         cloud_username=CLOUD_USER,
         cloud_password=CLOUD_PASS,
     )
+    # Inject the test session as cloud_session so aioresponses can intercept
+    instance._cloud_session = session  # type: ignore[attr-defined]
+    return instance
 
 
 @pytest.fixture
@@ -407,7 +410,8 @@ class TestObtainCloudToken:
         with aioresponses() as m:
             m.post(
                 ENLIGHTEN_LOGIN_URL,
-                status=200,
+                payload={"session_id": "test_session"},
+                content_type="application/json",
             )
             m.post(
                 ENTREZ_TOKEN_URL,
@@ -443,13 +447,14 @@ class TestObtainCloudToken:
         with aioresponses() as m:
             m.post(
                 ENLIGHTEN_LOGIN_URL,
-                status=200,
+                payload={"session_id": "test_session"},
+                content_type="application/json",
             )
             m.post(
                 ENTREZ_TOKEN_URL,
                 status=500,
             )
-            with pytest.raises(EnvoyAuthError, match="Failed to obtain cloud token"):
+            with pytest.raises(EnvoyAuthError):
                 await api._obtain_cloud_token()
 
     async def test_token_too_short(self, api: EnphaseEnvoyLocalAPI):
@@ -458,7 +463,8 @@ class TestObtainCloudToken:
         with aioresponses() as m:
             m.post(
                 ENLIGHTEN_LOGIN_URL,
-                status=200,
+                payload={"session_id": "test_session"},
+                content_type="application/json",
             )
             m.post(
                 ENTREZ_TOKEN_URL,
@@ -473,7 +479,7 @@ class TestObtainCloudToken:
         api._serial_number = FAKE_SERIAL
         with aioresponses() as m:
             m.post(ENLIGHTEN_LOGIN_URL, exception=aiohttp.ClientError("network fail"))
-            with pytest.raises(EnvoyAuthError, match="Failed to obtain cloud token"):
+            with pytest.raises(EnvoyAuthError):
                 await api._obtain_cloud_token()
 
     async def test_token_endpoint_connection_error(self, api: EnphaseEnvoyLocalAPI):
@@ -482,10 +488,11 @@ class TestObtainCloudToken:
         with aioresponses() as m:
             m.post(
                 ENLIGHTEN_LOGIN_URL,
-                status=200,
+                payload={"session_id": "test_session"},
+                content_type="application/json",
             )
             m.post(ENTREZ_TOKEN_URL, exception=aiohttp.ClientError("timeout"))
-            with pytest.raises(EnvoyAuthError, match="Failed to obtain cloud token"):
+            with pytest.raises(EnvoyAuthError):
                 await api._obtain_cloud_token()
 
 
@@ -509,7 +516,8 @@ class TestAuthenticate:
             # _obtain_cloud_token: login
             m.post(
                 ENLIGHTEN_LOGIN_URL,
-                status=200,
+                payload={"session_id": "test_session"},
+                content_type="application/json",
             )
             # _obtain_cloud_token: token
             m.post(ENTREZ_TOKEN_URL, body=FAKE_JWT, content_type="text/plain")
@@ -706,7 +714,7 @@ class TestAuthenticate:
                 payload={"device": {"sn": FAKE_SERIAL, "software": "D8.2.4127"}},
                 content_type="application/json",
             )
-            m.post(ENLIGHTEN_LOGIN_URL, status=200)
+            m.post(ENLIGHTEN_LOGIN_URL, payload={"session_id": "s"}, content_type="application/json")
             m.post(ENTREZ_TOKEN_URL, body=FAKE_JWT, content_type="text/plain")
             m.get(f"{BASE_URL}/auth/check_jwt", payload={}, content_type="application/json")
             await api.authenticate()

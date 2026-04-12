@@ -261,28 +261,32 @@ class EnphaseBatteryAPI:
     async def _login(self) -> bool:
         """Login to Enphase Enlighten to obtain session cookies.
 
-        Uses the entrez login endpoint (login/login) with form data.
-        The old login/login.json endpoint was deprecated by Enphase
-        and returns HTTP 406 Not Acceptable.
+        Uses a fresh aiohttp session (like pyenphase) to avoid
+        HA-managed session headers causing 406 errors.
 
         Returns:
             True if login successful
         """
-        url = f"{API_BASE_URL}/login/login"
+        url = f"{API_BASE_URL}/login/login.json?"
 
-        login_data = aiohttp.FormData()
-        login_data.add_field("username", self._username)
-        login_data.add_field("password", self._password)
+        payload = {
+            "user[email]": self._username,
+            "user[password]": self._password,
+        }
 
         try:
-            async with self._session.post(
-                url,
-                data=login_data,
-                allow_redirects=False,
-                timeout=ClientTimeout(total=API_TIMEOUT_DISCOVERY),
-            ) as response:
-                if response.status in (200, 302):
-                    _LOGGER.debug("Enlighten login successful (status=%s)", response.status)
+            # Use fresh session for cloud auth (HA session may have conflicting headers)
+            async with (
+                aiohttp.ClientSession(
+                    timeout=ClientTimeout(total=API_TIMEOUT_DISCOVERY),
+                ) as cloud_session,
+                cloud_session.post(url, data=payload) as response,
+            ):
+                if response.status == 200:
+                    # Transfer cookies to the main session
+                    if response.cookies:
+                        self._session.cookie_jar.update_cookies(response.cookies, response.url)
+                    _LOGGER.debug("Enlighten login successful")
                     return True
 
                 if response.status == 401:
