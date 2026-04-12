@@ -261,45 +261,35 @@ class EnphaseBatteryAPI:
     async def _login(self) -> bool:
         """Login to Enphase Enlighten to obtain session cookies.
 
+        Uses the entrez login endpoint (login/login) with form data.
+        The old login/login.json endpoint was deprecated by Enphase
+        and returns HTTP 406 Not Acceptable.
+
         Returns:
             True if login successful
         """
-        url = f"{API_BASE_URL}/login/login.json"
+        url = f"{API_BASE_URL}/login/login"
 
-        # Payload basé sur la capture mitmdump
-        payload = {
-            "user[email]": self._username,
-            "user[password]": self._password,
-        }
+        login_data = aiohttp.FormData()
+        login_data.add_field("username", self._username)
+        login_data.add_field("password", self._password)
 
         try:
             async with self._session.post(
                 url,
-                data=payload,
+                data=login_data,
+                allow_redirects=False,
                 timeout=ClientTimeout(total=API_TIMEOUT_DISCOVERY),
             ) as response:
-                if response.status == 200:
-                    data = await response.json()
-
-                    # Vérifier si le login a réussi
-                    # L'API retourne généralement un status ou message
-                    if data.get("status") == "success" or data.get("message") == "success":
-                        return True
-
-                    # Certaines réponses contiennent directement le site_id
-                    if "user" in data and isinstance(data["user"], dict):
-                        user_data = data["user"]
-                        if "default_system_id" in user_data:
-                            return True
-
-                    # Parfois le login réussit avec un 200 même sans message
+                if response.status in (200, 302):
+                    _LOGGER.debug("Enlighten login successful (status=%s)", response.status)
                     return True
 
-                elif response.status == 401:
+                if response.status == 401:
                     raise EnphaseBatteryAuthError("Invalid credentials")
-                else:
-                    _LOGGER.error("Login failed with status %s", response.status)
-                    return False
+
+                _LOGGER.error("Login failed with status %s", response.status)
+                return False
 
         except aiohttp.ClientError as err:
             raise EnphaseBatteryConnectionError(f"Login connection error: {err}") from err

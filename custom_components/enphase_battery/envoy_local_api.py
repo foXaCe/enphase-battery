@@ -19,7 +19,7 @@ DEFAULT_ENVOY_HOST = "envoy.local"
 DEFAULT_TIMEOUT = 10  # Local network - faster timeout
 
 # Enphase Cloud endpoints for token retrieval (firmware 7.x+)
-ENLIGHTEN_LOGIN_URL = "https://enlighten.enphaseenergy.com/login/login.json"
+ENLIGHTEN_LOGIN_URL = "https://enlighten.enphaseenergy.com/login/login"
 ENTREZ_TOKEN_URL = "https://entrez.enphaseenergy.com/tokens"
 
 
@@ -281,27 +281,25 @@ class EnphaseEnvoyLocalAPI:
             raise EnvoyAuthError("Serial number must be retrieved before obtaining token")
 
         try:
-            # Step 1: Login to Enlighten to get session ID
-            login_data = {
-                "user[email]": self._cloud_username,
-                "user[password]": self._cloud_password,
-            }
+            # Step 1: Login to Enlighten via form endpoint (sets session cookie)
+            # The old login/login.json endpoint was deprecated (returns 406)
+            login_data = aiohttp.FormData()
+            login_data.add_field("username", self._cloud_username)
+            login_data.add_field("password", self._cloud_password)
 
             async with self._session.post(
                 ENLIGHTEN_LOGIN_URL,
                 data=login_data,
-                timeout=ClientTimeout(total=10),
+                allow_redirects=False,
+                timeout=ClientTimeout(total=30),
             ) as response:
-                response.raise_for_status()
-                login_response = await response.json()
+                if response.status not in (200, 302):
+                    text = await response.text()
+                    raise EnvoyAuthError(f"Failed to login to Enphase cloud: {response.status} - {text[:200]}")
+                _LOGGER.debug("Enlighten login successful (status=%s)", response.status)
 
-                session_id = login_response.get("session_id")
-                if not session_id:
-                    raise EnvoyAuthError(f"No session_id in login response. Keys: {list(login_response.keys())}")
-
-            # Step 2: Request token from Entrez using session ID
+            # Step 2: Request token from Entrez using session cookie
             token_data = {
-                "session_id": session_id,
                 "serial_num": self._serial_number,
                 "username": self._cloud_username,
             }

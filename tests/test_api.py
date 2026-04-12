@@ -54,7 +54,7 @@ def _make_jwt(payload: dict) -> str:
 
 
 # Patterns used in many tests
-LOGIN_URL = f"{API_BASE_URL}/login/login.json"
+LOGIN_URL = f"{API_BASE_URL}/login/login"
 SEARCH_SITES_PAT = _url_pattern("/app-api/search_sites.json")
 SETTINGS_12345_PAT = _url_pattern("/service/batteryConfig/api/v1/batterySettings/12345")
 PROFILE_12345_PAT = _url_pattern("/service/batteryConfig/api/v1/profile/12345")
