@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.35.10] - 2026-04-12
+
+### Fixed
+- Use dedicated aiohttp session for Enlighten cloud authentication to avoid HA session headers causing HTTP 406
+- Restore `login.json?` URL with `user[email]`/`user[password]` form fields matching pyenphase library
+
 ## [2.35.9] - 2026-04-12
 
 ### Fixed
