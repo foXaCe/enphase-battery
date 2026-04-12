@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.35.11] - 2026-04-12
+
+### Fixed
+- Fix TypeError on config entry unload (`task.cancel()` returned bool instead of None)
+
 ## [2.35.10] - 2026-04-12
 
 ### Fixed
