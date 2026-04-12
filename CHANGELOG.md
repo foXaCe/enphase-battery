@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.35.9] - 2026-04-12
+
+### Fixed
+- Migrate authentication from deprecated `login/login.json` endpoint to `login/login` with form data and session cookies (fixes HTTP 406 Not Acceptable)
+
 ## [2.35.8] - 2026-04-07
 
 ### Changed
