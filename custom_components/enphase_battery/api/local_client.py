@@ -12,6 +12,9 @@ from typing import Any
 import aiohttp
 from aiohttp import ClientSession, ClientTimeout
 
+from .exceptions import EnvoyAuthError, EnvoyConnectionError, EnvoyLocalApiError
+from .models import BatteryData
+
 _LOGGER = logging.getLogger(__name__)
 
 # Local API defaults
@@ -21,18 +24,6 @@ DEFAULT_TIMEOUT = 10  # Local network - faster timeout
 # Enphase Cloud endpoints for token retrieval (firmware 7.x+)
 ENLIGHTEN_LOGIN_URL = "https://enlighten.enphaseenergy.com/login/login.json?"
 ENTREZ_TOKEN_URL = "https://entrez.enphaseenergy.com/tokens"
-
-
-class EnvoyLocalApiError(Exception):
-    """Base exception for Envoy Local API errors."""
-
-
-class EnvoyAuthError(EnvoyLocalApiError):
-    """Authentication error."""
-
-
-class EnvoyConnectionError(EnvoyLocalApiError):
-    """Connection error."""
 
 
 class EnphaseEnvoyLocalAPI:
@@ -488,7 +479,7 @@ class EnphaseEnvoyLocalAPI:
         """
         return await self._make_request("GET", "/home.json")  # type: ignore[return-value]
 
-    async def get_battery_data(self) -> dict[str, Any]:
+    async def get_battery_data(self) -> BatteryData:
         """Get comprehensive battery data from local Envoy.
 
         Combines data from multiple endpoints for complete battery status.

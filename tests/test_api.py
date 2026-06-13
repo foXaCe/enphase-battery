@@ -13,7 +13,7 @@ from aioresponses import aioresponses
 import pytest
 from yarl import URL
 
-from custom_components.enphase_battery.api import (
+from custom_components.enphase_battery.api.cloud_client import (
     API_BASE_URL,
     API_TIMEOUT,
     API_TIMEOUT_DISCOVERY,
@@ -268,7 +268,7 @@ class TestRequestWithReauth:
             result = await api._request_with_reauth("GET", url, return_json=False)
         assert result is None
 
-    @patch("custom_components.enphase_battery.api.asyncio.sleep", new_callable=AsyncMock)
+    @patch("custom_components.enphase_battery.api.cloud_client.asyncio.sleep", new_callable=AsyncMock)
     async def test_429_rate_limit_retry_then_success(self, mock_sleep, api):
         """429 retried after Retry-After header, then success."""
         url = f"{API_BASE_URL}/test"
@@ -279,7 +279,7 @@ class TestRequestWithReauth:
         assert result == {"ok": True}
         mock_sleep.assert_called_once_with(5)
 
-    @patch("custom_components.enphase_battery.api.asyncio.sleep", new_callable=AsyncMock)
+    @patch("custom_components.enphase_battery.api.cloud_client.asyncio.sleep", new_callable=AsyncMock)
     async def test_429_rate_limit_exhausted(self, mock_sleep, api):
         """429 on every attempt raises EnphaseBatteryRateLimitError."""
         url = f"{API_BASE_URL}/test"
@@ -289,7 +289,7 @@ class TestRequestWithReauth:
             with pytest.raises(EnphaseBatteryRateLimitError, match="Rate limit exceeded"):
                 await api._request_with_reauth("GET", url)
 
-    @patch("custom_components.enphase_battery.api.asyncio.sleep", new_callable=AsyncMock)
+    @patch("custom_components.enphase_battery.api.cloud_client.asyncio.sleep", new_callable=AsyncMock)
     async def test_429_default_retry_after(self, mock_sleep, api):
         """429 without Retry-After header uses default 60s."""
         url = f"{API_BASE_URL}/test"
@@ -299,7 +299,7 @@ class TestRequestWithReauth:
             await api._request_with_reauth("GET", url)
         mock_sleep.assert_called_once_with(60)
 
-    @patch("custom_components.enphase_battery.api.asyncio.sleep", new_callable=AsyncMock)
+    @patch("custom_components.enphase_battery.api.cloud_client.asyncio.sleep", new_callable=AsyncMock)
     async def test_429_retry_after_capped_at_120(self, mock_sleep, api):
         """429 with very large Retry-After is capped at 120s."""
         url = f"{API_BASE_URL}/test"
@@ -309,7 +309,7 @@ class TestRequestWithReauth:
             await api._request_with_reauth("GET", url)
         mock_sleep.assert_called_once_with(120)
 
-    @patch("custom_components.enphase_battery.api.asyncio.sleep", new_callable=AsyncMock)
+    @patch("custom_components.enphase_battery.api.cloud_client.asyncio.sleep", new_callable=AsyncMock)
     async def test_500_retryable_then_success(self, mock_sleep, api):
         """500 is retried with backoff, then succeeds."""
         url = f"{API_BASE_URL}/test"
@@ -320,7 +320,7 @@ class TestRequestWithReauth:
         assert result == {"recovered": True}
         mock_sleep.assert_called_once_with(1)
 
-    @patch("custom_components.enphase_battery.api.asyncio.sleep", new_callable=AsyncMock)
+    @patch("custom_components.enphase_battery.api.cloud_client.asyncio.sleep", new_callable=AsyncMock)
     async def test_retryable_exhausted_raises_connection_error(self, mock_sleep, api):
         """Retryable status on every attempt eventually raises EnphaseBatteryConnectionError.
 
@@ -334,7 +334,7 @@ class TestRequestWithReauth:
             with pytest.raises(EnphaseBatteryConnectionError, match="Request failed after"):
                 await api._request_with_reauth("GET", url)
 
-    @patch("custom_components.enphase_battery.api.asyncio.sleep", new_callable=AsyncMock)
+    @patch("custom_components.enphase_battery.api.cloud_client.asyncio.sleep", new_callable=AsyncMock)
     async def test_503_retryable(self, mock_sleep, api):
         """503 is in RETRYABLE_STATUS_CODES."""
         url = f"{API_BASE_URL}/test"
@@ -344,7 +344,7 @@ class TestRequestWithReauth:
             result = await api._request_with_reauth("GET", url)
         assert result == {"ok": True}
 
-    @patch("custom_components.enphase_battery.api.asyncio.sleep", new_callable=AsyncMock)
+    @patch("custom_components.enphase_battery.api.cloud_client.asyncio.sleep", new_callable=AsyncMock)
     async def test_504_retryable(self, mock_sleep, api):
         """504 is in RETRYABLE_STATUS_CODES."""
         url = f"{API_BASE_URL}/test"
@@ -354,7 +354,7 @@ class TestRequestWithReauth:
             result = await api._request_with_reauth("GET", url)
         assert result == {"ok": True}
 
-    @patch("custom_components.enphase_battery.api.asyncio.sleep", new_callable=AsyncMock)
+    @patch("custom_components.enphase_battery.api.cloud_client.asyncio.sleep", new_callable=AsyncMock)
     async def test_connection_error_retry_then_success(self, mock_sleep, api):
         """Connection error is retried then succeeds."""
         url = f"{API_BASE_URL}/test"
@@ -364,7 +364,7 @@ class TestRequestWithReauth:
             result = await api._request_with_reauth("GET", url)
         assert result == {"ok": True}
 
-    @patch("custom_components.enphase_battery.api.asyncio.sleep", new_callable=AsyncMock)
+    @patch("custom_components.enphase_battery.api.cloud_client.asyncio.sleep", new_callable=AsyncMock)
     async def test_connection_error_exhausted(self, mock_sleep, api):
         """Connection error on every attempt raises EnphaseBatteryConnectionError."""
         url = f"{API_BASE_URL}/test"
@@ -374,7 +374,7 @@ class TestRequestWithReauth:
             with pytest.raises(EnphaseBatteryConnectionError, match="Request failed after"):
                 await api._request_with_reauth("GET", url)
 
-    @patch("custom_components.enphase_battery.api.asyncio.sleep", new_callable=AsyncMock)
+    @patch("custom_components.enphase_battery.api.cloud_client.asyncio.sleep", new_callable=AsyncMock)
     async def test_non_retryable_status_raises_connection_error(self, mock_sleep, api):
         """Non-retryable error (e.g. 403) raises_for_status -> ClientError -> retried -> ConnectionError.
 

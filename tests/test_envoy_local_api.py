@@ -10,7 +10,7 @@ from aiohttp import ClientSession
 from aioresponses import aioresponses
 import pytest
 
-from custom_components.enphase_battery.envoy_local_api import (
+from custom_components.enphase_battery.api.local_client import (
     DEFAULT_ENVOY_HOST,
     ENLIGHTEN_LOGIN_URL,
     ENTREZ_TOKEN_URL,
@@ -297,7 +297,7 @@ class TestIsFirmware7OrHigher:
     def test_exception_in_regex_returns_false(self, api: EnphaseEnvoyLocalAPI):
         """If an exception occurs during version parsing, return False."""
         api._firmware_version = "D7.3.0"
-        with patch("custom_components.enphase_battery.envoy_local_api.re.search", side_effect=TypeError("mocked")):
+        with patch("custom_components.enphase_battery.api.local_client.re.search", side_effect=TypeError("mocked")):
             assert api._is_firmware_7_or_higher() is False
 
 

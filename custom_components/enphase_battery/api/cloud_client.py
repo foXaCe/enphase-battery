@@ -13,28 +13,19 @@ from typing import Any
 import aiohttp
 from aiohttp import ClientSession, ClientTimeout
 
+from .exceptions import (
+    EnphaseBatteryApiError,
+    EnphaseBatteryAuthError,
+    EnphaseBatteryConnectionError,
+    EnphaseBatteryRateLimitError,
+)
+from .models import BatteryData
+
 _LOGGER = logging.getLogger(__name__)
 
 API_BASE_URL = "https://enlighten.enphaseenergy.com"
 API_TIMEOUT = 30  # Increased timeout for slow/unstable cloud API (was 15s)
 API_TIMEOUT_DISCOVERY = 5  # Faster timeout for auto-discovery endpoints
-
-
-class EnphaseBatteryApiError(Exception):
-    """Base exception for Enphase Battery API errors."""
-
-
-class EnphaseBatteryAuthError(EnphaseBatteryApiError):
-    """Authentication error."""
-
-
-class EnphaseBatteryConnectionError(EnphaseBatteryApiError):
-    """Connection error."""
-
-
-class EnphaseBatteryRateLimitError(EnphaseBatteryApiError):
-    """Rate limit exceeded error."""
-
 
 # Retry configuration
 MAX_RETRIES = 3
@@ -577,7 +568,7 @@ class EnphaseBatteryAPI:
                 "You may need to configure the site_id manually."
             )
 
-    async def get_battery_data(self) -> dict[str, Any]:
+    async def get_battery_data(self) -> BatteryData:
         """Get current battery data including SOC, power, and stats.
 
         Returns comprehensive battery information from /pv/systems/{site_id}/today endpoint.
@@ -615,9 +606,7 @@ class EnphaseBatteryAPI:
         except aiohttp.ClientError as err:
             raise EnphaseBatteryConnectionError(f"Failed to get battery data: {err}") from err
 
-    def _parse_battery_data(
-        self, data: dict[str, Any], battery_settings: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
+    def _parse_battery_data(self, data: dict[str, Any], battery_settings: dict[str, Any] | None = None) -> BatteryData:
         """Parse battery data from API response."""
         battery_details = data.get("battery_details", {})
         battery_config = data.get("batteryConfig", {})

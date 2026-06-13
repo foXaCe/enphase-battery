@@ -11,6 +11,10 @@ from homeassistant.data_entry_flow import FlowResultType
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.enphase_battery.api import (
+    EnvoyAuthError,
+    EnvoyConnectionError,
+)
 from custom_components.enphase_battery.config_flow import (
     CannotConnect,
     InvalidAuth,
@@ -25,10 +29,6 @@ from custom_components.enphase_battery.const import (
     CONNECTION_MODE_CLOUD,
     CONNECTION_MODE_LOCAL,
     DOMAIN,
-)
-from custom_components.enphase_battery.envoy_local_api import (
-    EnvoyAuthError,
-    EnvoyConnectionError,
 )
 
 
@@ -1004,7 +1004,7 @@ async def test_validate_local_input_success(hass: HomeAssistant) -> None:
 
     with (
         patch("aiohttp.ClientSession", return_value=mock_session),
-        patch("custom_components.enphase_battery.envoy_local_api.EnphaseEnvoyLocalAPI") as mock_api_cls,
+        patch("custom_components.enphase_battery.config_flow.EnphaseEnvoyLocalAPI") as mock_api_cls,
     ):
         mock_api = MagicMock()
         mock_api.authenticate = AsyncMock()
@@ -1034,7 +1034,7 @@ async def test_validate_local_input_auth_error(hass: HomeAssistant) -> None:
 
     with (
         patch("aiohttp.ClientSession", return_value=mock_session),
-        patch("custom_components.enphase_battery.envoy_local_api.EnphaseEnvoyLocalAPI") as mock_api_cls,
+        patch("custom_components.enphase_battery.config_flow.EnphaseEnvoyLocalAPI") as mock_api_cls,
     ):
         mock_api = MagicMock()
         mock_api.authenticate = AsyncMock(side_effect=EnvoyAuthError("bad credentials"))
@@ -1058,7 +1058,7 @@ async def test_validate_local_input_connection_error(hass: HomeAssistant) -> Non
 
     with (
         patch("aiohttp.ClientSession", return_value=mock_session),
-        patch("custom_components.enphase_battery.envoy_local_api.EnphaseEnvoyLocalAPI") as mock_api_cls,
+        patch("custom_components.enphase_battery.config_flow.EnphaseEnvoyLocalAPI") as mock_api_cls,
     ):
         mock_api = MagicMock()
         mock_api.authenticate = AsyncMock(side_effect=EnvoyConnectionError("host unreachable"))
@@ -1082,7 +1082,7 @@ async def test_validate_local_input_unexpected_error(hass: HomeAssistant) -> Non
 
     with (
         patch("aiohttp.ClientSession", return_value=mock_session),
-        patch("custom_components.enphase_battery.envoy_local_api.EnphaseEnvoyLocalAPI") as mock_api_cls,
+        patch("custom_components.enphase_battery.config_flow.EnphaseEnvoyLocalAPI") as mock_api_cls,
     ):
         mock_api = MagicMock()
         mock_api.authenticate = AsyncMock(side_effect=ValueError("something unexpected"))
@@ -1106,7 +1106,7 @@ async def test_validate_local_input_serial_from_info(hass: HomeAssistant) -> Non
 
     with (
         patch("aiohttp.ClientSession", return_value=mock_session),
-        patch("custom_components.enphase_battery.envoy_local_api.EnphaseEnvoyLocalAPI") as mock_api_cls,
+        patch("custom_components.enphase_battery.config_flow.EnphaseEnvoyLocalAPI") as mock_api_cls,
     ):
         mock_api = MagicMock()
         mock_api.authenticate = AsyncMock()
@@ -1140,7 +1140,7 @@ async def test_validate_cloud_input(hass: HomeAssistant) -> None:
     mock_api._user_id = 67890
 
     with patch(
-        "custom_components.enphase_battery.api.EnphaseBatteryAPI",
+        "custom_components.enphase_battery.config_flow.EnphaseBatteryAPI",
         return_value=mock_api,
     ):
         result = await validate_cloud_input(hass, data)
@@ -1171,7 +1171,7 @@ async def test_validate_cloud_input_auth_error(hass: HomeAssistant) -> None:
 
     with (
         patch(
-            "custom_components.enphase_battery.api.EnphaseBatteryAPI",
+            "custom_components.enphase_battery.config_flow.EnphaseBatteryAPI",
             return_value=mock_api,
         ),
         pytest.raises(InvalidAuth),
@@ -1193,7 +1193,7 @@ async def test_validate_cloud_input_api_error(hass: HomeAssistant) -> None:
 
     with (
         patch(
-            "custom_components.enphase_battery.api.EnphaseBatteryAPI",
+            "custom_components.enphase_battery.config_flow.EnphaseBatteryAPI",
             return_value=mock_api,
         ),
         pytest.raises(CannotConnect),
@@ -1213,7 +1213,7 @@ async def test_validate_cloud_input_unexpected_error(hass: HomeAssistant) -> Non
 
     with (
         patch(
-            "custom_components.enphase_battery.api.EnphaseBatteryAPI",
+            "custom_components.enphase_battery.config_flow.EnphaseBatteryAPI",
             return_value=mock_api,
         ),
         pytest.raises(CannotConnect),

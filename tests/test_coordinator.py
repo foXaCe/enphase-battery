@@ -16,6 +16,8 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.enphase_battery.api import (
     EnphaseBatteryApiError,
     EnphaseBatteryAuthError,
+    EnvoyAuthError,
+    EnvoyLocalApiError,
 )
 from custom_components.enphase_battery.const import (
     CONF_CONNECTION_MODE,
@@ -30,10 +32,6 @@ from custom_components.enphase_battery.const import (
 )
 from custom_components.enphase_battery.coordinator import (
     EnphaseBatteryDataUpdateCoordinator,
-)
-from custom_components.enphase_battery.envoy_local_api import (
-    EnvoyAuthError,
-    EnvoyLocalApiError,
 )
 
 # ---------------------------------------------------------------------------
@@ -237,15 +235,7 @@ class TestInit:
 
         assert coordinator.api is None
         assert coordinator.local_api is None
-        assert coordinator._daily_reset_date is None
-        assert coordinator._daily_charged_start == 0
-        assert coordinator._daily_discharged_start == 0
-        assert coordinator._consumption_24h_history == []
-        assert coordinator._last_soc is None
-        assert coordinator._last_power is None
-        assert coordinator._last_update_time is None
         assert coordinator._last_cloud_error_warning is None
-        assert coordinator._last_storage_save is None
         assert coordinator._last_cloud_control_fetch is None
         assert coordinator._cloud_control_cache == {}
 
@@ -266,7 +256,7 @@ class TestAsyncSetup:
         mock_local_api,
         mock_session,
     ):
-        """Test local mode setup calls _setup_local_api and _load_energy_tracking."""
+        """Test local mode setup calls _setup_local_api and loads energy tracking."""
         coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
 
         await coordinator._async_setup()
@@ -283,7 +273,7 @@ class TestAsyncSetup:
         mock_cloud_api,
         mock_session,
     ):
-        """Test cloud mode setup calls _setup_cloud_api and _load_energy_tracking."""
+        """Test cloud mode setup calls _setup_cloud_api and loads energy tracking."""
         coordinator = EnphaseBatteryDataUpdateCoordinator(hass, cloud_entry)
 
         await coordinator._async_setup()
@@ -323,6 +313,36 @@ class TestAsyncSetup:
             mock_store.async_load.assert_awaited_once()
             assert coordinator.local_api is local_api
             assert coordinator.api is cloud_api
+
+    async def test_auth_error_raises_config_entry_auth_failed(
+        self,
+        hass: HomeAssistant,
+        local_entry: MockConfigEntry,
+        mock_store,
+        mock_local_api,
+        mock_session,
+    ):
+        """An auth failure during setup raises ConfigEntryAuthFailed (triggers reauth)."""
+        mock_local_api.authenticate = AsyncMock(side_effect=EnvoyAuthError("bad token"))
+        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
+
+        with pytest.raises(ConfigEntryAuthFailed):
+            await coordinator._async_setup()
+
+    async def test_connection_error_raises_update_failed(
+        self,
+        hass: HomeAssistant,
+        local_entry: MockConfigEntry,
+        mock_store,
+        mock_local_api,
+        mock_session,
+    ):
+        """A connection failure during setup raises UpdateFailed (HA retries)."""
+        mock_local_api.authenticate = AsyncMock(side_effect=EnvoyLocalApiError("unreachable"))
+        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
+
+        with pytest.raises(UpdateFailed):
+            await coordinator._async_setup()
 
 
 # ---------------------------------------------------------------------------
@@ -559,124 +579,6 @@ class TestSetupCloudApiFromLocalCreds:
 
         # API should be set to None after failure
         assert coordinator.api is None
-
-
-# ---------------------------------------------------------------------------
-# 6. _load_energy_tracking tests
-# ---------------------------------------------------------------------------
-
-
-class TestLoadEnergyTracking:
-    """Tests for _load_energy_tracking."""
-
-    async def test_success_with_data(self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store):
-        """Test loading stored energy tracking data."""
-        mock_store.async_load.return_value = {
-            "reset_date": "2024-01-15",
-            "charged_start": 50.0,
-            "discharged_start": 30.0,
-            "consumption_history": [("2024-01-15T10:00:00", 100.0)],
-            "last_soc": 65,
-            "soc_charged": 1.5,
-            "soc_discharged": 0.8,
-            "last_power": -200,
-            "last_update_time": "2024-01-15T10:00:00",
-            "power_charged": 2.0,
-            "power_discharged": 1.0,
-        }
-        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
-
-        await coordinator._load_energy_tracking()
-
-        assert coordinator._daily_reset_date == "2024-01-15"
-        assert coordinator._daily_charged_start == 50.0
-        assert coordinator._daily_discharged_start == 30.0
-        assert len(coordinator._consumption_24h_history) == 1
-        assert coordinator._last_soc == 65
-        assert coordinator._daily_soc_charged == 1.5
-        assert coordinator._daily_soc_discharged == 0.8
-        assert coordinator._last_power == -200
-        assert coordinator._last_update_time == "2024-01-15T10:00:00"
-        assert coordinator._daily_power_charged == 2.0
-        assert coordinator._daily_power_discharged == 1.0
-
-    async def test_empty_store(self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store):
-        """Test loading when store is empty (None)."""
-        mock_store.async_load.return_value = None
-        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
-
-        await coordinator._load_energy_tracking()
-
-        assert coordinator._daily_reset_date is None
-        assert coordinator._daily_charged_start == 0
-        assert coordinator._daily_discharged_start == 0
-        assert coordinator._consumption_24h_history == []
-        assert coordinator._last_soc is None
-
-    async def test_store_error(self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store):
-        """Test loading handles store errors gracefully."""
-        mock_store.async_load = AsyncMock(side_effect=Exception("Storage error"))
-        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
-
-        # Should not raise
-        await coordinator._load_energy_tracking()
-
-
-# ---------------------------------------------------------------------------
-# 7. _save_energy_tracking tests
-# ---------------------------------------------------------------------------
-
-
-class TestSaveEnergyTracking:
-    """Tests for _save_energy_tracking."""
-
-    async def test_success(self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store):
-        """Test successful save of energy tracking data."""
-        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
-        coordinator._daily_reset_date = "2024-01-15"
-        coordinator._daily_charged_start = 50.0
-        coordinator._daily_discharged_start = 30.0
-        coordinator._consumption_24h_history = [("2024-01-15T10:00:00", 100.0)]
-        coordinator._last_soc = 65
-        coordinator._daily_soc_charged = 1.5
-        coordinator._daily_soc_discharged = 0.8
-        coordinator._last_power = -200
-        coordinator._last_update_time = "2024-01-15T10:00:00"
-        coordinator._daily_power_charged = 2.0
-        coordinator._daily_power_discharged = 1.0
-
-        await coordinator._save_energy_tracking()
-
-        mock_store.async_save.assert_awaited_once()
-        saved_data = mock_store.async_save.call_args[0][0]
-        assert saved_data["reset_date"] == "2024-01-15"
-        assert saved_data["charged_start"] == 50.0
-        assert saved_data["discharged_start"] == 30.0
-        assert saved_data["last_soc"] == 65
-        assert saved_data["soc_charged"] == 1.5
-        assert saved_data["soc_discharged"] == 0.8
-        assert saved_data["last_power"] == -200
-        assert saved_data["last_update_time"] == "2024-01-15T10:00:00"
-        assert saved_data["power_charged"] == 2.0
-        assert saved_data["power_discharged"] == 1.0
-
-    async def test_truncates_consumption_history(self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store):
-        """Test consumption history is truncated to 100 entries on save."""
-        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
-        coordinator._consumption_24h_history = [(f"2024-01-15T{i:02d}:00:00", float(i)) for i in range(150)]
-
-        await coordinator._save_energy_tracking()
-
-        saved_data = mock_store.async_save.call_args[0][0]
-        assert len(saved_data["consumption_history"]) == 100
-
-    async def test_error(self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store):
-        """Test save handles errors gracefully."""
-        mock_store.async_save = AsyncMock(side_effect=Exception("Write error"))
-        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
-
-        # Should not raise
-        await coordinator._save_energy_tracking()
 
 
 # ---------------------------------------------------------------------------
@@ -1035,496 +937,6 @@ class TestAsyncUpdateData:
         assert data["discharge_to_grid"] is False
         assert data["reserve_battery_discharge"] is False
         assert data["power_match"] is False
-
-
-# ---------------------------------------------------------------------------
-# 9. _calculate_daily_values tests
-# ---------------------------------------------------------------------------
-
-
-class TestCalculateDailyValues:
-    """Tests for _calculate_daily_values."""
-
-    async def test_midnight_reset(self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store):
-        """Test daily counters reset at midnight."""
-        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
-        coordinator._daily_reset_date = "2020-01-01"  # Old date
-        coordinator._daily_charged_start = 999
-        coordinator._daily_discharged_start = 888
-        coordinator._daily_soc_charged = 10
-        coordinator._daily_soc_discharged = 5
-        coordinator._daily_power_charged = 3.0
-        coordinator._daily_power_discharged = 2.0
-
-        data = {
-            "total_energy_charged": 200.0,
-            "total_energy_discharged": 150.0,
-            "total_consumption": 400.0,
-            "available_energy": 5000,
-            "power": 1000,
-        }
-
-        coordinator._calculate_daily_values(data)
-
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        assert coordinator._daily_reset_date == today_str
-        assert coordinator._daily_charged_start == 200.0
-        assert coordinator._daily_discharged_start == 150.0
-        assert coordinator._daily_soc_charged == 0
-        assert coordinator._daily_soc_discharged == 0
-        assert coordinator._daily_power_charged == 0
-        assert coordinator._daily_power_discharged == 0
-        # Energy for today should be 0 (just reset)
-        assert data["energy_charged_today"] == 0
-        assert data["energy_discharged_today"] == 0
-
-    async def test_meter_based_energy(self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store):
-        """Test meter-based energy calculation (non-zero cumulative values)."""
-        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        coordinator._daily_reset_date = today_str
-        coordinator._daily_charged_start = 100.0
-        coordinator._daily_discharged_start = 80.0
-
-        data = {
-            "total_energy_charged": 105.5,
-            "total_energy_discharged": 83.2,
-            "total_consumption": 250.0,
-            "available_energy": 5000,
-            "power": 500,
-        }
-
-        coordinator._calculate_daily_values(data)
-
-        assert data["energy_charged_today"] == 5.5
-        assert data["energy_discharged_today"] == 3.2
-
-    async def test_power_integration_fallback_charging(
-        self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store
-    ):
-        """Test power integration fallback when meters return 0 (charging)."""
-        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        coordinator._daily_reset_date = today_str
-        coordinator._daily_charged_start = 0
-        coordinator._daily_discharged_start = 0
-
-        # Set previous power and time for integration
-        past_time = datetime.now() - timedelta(seconds=30)
-        coordinator._last_power = -1000.0  # Previous: charging at 1000W
-        coordinator._last_update_time = past_time.isoformat()
-        coordinator._daily_power_charged = 0.0
-        coordinator._daily_power_discharged = 0.0
-
-        data = {
-            "total_energy_charged": 0,  # Meters not tracking
-            "total_energy_discharged": 0,
-            "total_consumption": 100.0,
-            "available_energy": 5000,
-            "power": -1000,  # Currently charging at 1000W
-            "soc": 50,
-        }
-
-        coordinator._calculate_daily_values(data)
-
-        # Should have accumulated some charged energy via integration
-        assert data["energy_charged_today"] > 0
-        assert data["energy_discharged_today"] == 0
-        assert coordinator._last_power == -1000
-        assert coordinator._last_update_time is not None
-        assert coordinator._last_soc == 50
-
-    async def test_power_integration_fallback_discharging(
-        self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store
-    ):
-        """Test power integration fallback when discharging."""
-        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        coordinator._daily_reset_date = today_str
-        coordinator._daily_charged_start = 0
-        coordinator._daily_discharged_start = 0
-
-        past_time = datetime.now() - timedelta(seconds=60)
-        coordinator._last_power = 2000.0  # Previous: discharging at 2000W
-        coordinator._last_update_time = past_time.isoformat()
-        coordinator._daily_power_charged = 0.0
-        coordinator._daily_power_discharged = 0.0
-
-        data = {
-            "total_energy_charged": 0,
-            "total_energy_discharged": 0,
-            "total_consumption": 100.0,
-            "available_energy": 5000,
-            "power": 2000,  # Currently discharging at 2000W
-            "soc": 40,
-        }
-
-        coordinator._calculate_daily_values(data)
-
-        assert data["energy_charged_today"] == 0
-        assert data["energy_discharged_today"] > 0
-
-    async def test_power_integration_zero_avg_power(
-        self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store
-    ):
-        """Test power integration when average power is zero (idle transition)."""
-        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        coordinator._daily_reset_date = today_str
-        coordinator._daily_charged_start = 0
-        coordinator._daily_discharged_start = 0
-
-        past_time = datetime.now() - timedelta(seconds=30)
-        # Previous power was +500W, current is -500W -> average = 0
-        coordinator._last_power = 500.0
-        coordinator._last_update_time = past_time.isoformat()
-        coordinator._daily_power_charged = 0.0
-        coordinator._daily_power_discharged = 0.0
-
-        data = {
-            "total_energy_charged": 0,
-            "total_energy_discharged": 0,
-            "total_consumption": 100.0,
-            "available_energy": 5000,
-            "power": -500,  # avg_power = (500 + -500) / 2 = 0
-            "soc": 50,
-        }
-
-        coordinator._calculate_daily_values(data)
-
-        # Neither charged nor discharged energy should increase
-        assert data["energy_charged_today"] == 0
-        assert data["energy_discharged_today"] == 0
-
-    async def test_power_integration_no_previous_data(
-        self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store
-    ):
-        """Test power integration with no previous power/time (first reading)."""
-        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        coordinator._daily_reset_date = today_str
-        coordinator._daily_charged_start = 0
-        coordinator._daily_discharged_start = 0
-        coordinator._last_power = None
-        coordinator._last_update_time = None
-
-        data = {
-            "total_energy_charged": 0,
-            "total_energy_discharged": 0,
-            "total_consumption": 100.0,
-            "available_energy": 5000,
-            "power": -500,
-            "soc": 60,
-        }
-
-        coordinator._calculate_daily_values(data)
-
-        # No integration should happen (no previous data)
-        assert data["energy_charged_today"] == 0
-        assert data["energy_discharged_today"] == 0
-        # But last_power should now be set for next iteration
-        assert coordinator._last_power == -500
-        assert coordinator._last_update_time is not None
-
-    async def test_power_integration_invalid_time(self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store):
-        """Test power integration handles invalid last_update_time gracefully."""
-        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        coordinator._daily_reset_date = today_str
-        coordinator._daily_charged_start = 0
-        coordinator._daily_discharged_start = 0
-        coordinator._last_power = -500.0
-        coordinator._last_update_time = "not-a-valid-time"
-
-        data = {
-            "total_energy_charged": 0,
-            "total_energy_discharged": 0,
-            "total_consumption": 100.0,
-            "available_energy": 5000,
-            "power": -500,
-            "soc": 60,
-        }
-
-        # Should not raise - handles ValueError gracefully
-        coordinator._calculate_daily_values(data)
-
-        # Last power/time should still be updated for next iteration
-        assert coordinator._last_power == -500
-
-    async def test_24h_consumption_calculation(self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store):
-        """Test 24h rolling consumption calculation."""
-        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        coordinator._daily_reset_date = today_str
-        coordinator._daily_charged_start = 100.0
-        coordinator._daily_discharged_start = 80.0
-
-        # Pre-populate consumption history with 2 entries
-        now = datetime.now()
-        old_time = (now - timedelta(hours=12)).isoformat()
-        coordinator._consumption_24h_history = [(old_time, 200.0)]
-
-        data = {
-            "total_energy_charged": 105.0,
-            "total_energy_discharged": 83.0,
-            "total_consumption": 230.0,
-            "available_energy": 5000,
-            "power": 500,
-        }
-
-        coordinator._calculate_daily_values(data)
-
-        # 230 - 200 = 30 kWh
-        assert data["consumption_24h"] == 30.0
-
-    async def test_24h_consumption_removes_old_entries(
-        self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store
-    ):
-        """Test old entries (>24h) are removed from consumption history."""
-        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        coordinator._daily_reset_date = today_str
-        coordinator._daily_charged_start = 100.0
-        coordinator._daily_discharged_start = 80.0
-
-        now = datetime.now()
-        old_entry = (now - timedelta(hours=25)).isoformat()
-        recent_entry = (now - timedelta(hours=1)).isoformat()
-        coordinator._consumption_24h_history = [
-            (old_entry, 100.0),
-            (recent_entry, 200.0),
-        ]
-
-        data = {
-            "total_energy_charged": 105.0,
-            "total_energy_discharged": 83.0,
-            "total_consumption": 250.0,
-            "available_energy": 5000,
-            "power": 500,
-        }
-
-        coordinator._calculate_daily_values(data)
-
-        # Old entry should be removed; history should have recent + new entry
-        assert len(coordinator._consumption_24h_history) == 2
-        # Consumption: 250 - 200 = 50
-        assert data["consumption_24h"] == 50.0
-
-    async def test_24h_consumption_single_entry(self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store):
-        """Test 24h consumption with single entry returns 0."""
-        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        coordinator._daily_reset_date = today_str
-        coordinator._daily_charged_start = 100.0
-        coordinator._daily_discharged_start = 80.0
-        coordinator._consumption_24h_history = []
-
-        data = {
-            "total_energy_charged": 105.0,
-            "total_energy_discharged": 83.0,
-            "total_consumption": 250.0,
-            "available_energy": 5000,
-            "power": 500,
-        }
-
-        coordinator._calculate_daily_values(data)
-
-        # Only 1 entry after append, consumption_24h should be 0
-        assert data["consumption_24h"] == 0
-
-    async def test_backup_time_from_discharge_power(
-        self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store
-    ):
-        """Test estimated backup time based on current discharge power."""
-        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        coordinator._daily_reset_date = today_str
-        coordinator._daily_charged_start = 100.0
-        coordinator._daily_discharged_start = 80.0
-
-        data = {
-            "total_energy_charged": 105.0,
-            "total_energy_discharged": 83.0,
-            "total_consumption": 250.0,
-            "available_energy": 5000,  # 5000 Wh
-            "power": 1000,  # Discharging at 1000W
-        }
-
-        coordinator._calculate_daily_values(data)
-
-        # 5000 Wh / 1000 W * 60 = 300 minutes
-        assert data["estimated_backup_time"] == 300
-
-    async def test_backup_time_from_avg_consumption(
-        self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store
-    ):
-        """Test estimated backup time from average 24h consumption."""
-        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        coordinator._daily_reset_date = today_str
-        coordinator._daily_charged_start = 100.0
-        coordinator._daily_discharged_start = 80.0
-
-        now = datetime.now()
-        # 12 hours of history: 24 kWh consumed = 2kW average
-        old_time = (now - timedelta(hours=12)).isoformat()
-        coordinator._consumption_24h_history = [(old_time, 176.0)]
-
-        data = {
-            "total_energy_charged": 105.0,
-            "total_energy_discharged": 83.0,
-            "total_consumption": 200.0,  # 200 - 176 = 24 kWh over 12 hours
-            "available_energy": 4000,  # 4000 Wh
-            "power": 0,  # Not discharging (idle)
-        }
-
-        coordinator._calculate_daily_values(data)
-
-        # avg_power = (24 * 1000) / 12 = 2000W
-        # backup = (4000 / 2000) * 60 = 120 minutes
-        assert data["estimated_backup_time"] == 120
-
-    async def test_backup_time_zero_when_no_consumption(
-        self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store
-    ):
-        """Test backup time is 0 when no power/consumption data."""
-        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        coordinator._daily_reset_date = today_str
-        coordinator._daily_charged_start = 100.0
-        coordinator._daily_discharged_start = 80.0
-
-        data = {
-            "total_energy_charged": 105.0,
-            "total_energy_discharged": 83.0,
-            "total_consumption": 250.0,
-            "available_energy": 5000,
-            "power": 0,  # No discharge
-        }
-
-        coordinator._calculate_daily_values(data)
-
-        assert data["estimated_backup_time"] == 0
-
-    async def test_backup_time_charging_battery(self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store):
-        """Test backup time uses absolute power value for charging battery."""
-        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        coordinator._daily_reset_date = today_str
-        coordinator._daily_charged_start = 100.0
-        coordinator._daily_discharged_start = 80.0
-
-        data = {
-            "total_energy_charged": 105.0,
-            "total_energy_discharged": 83.0,
-            "total_consumption": 250.0,
-            "available_energy": 3000,
-            "power": -500,  # Charging at 500W (absolute: 500)
-        }
-
-        coordinator._calculate_daily_values(data)
-
-        # abs(-500) = 500, so 3000/500 * 60 = 360
-        assert data["estimated_backup_time"] == 360
-
-    async def test_storage_batched_save_initial(self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store):
-        """Test storage save is triggered on first call (no previous save)."""
-        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        coordinator._daily_reset_date = today_str
-        coordinator._daily_charged_start = 100.0
-        coordinator._daily_discharged_start = 80.0
-        coordinator._last_storage_save = None
-
-        data = {
-            "total_energy_charged": 105.0,
-            "total_energy_discharged": 83.0,
-            "total_consumption": 250.0,
-            "available_energy": 5000,
-            "power": 500,
-        }
-
-        coordinator._calculate_daily_values(data)
-
-        assert coordinator._last_storage_save is not None
-
-    async def test_storage_batched_save_skipped_when_recent(
-        self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store
-    ):
-        """Test storage save is skipped when last save is recent."""
-        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        coordinator._daily_reset_date = today_str
-        coordinator._daily_charged_start = 100.0
-        coordinator._daily_discharged_start = 80.0
-
-        recent_save = datetime.now() - timedelta(seconds=30)
-        coordinator._last_storage_save = recent_save
-
-        data = {
-            "total_energy_charged": 105.0,
-            "total_energy_discharged": 83.0,
-            "total_consumption": 250.0,
-            "available_energy": 5000,
-            "power": 500,
-        }
-
-        coordinator._calculate_daily_values(data)
-
-        # Last save should NOT have been updated (too recent)
-        assert coordinator._last_storage_save == recent_save
-
-    async def test_storage_batched_save_triggered_after_5min(
-        self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store
-    ):
-        """Test storage save is triggered after 5 minutes."""
-        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        coordinator._daily_reset_date = today_str
-        coordinator._daily_charged_start = 100.0
-        coordinator._daily_discharged_start = 80.0
-
-        old_save = datetime.now() - timedelta(minutes=6)
-        coordinator._last_storage_save = old_save
-
-        data = {
-            "total_energy_charged": 105.0,
-            "total_energy_discharged": 83.0,
-            "total_consumption": 250.0,
-            "available_energy": 5000,
-            "power": 500,
-        }
-
-        coordinator._calculate_daily_values(data)
-
-        # Last save should have been updated
-        assert coordinator._last_storage_save != old_save
-        assert coordinator._last_storage_save is not None
-
-    async def test_meter_energy_negative_clamped_to_zero(
-        self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store
-    ):
-        """Test meter energy calculation clamps negative values to 0."""
-        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        coordinator._daily_reset_date = today_str
-        # Start values higher than current (meter reset scenario)
-        coordinator._daily_charged_start = 200.0
-        coordinator._daily_discharged_start = 150.0
-
-        data = {
-            "total_energy_charged": 100.0,  # Less than start
-            "total_energy_discharged": 80.0,  # Less than start
-            "total_consumption": 250.0,
-            "available_energy": 5000,
-            "power": 500,
-        }
-
-        coordinator._calculate_daily_values(data)
-
-        # Should be clamped to 0 (max(0, negative))
-        assert data["energy_charged_today"] == 0
-        assert data["energy_discharged_today"] == 0
 
 
 # ---------------------------------------------------------------------------

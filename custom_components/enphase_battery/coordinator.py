@@ -19,7 +19,14 @@ from homeassistant.helpers.update_coordinator import (
     UpdateFailed,
 )
 
-from .api import EnphaseBatteryAPI, EnphaseBatteryApiError, EnphaseBatteryAuthError
+from .api import (
+    EnphaseBatteryAPI,
+    EnphaseBatteryApiError,
+    EnphaseBatteryAuthError,
+    EnphaseEnvoyLocalAPI,
+    EnvoyAuthError,
+    EnvoyLocalApiError,
+)
 from .const import (
     CONF_CONNECTION_MODE,
     CONF_ENABLE_CLOUD_CONTROL,
@@ -32,13 +39,9 @@ from .const import (
     DOMAIN,
     LOCAL_SCAN_INTERVAL,
 )
-from .envoy_local_api import EnphaseEnvoyLocalAPI, EnvoyAuthError, EnvoyLocalApiError
+from .energy import STORAGE_KEY, STORAGE_VERSION, EnergyTracker
 
 _LOGGER = logging.getLogger(__name__)
-
-# Storage version and key for persistent energy tracking
-STORAGE_VERSION = 1
-STORAGE_KEY = "enphase_battery_energy_tracking"
 
 # Debounce delay for refresh requests (prevents rapid consecutive refreshes)
 REQUEST_REFRESH_DEBOUNCE_COOLDOWN = 1.0  # seconds
@@ -60,27 +63,9 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
         self.api: EnphaseBatteryAPI | None = None
         self.local_api: EnphaseEnvoyLocalAPI | None = None
 
-        # Initialize persistent storage for energy tracking
-        self._store = Store(hass, STORAGE_VERSION, f"{STORAGE_KEY}_{entry.entry_id}")  # type: ignore[var-annotated]
-        self._stored_data: dict[str, Any] = {}
-
-        # Energy tracking for daily calculations
-        # Will be loaded from persistent storage in _load_energy_tracking()
-        self._daily_reset_date: str | None = None
-        self._daily_charged_start: float = 0
-        self._daily_discharged_start: float = 0
-        self._consumption_24h_history: list[tuple[str, float]] = []
-
-        # SOC-based energy tracking (fallback when meters don't track battery energy)
-        self._last_soc: int | None = None
-        self._daily_soc_charged: float = 0
-        self._daily_soc_discharged: float = 0
-
-        # Power integration energy tracking (most accurate method)
-        self._last_power: float | None = None
-        self._last_update_time: str | None = None
-        self._daily_power_charged: float = 0
-        self._daily_power_discharged: float = 0
+        # Persistent energy tracking (daily counters, 24h consumption, backup time)
+        store = Store(hass, STORAGE_VERSION, f"{STORAGE_KEY}_{entry.entry_id}")
+        self._energy = EnergyTracker(store)
 
         # Determine connection mode (default to cloud for backward compatibility)
         self._connection_mode = entry.data.get(CONF_CONNECTION_MODE, CONNECTION_MODE_CLOUD)
@@ -93,10 +78,6 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
 
         # Offset first poll to avoid colliding with official enphase_envoy integration
         self._first_poll: bool = True
-
-        # Track last save time for batching storage writes (save every 5 minutes)
-        self._last_storage_save: datetime | None = None
-        self._storage_save_interval = timedelta(minutes=5)
 
         # Cache for cloud control states in hybrid mode (refresh every 5 minutes)
         self._last_cloud_control_fetch: datetime | None = None
@@ -152,19 +133,19 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
                     await asyncio.gather(
                         self._setup_local_api(session),
                         self._setup_cloud_api_from_local_creds(session),
-                        self._load_energy_tracking(),
+                        self._energy.async_load(),
                     )
                 else:
                     # Local mode only: parallelize local API + storage loading
                     await asyncio.gather(
                         self._setup_local_api(session),
-                        self._load_energy_tracking(),
+                        self._energy.async_load(),
                     )
             else:
                 # Cloud mode: parallelize cloud API + storage loading
                 await asyncio.gather(
                     self._setup_cloud_api(session),
-                    self._load_energy_tracking(),
+                    self._energy.async_load(),
                 )
         except (EnvoyAuthError, EnphaseBatteryAuthError) as err:
             raise ConfigEntryAuthFailed(str(err)) from err
@@ -286,49 +267,6 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
             _LOGGER.error("Failed to authenticate with cloud for control: %s", err)
             # Don't raise - allow local mode to continue without control
             self.api = None
-
-    async def _load_energy_tracking(self) -> None:
-        """Load energy tracking data from persistent storage."""
-        try:
-            self._stored_data = await self._store.async_load() or {}
-
-            # Restore variables from storage
-            self._daily_reset_date = self._stored_data.get("reset_date")
-            self._daily_charged_start = self._stored_data.get("charged_start", 0)
-            self._daily_discharged_start = self._stored_data.get("discharged_start", 0)
-            self._consumption_24h_history = self._stored_data.get("consumption_history", [])
-            self._last_soc = self._stored_data.get("last_soc")
-            self._daily_soc_charged = self._stored_data.get("soc_charged", 0)
-            self._daily_soc_discharged = self._stored_data.get("soc_discharged", 0)
-            self._last_power = self._stored_data.get("last_power")
-            self._last_update_time = self._stored_data.get("last_update_time")
-            self._daily_power_charged = self._stored_data.get("power_charged", 0)
-            self._daily_power_discharged = self._stored_data.get("power_discharged", 0)
-
-            if self._daily_reset_date:
-                _LOGGER.debug("Restored energy tracking from %s", self._daily_reset_date)
-        except Exception as err:
-            _LOGGER.error("Failed to load energy tracking data: %s", err)
-
-    async def _save_energy_tracking(self) -> None:
-        """Save energy tracking data to persistent storage."""
-        try:
-            data = {
-                "reset_date": self._daily_reset_date,
-                "charged_start": self._daily_charged_start,
-                "discharged_start": self._daily_discharged_start,
-                "consumption_history": self._consumption_24h_history[-100:],
-                "last_soc": self._last_soc,
-                "soc_charged": self._daily_soc_charged,
-                "soc_discharged": self._daily_soc_discharged,
-                "last_power": self._last_power,
-                "last_update_time": self._last_update_time,
-                "power_charged": self._daily_power_charged,
-                "power_discharged": self._daily_power_discharged,
-            }
-            await self._store.async_save(data)
-        except Exception as err:
-            _LOGGER.error("Failed to save energy tracking data: %s", err)
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from API.
@@ -460,8 +398,10 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
                 except EnphaseBatteryApiError as err:
                     raise UpdateFailed(f"Error fetching cloud data: {err}") from err
 
-            # Calculate daily energy and 24h consumption
-            self._calculate_daily_values(data)
+            # Update derived energy values; persist (batched) when the tracker says it is due.
+            # async_save never raises (it logs and swallows), so it is safe as a background task.
+            if self._energy.update(data):
+                self.hass.async_create_task(self._energy.async_save(), "enphase_battery_save_energy")
 
             # Log once when connection is restored after being unavailable
             if self._previously_unavailable:
@@ -483,121 +423,6 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
                 self._previously_unavailable = True
             raise UpdateFailed(f"Unexpected error fetching data: {err}") from err
 
-    def _calculate_daily_values(self, data: dict[str, Any]) -> None:
-        """Calculate daily energy values and 24h consumption.
-
-        Args:
-            data: Battery data dictionary to update with calculated values
-        """
-        now = datetime.now()
-        today_str = now.strftime("%Y-%m-%d")
-
-        # Get cumulative energy values from data
-        total_charged = data.get("total_energy_charged", 0)  # kWh
-        total_discharged = data.get("total_energy_discharged", 0)  # kWh
-        total_consumption = data.get("total_consumption", 0)  # kWh
-
-        # Reset daily counters at midnight
-        if self._daily_reset_date != today_str:
-            self._daily_reset_date = today_str
-            self._daily_charged_start = total_charged
-            self._daily_discharged_start = total_discharged
-            self._daily_soc_charged = 0
-            self._daily_soc_discharged = 0
-            self._daily_power_charged = 0
-            self._daily_power_discharged = 0
-
-        # Calculate daily energy from meters (if available)
-        energy_charged_today = max(0, total_charged - self._daily_charged_start)
-        energy_discharged_today = max(0, total_discharged - self._daily_discharged_start)
-
-        # Fallback: If meters don't track battery energy (= 0), use power integration
-        if energy_charged_today == 0 and energy_discharged_today == 0:
-            current_power = data.get("power", 0)  # W (negative=charging, positive=discharging)
-
-            # Power integration: energy = ∫ power × time
-            if self._last_power is not None and self._last_update_time is not None:
-                try:
-                    last_time = datetime.fromisoformat(self._last_update_time)
-                    time_delta_hours = (now - last_time).total_seconds() / 3600  # Convert to hours
-
-                    # Use average power over the interval (trapezoidal integration)
-                    avg_power = (current_power + self._last_power) / 2  # W
-                    energy_delta_kwh = (avg_power * time_delta_hours) / 1000  # Convert Wh to kWh
-
-                    if avg_power < 0:
-                        # Battery charging (negative power)
-                        self._daily_power_charged += abs(energy_delta_kwh)
-                    elif avg_power > 0:
-                        # Battery discharging (positive power)
-                        self._daily_power_discharged += energy_delta_kwh
-                except (ValueError, TypeError) as e:
-                    _LOGGER.warning("Error in power integration: %s", e)
-
-            # Update tracking variables for next iteration
-            self._last_power = current_power
-            self._last_update_time = now.isoformat()
-
-            energy_charged_today = self._daily_power_charged
-            energy_discharged_today = self._daily_power_discharged
-
-            # SOC tracking for backup reference
-            current_soc = data.get("soc", 0)
-            self._last_soc = current_soc
-
-        data["energy_charged_today"] = round(energy_charged_today, 2)
-        data["energy_discharged_today"] = round(energy_discharged_today, 2)
-
-        # 24h rolling consumption calculation
-        timestamp_str = now.isoformat()
-        self._consumption_24h_history.append((timestamp_str, total_consumption))
-
-        # Remove entries older than 24h
-        cutoff_time = now - timedelta(hours=24)
-        self._consumption_24h_history = [
-            (ts, cons) for ts, cons in self._consumption_24h_history if datetime.fromisoformat(ts) > cutoff_time
-        ]
-
-        # Calculate 24h consumption (delta between oldest and newest)
-        if len(self._consumption_24h_history) >= 2:
-            oldest_consumption = self._consumption_24h_history[0][1]
-            consumption_24h = max(0, total_consumption - oldest_consumption)
-        else:
-            consumption_24h = 0
-
-        data["consumption_24h"] = round(consumption_24h, 2)
-
-        # Calculate estimated backup time (minutes)
-        # Based on: available_energy (Wh) / current consumption rate (W) * 60
-        available_energy_wh = data.get("available_energy", 0)
-        discharge_power = abs(data.get("power", 0))  # Current power draw
-
-        if discharge_power > 0:
-            # Battery is discharging, calculate based on current rate
-            backup_time_minutes = int((available_energy_wh / discharge_power) * 60)
-        elif consumption_24h > 0 and len(self._consumption_24h_history) >= 2:
-            # Use average consumption from 24h
-            hours_tracked = (now - datetime.fromisoformat(self._consumption_24h_history[0][0])).total_seconds() / 3600
-            avg_power = (consumption_24h * 1000) / hours_tracked  # Convert kWh to W
-            backup_time_minutes = int((available_energy_wh / avg_power) * 60) if avg_power > 0 else 0
-        else:
-            backup_time_minutes = 0
-
-        data["estimated_backup_time"] = backup_time_minutes
-
-        # Save tracking data to persistent storage (batched every 5 minutes)
-        now_time = datetime.now()
-        if self._last_storage_save is None or (now_time - self._last_storage_save) >= self._storage_save_interval:
-            self._last_storage_save = now_time
-            self.hass.async_create_task(self._save_energy_tracking_safe(), "enphase_battery_save_energy")
-
-    async def _save_energy_tracking_safe(self) -> None:
-        """Save energy tracking with error logging for background task."""
-        try:
-            await self._save_energy_tracking()
-        except Exception as err:
-            _LOGGER.error("Background save of energy tracking failed: %s", err)
-
     def invalidate_cloud_control_cache(self) -> None:
         """Invalidate cached cloud control states to force immediate refresh.
 
@@ -610,7 +435,7 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
     async def async_shutdown(self) -> None:
         """Shutdown coordinator and cleanup resources."""
         # Save energy tracking data before shutdown
-        await self._save_energy_tracking()
+        await self._energy.async_save()
         _LOGGER.debug("Energy tracking data saved on shutdown")
 
         if self.local_api:

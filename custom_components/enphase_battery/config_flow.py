@@ -9,8 +9,17 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import voluptuous as vol
 
+from .api import (
+    EnphaseBatteryAPI,
+    EnphaseBatteryApiError,
+    EnphaseBatteryAuthError,
+    EnphaseEnvoyLocalAPI,
+    EnvoyAuthError,
+    EnvoyConnectionError,
+)
 from .const import (
     CONF_CONNECTION_MODE,
     CONF_ENVOY_HOST,
@@ -61,10 +70,6 @@ async def validate_local_input(hass: HomeAssistant, data: dict[str, Any]) -> dic
 
     Data has the keys from STEP_LOCAL_DATA_SCHEMA with values provided by the user.
     """
-    from homeassistant.helpers.aiohttp_client import async_get_clientsession
-
-    from .envoy_local_api import EnphaseEnvoyLocalAPI, EnvoyAuthError, EnvoyConnectionError
-
     host = data[CONF_ENVOY_HOST]
     cloud_username = data.get("cloud_username")
     cloud_password = data.get("cloud_password")
@@ -110,10 +115,6 @@ async def validate_cloud_input(hass: HomeAssistant, data: dict[str, Any]) -> dic
 
     Data has the keys from STEP_CLOUD_DATA_SCHEMA with values provided by the user.
     """
-    from homeassistant.helpers.aiohttp_client import async_get_clientsession
-
-    from .api import EnphaseBatteryAPI, EnphaseBatteryApiError, EnphaseBatteryAuthError
-
     username = data[CONF_USERNAME]
     password = data[CONF_PASSWORD]
 
