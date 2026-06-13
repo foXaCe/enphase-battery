@@ -1,13 +1,13 @@
 [project]
 name = "enphase-battery"
-version = "2.35.1"
+version = "2.35.11"
 description = "Home Assistant integration for Enphase Battery IQ 5P"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = {text = "MIT"}
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 line-length = 120
 
 # Exclude common directories
@@ -39,8 +39,6 @@ ignore = [
     "B904",   # Use raise from within except
     "SIM105", # Use contextlib.suppress
     "SIM103", # Return condition directly (less readable sometimes)
-    "F821",   # Undefined name (false positives with Home Assistant)
-    "F401",   # Unused import (needed for availability check)
     "RUF003", # Ambiguous unicode (intentional in math formulas)
 ]
 
@@ -75,7 +73,8 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [tool.mypy]
-python_version = "3.11"
+# Match the Python used by current Home Assistant so mypy can parse its sources.
+python_version = "3.13"
 show_error_codes = true
 follow_imports = "silent"
 ignore_missing_imports = true

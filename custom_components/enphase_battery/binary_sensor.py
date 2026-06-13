@@ -88,7 +88,7 @@ class BatteryGridTiedBinarySensor(EnphaseBatteryBinarySensorBase):
         devices = self.coordinator.data.get("devices", [])
         if devices and len(devices) > 0:
             grid_state = devices[0].get("reported_enc_grid_state", "")
-            return grid_state == "grid-tied"  # type: ignore[no-any-return]
+            return grid_state == "grid-tied"
 
         status = self.coordinator.data.get("status", "")
         return "grid-tied" in status.lower()
@@ -125,7 +125,7 @@ class BatteryHealthyBinarySensor(EnphaseBatteryBinarySensorBase):
             return True
 
         # SOH below 80% indicates problem
-        return soh < 80  # type: ignore[no-any-return]
+        return soh < 80
 
     @property
     def icon(self) -> str:

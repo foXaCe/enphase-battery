@@ -13,7 +13,6 @@ from custom_components.enphase_battery.binary_sensor import (
     EnvoyConnectedBinarySensor,
     async_setup_entry,
 )
-from custom_components.enphase_battery.const import DOMAIN
 from custom_components.enphase_battery.coordinator import (
     EnphaseBatteryDataUpdateCoordinator,
 )

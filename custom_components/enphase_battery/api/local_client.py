@@ -561,7 +561,7 @@ class EnphaseEnvoyLocalAPI:
                 ensemble_power = json.loads(ensemble_power["raw"])
 
             # Parse battery data from responses
-            battery_data = {
+            battery_data: BatteryData = {
                 "timestamp": datetime.now().isoformat(),
                 "source": "local_envoy",
             }
@@ -682,9 +682,9 @@ class EnphaseEnvoyLocalAPI:
                         "charge_from_grid", False
                     )
                 else:
-                    battery_data["charge_from_grid"] = False  # type: ignore[assignment]
+                    battery_data["charge_from_grid"] = False
             except Exception:
-                battery_data["charge_from_grid"] = False  # type: ignore[assignment]
+                battery_data["charge_from_grid"] = False
 
             return battery_data
 

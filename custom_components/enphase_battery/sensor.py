@@ -20,6 +20,7 @@ from homeassistant.const import (
 )
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .api import BatteryDevice
 from .const import DEVICE_INFO, get_battery_device_info
 from .coordinator import EnphaseBatteryDataUpdateCoordinator
 
@@ -204,14 +205,14 @@ class IndividualBatterySensorBase(CoordinatorEntity[EnphaseBatteryDataUpdateCoor
         self._attr_unique_id = f"{coordinator.unique_id_prefix}_battery_{serial_num}_{sensor_type}"
         self._attr_device_info = get_battery_device_info(serial_num, part_num)
 
-    def _get_device_data(self) -> dict | None:  # type: ignore[type-arg]
+    def _get_device_data(self) -> BatteryDevice | None:
         """Get the device data for this specific battery."""
         if not self.coordinator.data:
             return None
         devices = self.coordinator.data.get("devices", [])
         for device in devices:
             if device.get("serial_num") == self._serial_num:
-                return device  # type: ignore[no-any-return]
+                return device
         return None
 
 
@@ -384,7 +385,7 @@ class BatteryChargePowerSensor(EnphaseBatterySensorBase):
         """Return the state of the sensor."""
         if not self.coordinator.data:
             return None
-        return self.coordinator.data.get("charge_power", 0)  # type: ignore[no-any-return]
+        return self.coordinator.data.get("charge_power", 0)
 
 
 class BatteryDischargePowerSensor(EnphaseBatterySensorBase):
@@ -403,7 +404,7 @@ class BatteryDischargePowerSensor(EnphaseBatterySensorBase):
         """Return the state of the sensor."""
         if not self.coordinator.data:
             return None
-        return self.coordinator.data.get("discharge_power", 0)  # type: ignore[no-any-return]
+        return self.coordinator.data.get("discharge_power", 0)
 
 
 class BatteryAvailableEnergySensor(EnphaseBatterySensorBase):
@@ -422,7 +423,7 @@ class BatteryAvailableEnergySensor(EnphaseBatterySensorBase):
         """Return the state of the sensor."""
         if not self.coordinator.data:
             return None
-        return self.coordinator.data.get("available_energy", 0)  # type: ignore[no-any-return]
+        return self.coordinator.data.get("available_energy", 0)
 
 
 class BatteryEnergyChargedTodaySensor(EnphaseBatterySensorBase):
@@ -520,7 +521,7 @@ class BatteryHealthSensor(EnphaseBatterySensorBase):
         """Return the state of the sensor."""
         if not self.coordinator.data:
             return None
-        return self.coordinator.data.get("soh", 100)  # type: ignore[no-any-return]
+        return self.coordinator.data.get("soh", 100)
 
 
 class BatteryGridModeSensor(EnphaseBatterySensorBase):
@@ -543,7 +544,7 @@ class BatteryGridModeSensor(EnphaseBatterySensorBase):
         devices = self.coordinator.data.get("devices", [])
         if devices and len(devices) > 0:
             raw = devices[0].get("reported_enc_grid_state", "unknown")
-            return raw.replace("-", "_")  # type: ignore[no-any-return]
+            return raw.replace("-", "_")
         status = self.coordinator.data.get("status")
         return status.replace("-", "_") if status else None
 
@@ -604,7 +605,7 @@ class IndividualBatteryTemperatureSensor(IndividualBatterySensorBase):
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
-    def native_value(self) -> int | None:
+    def native_value(self) -> float | None:
         """Return the temperature of this specific battery."""
         device = self._get_device_data()
         if device:
@@ -631,7 +632,7 @@ class IndividualBatteryMaxCellTempSensor(IndividualBatterySensorBase):
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
-    def native_value(self) -> int | None:
+    def native_value(self) -> float | None:
         """Return the max cell temperature of this specific battery."""
         device = self._get_device_data()
         if device:
@@ -731,7 +732,7 @@ class IndividualBatterySOCSensor(IndividualBatterySensorBase):
         self._attr_icon = "mdi:battery"
 
     @property
-    def native_value(self) -> int | None:
+    def native_value(self) -> float | None:
         """Return the SOC of this specific battery."""
         device = self._get_device_data()
         if device:
@@ -782,5 +783,5 @@ class IndividualBatteryGridStateSensor(IndividualBatterySensorBase):
         device = self._get_device_data()
         if device:
             raw = device.get("reported_enc_grid_state", "unknown")
-            return raw.replace("-", "_")  # type: ignore[no-any-return]
+            return raw.replace("-", "_")
         return None

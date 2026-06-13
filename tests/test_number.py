@@ -8,7 +8,6 @@ from homeassistant.exceptions import HomeAssistantError
 import pytest
 
 from custom_components.enphase_battery import EnphaseBatteryRuntimeData
-from custom_components.enphase_battery.const import DOMAIN
 from custom_components.enphase_battery.coordinator import (
     EnphaseBatteryDataUpdateCoordinator,
 )

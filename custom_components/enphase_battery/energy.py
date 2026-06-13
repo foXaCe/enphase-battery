@@ -30,7 +30,7 @@ STORAGE_SAVE_INTERVAL = timedelta(minutes=5)
 class EnergyTracker:
     """Track daily energy, 24h consumption and estimated backup time."""
 
-    def __init__(self, store: Store) -> None:
+    def __init__(self, store: Store[dict[str, Any]]) -> None:
         """Initialize the tracker with a persistent store."""
         self._store = store
         self._stored_data: dict[str, Any] = {}

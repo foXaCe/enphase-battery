@@ -117,7 +117,7 @@ class EnphaseBatterySwitch(CoordinatorEntity[EnphaseBatteryDataUpdateCoordinator
             return self._optimistic_state
         if not self.coordinator.data:
             return None
-        return self.coordinator.data.get(self.entity_description.key, False)
+        return bool(self.coordinator.data.get(self.entity_description.key, False))
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""

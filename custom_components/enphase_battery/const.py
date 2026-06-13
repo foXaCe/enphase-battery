@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Final
+from typing import Final
 
 from homeassistant.helpers.device_registry import DeviceInfo
 

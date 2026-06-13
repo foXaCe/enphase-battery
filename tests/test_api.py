@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import re
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import aiohttp
 from aiohttp import ClientSession, ClientTimeout

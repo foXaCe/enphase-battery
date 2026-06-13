@@ -19,6 +19,7 @@ class BatteryDevice(TypedDict, total=False):
     type: str
     device_type: str
     percentFull: float
+    soc: float
     temperature: float
     maxCellTemp: float
     encharge_capacity: int

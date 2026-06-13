@@ -2,18 +2,11 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
-from homeassistant.core import HomeAssistant
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.enphase_battery import EnphaseBatteryRuntimeData
-from custom_components.enphase_battery.const import (
-    CONF_CONNECTION_MODE,
-    CONNECTION_MODE_CLOUD,
-    DOMAIN,
-)
 from custom_components.enphase_battery.coordinator import (
     EnphaseBatteryDataUpdateCoordinator,
 )

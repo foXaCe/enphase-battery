@@ -20,6 +20,7 @@ from homeassistant.helpers.update_coordinator import (
 )
 
 from .api import (
+    BatteryData,
     EnphaseBatteryAPI,
     EnphaseBatteryApiError,
     EnphaseBatteryAuthError,
@@ -47,7 +48,7 @@ _LOGGER = logging.getLogger(__name__)
 REQUEST_REFRESH_DEBOUNCE_COOLDOWN = 1.0  # seconds
 
 
-class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
+class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[BatteryData]):
     """Class to manage fetching Enphase Battery data.
 
     Supports dual connection modes:
@@ -64,7 +65,7 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
         self.local_api: EnphaseEnvoyLocalAPI | None = None
 
         # Persistent energy tracking (daily counters, 24h consumption, backup time)
-        store = Store(hass, STORAGE_VERSION, f"{STORAGE_KEY}_{entry.entry_id}")
+        store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, f"{STORAGE_KEY}_{entry.entry_id}")
         self._energy = EnergyTracker(store)
 
         # Determine connection mode (default to cloud for backward compatibility)
@@ -268,7 +269,7 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
             # Don't raise - allow local mode to continue without control
             self.api = None
 
-    async def _async_update_data(self) -> dict[str, Any]:
+    async def _async_update_data(self) -> BatteryData:
         """Fetch data from API.
 
         Mode behavior:

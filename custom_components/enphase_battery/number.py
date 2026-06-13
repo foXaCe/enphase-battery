@@ -69,7 +69,7 @@ class BatteryBackupReserveNumber(CoordinatorEntity[EnphaseBatteryDataUpdateCoord
         if not self.coordinator.data:
             return None
 
-        return self.coordinator.data.get("very_low_soc", 5)  # type: ignore[no-any-return]
+        return self.coordinator.data.get("very_low_soc", 5)
 
     @property
     def available(self) -> bool:
