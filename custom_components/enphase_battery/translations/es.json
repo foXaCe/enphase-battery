@@ -11,6 +11,7 @@
       "invalid_auth": "Credenciales inválidas. Verifique su nombre de usuario y contraseña.",
       "unknown": "Ocurrió un error inesperado. Consulte los registros para más detalles."
     },
+    "flow_title": "{name}",
     "step": {
       "cloud": {
         "data": {
@@ -79,6 +80,15 @@
         },
         "description": "Elija cómo conectarse a su sistema Enphase.",
         "title": "Modo de conexión Enphase Battery"
+      },
+      "zeroconf_confirm": {
+        "data": {
+          "cloud_password": "Contraseña de la cuenta Enphase",
+          "cloud_username": "Correo de la cuenta Enphase",
+          "enable_cloud_control": "Activar control en la nube (modo híbrido)"
+        },
+        "description": "Configure el Envoy detectado en {host}. Introduzca su cuenta Enphase Enlighten (necesaria para firmware 7.x/8.x).",
+        "title": "Envoy Enphase descubierto"
       }
     }
   },
@@ -212,6 +222,12 @@
       "message": "API Cloud no inicializada. Active el control cloud en los ajustes de la integración."
     }
   },
+  "issues": {
+    "control_disabled": {
+      "description": "Su batería Enphase está en modo solo local. El firmware 8.x no se puede controlar mediante la API local, por lo que los interruptores de control y el selector de modo no se crean. Para activarlos, reconfigure la integración y active «Activar control en la nube».",
+      "title": "Control de la batería no disponible"
+    }
+  },
   "options": {
     "error": {
       "cannot_connect": "Error de conexión. Verifique la dirección y la conexión de red.",
@@ -257,6 +273,11 @@
         "cloud": "Cloud (Enlighten - más lento, cuota de API)",
         "local": "Local (Envoy directo - rápido, sin cuota de API)"
       }
+    }
+  },
+  "system_health": {
+    "info": {
+      "can_reach_cloud": "Alcanzar la nube Enphase Enlighten"
     }
   }
 }

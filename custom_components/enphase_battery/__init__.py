@@ -12,9 +12,14 @@ from typing import TYPE_CHECKING
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import callback
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import entity_registry as er, issue_registry as ir
 
-from .const import CONF_CONNECTION_MODE, CONNECTION_MODE_CLOUD, DOMAIN
+from .const import (
+    CONF_CONNECTION_MODE,
+    CONF_ENABLE_CLOUD_CONTROL,
+    CONNECTION_MODE_CLOUD,
+    DOMAIN,
+)
 from .coordinator import EnphaseBatteryDataUpdateCoordinator
 
 if TYPE_CHECKING:
@@ -110,10 +115,39 @@ async def async_setup_entry(
     # Set up platforms now that the first data is available.
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+    # Surface a repair issue when battery control is unavailable.
+    _async_manage_control_issue(hass, entry, coordinator)
+
     # Reload the entry when its options change.
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
     return True
+
+
+@callback
+def _async_manage_control_issue(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    coordinator: EnphaseBatteryDataUpdateCoordinator,
+) -> None:
+    """Create/clear the repair issue for control unavailable in local-only mode.
+
+    In local mode without cloud control, firmware 8.x cannot be controlled via
+    the local API, so the switches/select/number are not created. The user can
+    fix this by enabling cloud control (reconfigure).
+    """
+    issue_id = f"control_disabled_{entry.entry_id}"
+    if coordinator.is_local_mode and not entry.data.get(CONF_ENABLE_CLOUD_CONTROL, False):
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            issue_id,
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key="control_disabled",
+        )
+    else:
+        ir.async_delete_issue(hass, DOMAIN, issue_id)
 
 
 async def async_unload_entry(

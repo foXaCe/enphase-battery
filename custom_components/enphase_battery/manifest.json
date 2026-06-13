@@ -12,5 +12,6 @@
   "issue_tracker": "https://github.com/foXaCe/enphase-battery/issues",
   "loggers": ["custom_components.enphase_battery"],
   "requirements": [],
-  "version": "2.35.11"
+  "version": "2.35.11",
+  "zeroconf": ["_enphase-envoy._tcp.local."]
 }

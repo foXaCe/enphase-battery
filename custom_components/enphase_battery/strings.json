@@ -68,6 +68,15 @@
           "site_id": "Site ID (optional)",
           "user_id": "User ID (optional)"
         }
+      },
+      "zeroconf_confirm": {
+        "title": "Discovered Enphase Envoy",
+        "description": "Set up the Envoy found at {host}. Enter your Enphase Enlighten account (required for firmware 7.x/8.x).",
+        "data": {
+          "cloud_username": "Enphase account email",
+          "cloud_password": "Enphase account password",
+          "enable_cloud_control": "Enable cloud control (hybrid mode)"
+        }
       }
     },
     "error": {
@@ -80,7 +89,8 @@
       "reauth_successful": "Re-authentication successful.",
       "reconfigure_successful": "Reconfiguration successful.",
       "unknown": "An unknown error occurred."
-    }
+    },
+    "flow_title": "{name}"
   },
   "selector": {
     "connection_mode": {
@@ -88,6 +98,11 @@
         "local": "Local (Envoy direct - fast, no API quota)",
         "cloud": "Cloud (Enlighten - slower, API quota)"
       }
+    }
+  },
+  "system_health": {
+    "info": {
+      "can_reach_cloud": "Reach Enphase Enlighten cloud"
     }
   },
   "entity": {
@@ -257,6 +272,12 @@
           "user_id": "User ID (optional)"
         }
       }
+    }
+  },
+  "issues": {
+    "control_disabled": {
+      "title": "Battery control unavailable",
+      "description": "Your Enphase Battery is in local-only mode. Firmware 8.x cannot be controlled through the local API, so the control switches and the battery-mode selector are not created. To enable them, reconfigure the integration and turn on “Enable cloud control”."
     }
   }
 }

@@ -15,6 +15,7 @@ from homeassistant.helpers.selector import (
     SelectSelectorConfig,
     SelectSelectorMode,
 )
+from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 import voluptuous as vol
 
 from .api import (
@@ -171,6 +172,7 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         """Initialize config flow."""
         self._connection_mode: str | None = None
+        self._discovered_host: str | None = None
 
     @staticmethod
     @callback
@@ -266,6 +268,54 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="cloud",
             data_schema=STEP_CLOUD_DATA_SCHEMA,
             errors=errors,
+        )
+
+    async def async_step_zeroconf(self, discovery_info: ZeroconfServiceInfo) -> ConfigFlowResult:
+        """Handle an Envoy discovered via zeroconf (mDNS)."""
+        serial = discovery_info.properties.get("serialnum") or discovery_info.hostname.partition(".")[0]
+        host = discovery_info.host
+
+        await self.async_set_unique_id(str(serial))
+        # Update the stored host if the Envoy's IP changed; abort if already set up.
+        self._abort_if_unique_id_configured(updates={CONF_ENVOY_HOST: host})
+
+        self._discovered_host = host
+        self.context["title_placeholders"] = {"name": f"Envoy {serial}"}
+        return await self.async_step_zeroconf_confirm()
+
+    async def async_step_zeroconf_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Collect the Enlighten credentials for a discovered Envoy (local mode)."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            data = {
+                CONF_CONNECTION_MODE: CONNECTION_MODE_LOCAL,
+                CONF_ENVOY_HOST: self._discovered_host,
+                **user_input,
+            }
+            try:
+                info = await validate_local_input(self.hass, data)
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except InvalidAuth:
+                errors["base"] = "invalid_auth"
+            except Exception:  # pylint: disable=broad-except
+                _LOGGER.exception("Unexpected exception")
+                errors["base"] = "unknown"
+            else:
+                return self.async_create_entry(title=info["title"], data=data)
+
+        return self.async_show_form(
+            step_id="zeroconf_confirm",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("cloud_username"): str,
+                    vol.Required("cloud_password"): str,
+                    vol.Optional("enable_cloud_control", default=False): bool,
+                }
+            ),
+            errors=errors,
+            description_placeholders={"host": self._discovered_host or ""},
         )
 
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:

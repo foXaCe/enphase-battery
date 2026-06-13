@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from ipaddress import ip_address
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -1771,3 +1773,63 @@ async def test_reconfigure_cloud_unknown_error(
 
     assert result["type"] == FlowResultType.FORM
     assert result["errors"] == {"base": "unknown"}
+
+
+# ---------------------------------------------------------------------------
+# Zeroconf discovery
+# ---------------------------------------------------------------------------
+
+
+def _zeroconf_info(host: str = "192.168.1.50", serial: str = "122050042807") -> ZeroconfServiceInfo:
+    """Build a ZeroconfServiceInfo for a discovered Envoy."""
+    return ZeroconfServiceInfo(
+        ip_address=ip_address(host),
+        ip_addresses=[ip_address(host)],
+        hostname="envoy.local.",
+        name=f"envoy_{serial}._enphase-envoy._tcp.local.",
+        port=443,
+        type="_enphase-envoy._tcp.local.",
+        properties={"serialnum": serial},
+    )
+
+
+async def test_zeroconf_discovery_creates_entry(hass: HomeAssistant, mock_local_api) -> None:
+    """A discovered Envoy shows a confirm form and creates a local entry."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=_zeroconf_info()
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "zeroconf_confirm"
+
+    result2 = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {"cloud_username": "u@example.com", "cloud_password": "pw", "enable_cloud_control": False},
+    )
+    assert result2["type"] == FlowResultType.CREATE_ENTRY
+    assert result2["data"][CONF_CONNECTION_MODE] == CONNECTION_MODE_LOCAL
+    assert result2["data"][CONF_ENVOY_HOST] == "192.168.1.50"
+
+
+async def test_zeroconf_already_configured_updates_host(hass: HomeAssistant) -> None:
+    """Re-discovering a configured Envoy aborts and refreshes its stored host."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_CONNECTION_MODE: CONNECTION_MODE_LOCAL,
+            CONF_ENVOY_HOST: "192.168.1.10",
+            "cloud_username": "u@example.com",
+            "cloud_password": "pw",
+        },
+        unique_id="122050042807",
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": config_entries.SOURCE_ZEROCONF},
+        data=_zeroconf_info(host="192.168.1.50", serial="122050042807"),
+    )
+
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    assert entry.data[CONF_ENVOY_HOST] == "192.168.1.50"

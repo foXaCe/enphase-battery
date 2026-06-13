@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import entity_registry as er, issue_registry as ir
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -237,3 +237,45 @@ async def test_reload_entry(
     with patch.object(hass.config_entries, "async_reload", new=AsyncMock()) as mock_reload:
         await async_reload_entry(hass, mock_local_config_entry)
         mock_reload.assert_called_once_with(mock_local_config_entry.entry_id)
+
+
+async def test_control_disabled_creates_repair_issue(
+    hass: HomeAssistant,
+    mock_local_config_entry: MockConfigEntry,
+) -> None:
+    """Local-only mode (no cloud control) raises the control_disabled repair issue."""
+    mock_local_config_entry.add_to_hass(hass)
+
+    with patch("custom_components.enphase_battery.EnphaseBatteryDataUpdateCoordinator") as mock_coord_class:
+        mock_coord = MagicMock()
+        mock_coord.async_config_entry_first_refresh = AsyncMock()
+        mock_coord.is_local_mode = True
+        mock_coord.async_shutdown = AsyncMock()
+        mock_coord_class.return_value = mock_coord
+
+        await hass.config_entries.async_setup(mock_local_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    issue = ir.async_get(hass).async_get_issue(DOMAIN, f"control_disabled_{mock_local_config_entry.entry_id}")
+    assert issue is not None
+
+
+async def test_no_repair_issue_when_control_available(
+    hass: HomeAssistant,
+    mock_local_config_entry: MockConfigEntry,
+) -> None:
+    """No repair issue when control is available (cloud / hybrid mode)."""
+    mock_local_config_entry.add_to_hass(hass)
+
+    with patch("custom_components.enphase_battery.EnphaseBatteryDataUpdateCoordinator") as mock_coord_class:
+        mock_coord = MagicMock()
+        mock_coord.async_config_entry_first_refresh = AsyncMock()
+        mock_coord.is_local_mode = False
+        mock_coord.async_shutdown = AsyncMock()
+        mock_coord_class.return_value = mock_coord
+
+        await hass.config_entries.async_setup(mock_local_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    issue = ir.async_get(hass).async_get_issue(DOMAIN, f"control_disabled_{mock_local_config_entry.entry_id}")
+    assert issue is None
