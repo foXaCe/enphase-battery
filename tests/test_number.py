@@ -24,6 +24,7 @@ from custom_components.enphase_battery.number import (
 def _mock_coordinator(data=None):
     """Create a mock coordinator with data."""
     coord = MagicMock(spec=EnphaseBatteryDataUpdateCoordinator)
+    coord.unique_id_prefix = "test_entry"
     coord.data = data
     coord.is_local_mode = False
     coord.local_api = None
@@ -162,7 +163,7 @@ class TestBatteryBackupReserveNumber:
     def test_unique_id(self):
         coord = _mock_coordinator(None)
         number = BatteryBackupReserveNumber(coord)
-        assert number._attr_unique_id == f"{DOMAIN}_very_low_soc"
+        assert number._attr_unique_id == "test_entry_very_low_soc"
 
     def test_min_max_step(self):
         coord = _mock_coordinator(None)

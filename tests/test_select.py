@@ -35,6 +35,7 @@ from custom_components.enphase_battery.select import (
 def _mock_coordinator(data=None, battery_mode=None):
     """Create a mock coordinator with data."""
     coord = MagicMock(spec=EnphaseBatteryDataUpdateCoordinator)
+    coord.unique_id_prefix = "test_entry"
     coord.data = data
     coord.is_local_mode = False
     coord.local_api = None
@@ -239,7 +240,7 @@ class TestBatteryModeSelect:
     def test_unique_id(self):
         coord = _mock_coordinator(None)
         select = BatteryModeSelect(coord)
-        assert select._attr_unique_id == f"{DOMAIN}_battery_mode"
+        assert select._attr_unique_id == "test_entry_battery_mode"
 
     def test_options_list(self):
         coord = _mock_coordinator(None)

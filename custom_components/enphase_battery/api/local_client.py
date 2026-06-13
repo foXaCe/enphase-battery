@@ -66,6 +66,16 @@ class EnphaseEnvoyLocalAPI:
         self._firmware_version: str | None = None
         self._cloud_session = cloud_session
 
+    @property
+    def serial_number(self) -> str | None:
+        """Return the Envoy serial number, if retrieved."""
+        return self._serial_number
+
+    @property
+    def firmware_version(self) -> str | None:
+        """Return the Envoy firmware version, if retrieved."""
+        return self._firmware_version
+
     async def _make_request(  # type: ignore[no-untyped-def]
         self,
         method: str,

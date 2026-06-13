@@ -9,10 +9,10 @@ from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
 )
-from homeassistant.helpers.entity import EntityCategory  # type: ignore[attr-defined]
+from homeassistant.const import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DEVICE_INFO, DOMAIN
+from .const import DEVICE_INFO
 from .coordinator import EnphaseBatteryDataUpdateCoordinator
 
 if TYPE_CHECKING:
@@ -64,7 +64,7 @@ class EnphaseBatteryBinarySensorBase(CoordinatorEntity[EnphaseBatteryDataUpdateC
         super().__init__(coordinator)
         self._sensor_type = sensor_type
         self._attr_translation_key = translation_key
-        self._attr_unique_id = f"{DOMAIN}_{sensor_type}"
+        self._attr_unique_id = f"{coordinator.unique_id_prefix}_{sensor_type}"
 
 
 # Diagnostic Binary Sensors

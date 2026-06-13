@@ -25,6 +25,7 @@ from custom_components.enphase_battery.coordinator import (
 def _mock_coordinator(data=None):
     """Create a mock coordinator with data."""
     coord = MagicMock(spec=EnphaseBatteryDataUpdateCoordinator)
+    coord.unique_id_prefix = "test_entry"
     coord.data = data
     coord.is_local_mode = False
     coord.local_api = None
@@ -115,7 +116,7 @@ class TestBatteryGridTiedBinarySensor:
     def test_unique_id(self):
         coord = _mock_coordinator(None)
         sensor = BatteryGridTiedBinarySensor(coord)
-        assert sensor._attr_unique_id == f"{DOMAIN}_grid_tied"
+        assert sensor._attr_unique_id == "test_entry_grid_tied"
 
     def test_is_on_empty_string_grid_state(self):
         """Test with empty string grid state from device."""
@@ -212,7 +213,7 @@ class TestBatteryHealthyBinarySensor:
     def test_unique_id(self):
         coord = _mock_coordinator(None)
         sensor = BatteryHealthyBinarySensor(coord)
-        assert sensor._attr_unique_id == f"{DOMAIN}_healthy"
+        assert sensor._attr_unique_id == "test_entry_healthy"
 
     def test_both_soh_low_and_temp_high(self):
         """Both problems present: temperature check happens first, returns True."""
@@ -268,4 +269,4 @@ class TestEnvoyConnectedBinarySensor:
     def test_unique_id(self):
         coord = _mock_coordinator(None)
         sensor = EnvoyConnectedBinarySensor(coord)
-        assert sensor._attr_unique_id == f"{DOMAIN}_envoy_connected"
+        assert sensor._attr_unique_id == "test_entry_envoy_connected"

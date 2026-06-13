@@ -49,6 +49,7 @@ from custom_components.enphase_battery.sensor import (
 def _mock_coordinator(data=None):
     """Create a mock coordinator with data."""
     coord = MagicMock(spec=EnphaseBatteryDataUpdateCoordinator)
+    coord.unique_id_prefix = "test_entry"
     coord.data = data
     coord.is_local_mode = False
     coord.local_api = None
@@ -117,7 +118,7 @@ class TestBatterySOCSensor:
     def test_unique_id(self):
         coord = _mock_coordinator({"soc": 50})
         sensor = BatterySOCSensor(coord)
-        assert sensor._attr_unique_id == f"{DOMAIN}_soc"
+        assert sensor._attr_unique_id == "test_entry_soc"
 
 
 # ===========================================================================
@@ -491,27 +492,17 @@ class TestBatteryGridModeSensor:
 # EnvoySerialNumberSensor
 # ===========================================================================
 class TestEnvoySerialNumberSensor:
-    """Tests for the EnvoySerialNumberSensor."""
+    """Tests for the EnvoySerialNumberSensor (reads coordinator.envoy_serial)."""
 
-    def test_native_value_local_mode(self):
+    def test_native_value(self):
         coord = _mock_coordinator({"soc": 50})
-        coord.is_local_mode = True
-        coord.local_api = MagicMock()
-        coord.local_api._serial_number = "ABC123456"
+        coord.envoy_serial = "ABC123456"
         sensor = EnvoySerialNumberSensor(coord)
         assert sensor.native_value == "ABC123456"
 
-    def test_native_value_cloud_mode(self):
+    def test_native_value_none(self):
         coord = _mock_coordinator({"soc": 50})
-        coord.is_local_mode = False
-        coord.local_api = None
-        sensor = EnvoySerialNumberSensor(coord)
-        assert sensor.native_value is None
-
-    def test_native_value_local_mode_no_api(self):
-        coord = _mock_coordinator({"soc": 50})
-        coord.is_local_mode = True
-        coord.local_api = None
+        coord.envoy_serial = None
         sensor = EnvoySerialNumberSensor(coord)
         assert sensor.native_value is None
 
@@ -520,27 +511,17 @@ class TestEnvoySerialNumberSensor:
 # EnvoyFirmwareSensor
 # ===========================================================================
 class TestEnvoyFirmwareSensor:
-    """Tests for the EnvoyFirmwareSensor."""
+    """Tests for the EnvoyFirmwareSensor (reads coordinator.envoy_firmware)."""
 
-    def test_native_value_local_mode(self):
+    def test_native_value(self):
         coord = _mock_coordinator({"soc": 50})
-        coord.is_local_mode = True
-        coord.local_api = MagicMock()
-        coord.local_api._firmware_version = "8.2.4225"
+        coord.envoy_firmware = "8.2.4225"
         sensor = EnvoyFirmwareSensor(coord)
         assert sensor.native_value == "8.2.4225"
 
-    def test_native_value_cloud_mode(self):
+    def test_native_value_none(self):
         coord = _mock_coordinator({"soc": 50})
-        coord.is_local_mode = False
-        coord.local_api = None
-        sensor = EnvoyFirmwareSensor(coord)
-        assert sensor.native_value is None
-
-    def test_native_value_local_mode_no_api(self):
-        coord = _mock_coordinator({"soc": 50})
-        coord.is_local_mode = True
-        coord.local_api = None
+        coord.envoy_firmware = None
         sensor = EnvoyFirmwareSensor(coord)
         assert sensor.native_value is None
 
@@ -596,7 +577,7 @@ class TestIndividualBatteryTemperatureSensor:
     def test_unique_id(self):
         coord = _mock_coordinator(None)
         sensor = IndividualBatteryTemperatureSensor(coord, "SN001", "500-00001", 1)
-        assert sensor._attr_unique_id == f"{DOMAIN}_battery_SN001_temperature"
+        assert sensor._attr_unique_id == "test_entry_battery_SN001_temperature"
 
 
 # ===========================================================================

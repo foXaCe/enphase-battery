@@ -7,9 +7,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.helpers import entity_registry as er
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.enphase_battery import async_migrate_entry
 from custom_components.enphase_battery.const import (
     CONF_CONNECTION_MODE,
     CONF_ENVOY_HOST,
@@ -140,6 +142,37 @@ async def test_migrate_entry_adds_connection_mode(
     # Verify migration added connection_mode
     assert CONF_CONNECTION_MODE in old_entry.data
     assert old_entry.data[CONF_CONNECTION_MODE] == CONNECTION_MODE_CLOUD
+    # Chained migration leaves the entry at the current version.
+    assert old_entry.version == 3
+
+
+async def test_migrate_v2_to_v3_scopes_unique_ids(hass: HomeAssistant) -> None:
+    """Migration v2->v3 rewrites legacy DOMAIN-prefixed unique IDs to entry-scoped ones."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Enphase Battery Local",
+        version=2,
+        data={
+            CONF_CONNECTION_MODE: CONNECTION_MODE_LOCAL,
+            CONF_ENVOY_HOST: "192.168.1.100",
+            "cloud_username": "test@example.com",
+            "cloud_password": "testpassword",
+        },
+        unique_id="SERIAL1",
+    )
+    entry.add_to_hass(hass)
+
+    registry = er.async_get(hass)
+    legacy = registry.async_get_or_create("sensor", DOMAIN, f"{DOMAIN}_soc", config_entry=entry)
+    legacy_battery = registry.async_get_or_create(
+        "sensor", DOMAIN, f"{DOMAIN}_battery_SN1_temperature", config_entry=entry
+    )
+
+    assert await async_migrate_entry(hass, entry)
+
+    assert entry.version == 3
+    assert registry.async_get(legacy.entity_id).unique_id == f"{entry.entry_id}_soc"
+    assert registry.async_get(legacy_battery.entity_id).unique_id == f"{entry.entry_id}_battery_SN1_temperature"
 
 
 async def test_setup_entry_not_ready_on_connection_failure(

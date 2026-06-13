@@ -1013,6 +1013,25 @@ class TestAsyncShutdown:
 class TestProperties:
     """Tests for coordinator properties."""
 
+    async def test_unique_id_prefix(self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store):
+        """unique_id_prefix returns the config entry id."""
+        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
+
+        assert coordinator.unique_id_prefix == local_entry.entry_id
+
+    async def test_envoy_serial_and_firmware(self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store):
+        """envoy_serial/envoy_firmware proxy the local API, or None without one."""
+        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
+
+        assert coordinator.envoy_serial is None
+        assert coordinator.envoy_firmware is None
+
+        coordinator.local_api = MagicMock()
+        coordinator.local_api.serial_number = "SN9"
+        coordinator.local_api.firmware_version = "D8.2.4225"
+        assert coordinator.envoy_serial == "SN9"
+        assert coordinator.envoy_firmware == "D8.2.4225"
+
     async def test_connection_mode_local(self, hass: HomeAssistant, local_entry: MockConfigEntry, mock_store):
         """Test connection_mode returns local."""
         coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)

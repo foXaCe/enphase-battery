@@ -443,6 +443,21 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
             _LOGGER.debug("Local Envoy API client closed")
 
     @property
+    def unique_id_prefix(self) -> str:
+        """Stable per-entry prefix for entity unique IDs."""
+        return self.config_entry.entry_id
+
+    @property
+    def envoy_serial(self) -> str | None:
+        """Return the Envoy serial number (local mode), if known."""
+        return self.local_api.serial_number if self.local_api else None
+
+    @property
+    def envoy_firmware(self) -> str | None:
+        """Return the Envoy firmware version (local mode), if known."""
+        return self.local_api.firmware_version if self.local_api else None
+
+    @property
     def connection_mode(self) -> str:
         """Return current connection mode."""
         return self._connection_mode  # type: ignore[no-any-return]

@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
+from homeassistant.core import callback
+from homeassistant.helpers import entity_registry as er
 
 from .const import CONF_CONNECTION_MODE, CONNECTION_MODE_CLOUD, DOMAIN
 from .coordinator import EnphaseBatteryDataUpdateCoordinator
@@ -45,25 +47,44 @@ else:
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Migrate old config entries to new format.
+    """Migrate old config entries to the current format.
 
     Migration history:
     - Version 1: Initial version (cloud-only mode)
     - Version 2: Added connection_mode field for dual-mode support
+    - Version 3: Entity unique IDs scoped to the config entry (multi-instance safe)
     """
-    _LOGGER.debug("Migrating from version %s to %s", entry.version, 2)
+    _LOGGER.debug("Migrating Enphase Battery entry from version %s", entry.version)
 
     if entry.version == 1:
-        # Migrate from v1 to v2: Add connection_mode field
-        # Old configs were always cloud-based
+        # v1 -> v2: old configs were always cloud-based.
         new_data = {**entry.data}
-        if CONF_CONNECTION_MODE not in new_data:
-            new_data[CONF_CONNECTION_MODE] = CONNECTION_MODE_CLOUD
-
+        new_data.setdefault(CONF_CONNECTION_MODE, CONNECTION_MODE_CLOUD)
         hass.config_entries.async_update_entry(entry, data=new_data, version=2)
-        _LOGGER.info("Migrated config entry from version 1 to 2: added connection_mode='cloud'")
+        _LOGGER.info("Migrated entry to version 2 (added connection_mode='cloud')")
+
+    if entry.version == 2:
+        # v2 -> v3: rewrite the legacy DOMAIN-prefixed unique IDs to be scoped
+        # to the config entry, so two Enphase systems can coexist.
+        await _async_migrate_unique_ids(hass, entry)
+        hass.config_entries.async_update_entry(entry, version=3)
+        _LOGGER.info("Migrated entry to version 3 (entry-scoped unique IDs)")
 
     return True
+
+
+async def _async_migrate_unique_ids(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Rewrite entity unique IDs from the legacy ``DOMAIN`` prefix to the entry id."""
+    legacy_prefix = f"{DOMAIN}_"
+    new_prefix = f"{entry.entry_id}_"
+
+    @callback
+    def _update_unique_id(reg_entry: er.RegistryEntry) -> dict[str, str] | None:
+        if reg_entry.unique_id.startswith(legacy_prefix):
+            return {"new_unique_id": new_prefix + reg_entry.unique_id[len(legacy_prefix) :]}
+        return None
+
+    await er.async_migrate_entries(hass, entry.entry_id, _update_unique_id)
 
 
 async def async_setup_entry(

@@ -156,7 +156,7 @@ async def validate_cloud_input(hass: HomeAssistant, data: dict[str, Any]) -> dic
 class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Enphase Battery."""
 
-    VERSION = 2
+    VERSION = 3
 
     def __init__(self) -> None:
         """Initialize config flow."""

@@ -20,12 +20,16 @@ from custom_components.enphase_battery.coordinator import (
     EnphaseBatteryDataUpdateCoordinator,
 )
 from custom_components.enphase_battery.switch import (
-    ChargeFromGridSwitch,
-    LimitDischargeSwitch,
-    PowerMatchSwitch,
-    ReserveBatteryDischargeSwitch,
+    SWITCHES,
+    EnphaseBatterySwitch,
     async_setup_entry,
 )
+
+
+def _make_switch(coord, key: str) -> EnphaseBatterySwitch:
+    """Build an EnphaseBatterySwitch for the description with the given key."""
+    description = next(d for d in SWITCHES if d.key == key)
+    return EnphaseBatterySwitch(coord, description)
 
 
 # ---------------------------------------------------------------------------
@@ -35,6 +39,7 @@ def _mock_coordinator(data=None):
     """Create a mock coordinator with data."""
     coord = MagicMock(spec=EnphaseBatteryDataUpdateCoordinator)
     coord.data = data
+    coord.unique_id_prefix = "test_entry"
     coord.is_local_mode = False
     coord.local_api = None
     coord.api = MagicMock()
@@ -80,11 +85,13 @@ class TestAsyncSetupEntry:
         await async_setup_entry(MagicMock(), entry, lambda e: added.extend(e))
 
         assert len(added) == 4
-        types = {type(e).__name__ for e in added}
-        assert "ChargeFromGridSwitch" in types
-        assert "LimitDischargeSwitch" in types
-        assert "ReserveBatteryDischargeSwitch" in types
-        assert "PowerMatchSwitch" in types
+        keys = {e.entity_description.key for e in added}
+        assert keys == {
+            "charge_from_grid",
+            "discharge_to_grid",
+            "reserve_battery_discharge",
+            "power_match",
+        }
 
     @pytest.mark.asyncio
     async def test_local_mode_without_cloud_control_no_switches(self):
@@ -125,34 +132,34 @@ class TestChargeFromGridSwitch:
 
     def test_is_on_from_data(self):
         coord = _mock_coordinator({"charge_from_grid": True})
-        switch = ChargeFromGridSwitch(coord)
+        switch = _make_switch(coord, "charge_from_grid")
         assert switch.is_on is True
 
     def test_is_on_false_from_data(self):
         coord = _mock_coordinator({"charge_from_grid": False})
-        switch = ChargeFromGridSwitch(coord)
+        switch = _make_switch(coord, "charge_from_grid")
         assert switch.is_on is False
 
     def test_is_on_default_false(self):
         coord = _mock_coordinator({"soc": 50})
-        switch = ChargeFromGridSwitch(coord)
+        switch = _make_switch(coord, "charge_from_grid")
         assert switch.is_on is False
 
     def test_is_on_none_when_no_data(self):
         coord = _mock_coordinator(None)
-        switch = ChargeFromGridSwitch(coord)
+        switch = _make_switch(coord, "charge_from_grid")
         assert switch.is_on is None
 
     def test_is_on_optimistic_state(self):
         coord = _mock_coordinator({"charge_from_grid": False})
-        switch = ChargeFromGridSwitch(coord)
+        switch = _make_switch(coord, "charge_from_grid")
         switch._optimistic_state = True
         assert switch.is_on is True
 
     @pytest.mark.asyncio
     async def test_turn_on(self):
         coord = _mock_coordinator({"charge_from_grid": False})
-        switch = ChargeFromGridSwitch(coord)
+        switch = _make_switch(coord, "charge_from_grid")
         switch.async_write_ha_state = MagicMock()
 
         await switch.async_turn_on()
@@ -165,7 +172,7 @@ class TestChargeFromGridSwitch:
     @pytest.mark.asyncio
     async def test_turn_off(self):
         coord = _mock_coordinator({"charge_from_grid": True})
-        switch = ChargeFromGridSwitch(coord)
+        switch = _make_switch(coord, "charge_from_grid")
         switch.async_write_ha_state = MagicMock()
 
         await switch.async_turn_off()
@@ -179,7 +186,7 @@ class TestChargeFromGridSwitch:
     async def test_turn_on_error(self):
         coord = _mock_coordinator({"charge_from_grid": False})
         coord.api.set_charge_from_grid = AsyncMock(side_effect=Exception("API error"))
-        switch = ChargeFromGridSwitch(coord)
+        switch = _make_switch(coord, "charge_from_grid")
         switch.async_write_ha_state = MagicMock()
 
         with pytest.raises(Exception, match="API error"):
@@ -191,7 +198,7 @@ class TestChargeFromGridSwitch:
     async def test_turn_off_error(self):
         coord = _mock_coordinator({"charge_from_grid": True})
         coord.api.set_charge_from_grid = AsyncMock(side_effect=Exception("API error"))
-        switch = ChargeFromGridSwitch(coord)
+        switch = _make_switch(coord, "charge_from_grid")
         switch.async_write_ha_state = MagicMock()
 
         with pytest.raises(Exception, match="API error"):
@@ -203,7 +210,7 @@ class TestChargeFromGridSwitch:
     async def test_turn_on_no_api(self):
         coord = _mock_coordinator({"charge_from_grid": False})
         coord.api = None
-        switch = ChargeFromGridSwitch(coord)
+        switch = _make_switch(coord, "charge_from_grid")
         switch.async_write_ha_state = MagicMock()
 
         with pytest.raises(HomeAssistantError):
@@ -215,7 +222,7 @@ class TestChargeFromGridSwitch:
     async def test_turn_off_no_api(self):
         coord = _mock_coordinator({"charge_from_grid": True})
         coord.api = None
-        switch = ChargeFromGridSwitch(coord)
+        switch = _make_switch(coord, "charge_from_grid")
         switch.async_write_ha_state = MagicMock()
 
         with pytest.raises(HomeAssistantError):
@@ -225,8 +232,8 @@ class TestChargeFromGridSwitch:
 
     def test_unique_id(self):
         coord = _mock_coordinator(None)
-        switch = ChargeFromGridSwitch(coord)
-        assert switch._attr_unique_id == f"{DOMAIN}_charge_from_grid"
+        switch = _make_switch(coord, "charge_from_grid")
+        assert switch._attr_unique_id == f"{coord.unique_id_prefix}_charge_from_grid"
 
 
 # ===========================================================================
@@ -237,34 +244,34 @@ class TestLimitDischargeSwitch:
 
     def test_is_on_from_data(self):
         coord = _mock_coordinator({"discharge_to_grid": True})
-        switch = LimitDischargeSwitch(coord)
+        switch = _make_switch(coord, "discharge_to_grid")
         assert switch.is_on is True
 
     def test_is_on_false_from_data(self):
         coord = _mock_coordinator({"discharge_to_grid": False})
-        switch = LimitDischargeSwitch(coord)
+        switch = _make_switch(coord, "discharge_to_grid")
         assert switch.is_on is False
 
     def test_is_on_default_false(self):
         coord = _mock_coordinator({"soc": 50})
-        switch = LimitDischargeSwitch(coord)
+        switch = _make_switch(coord, "discharge_to_grid")
         assert switch.is_on is False
 
     def test_is_on_none_when_no_data(self):
         coord = _mock_coordinator(None)
-        switch = LimitDischargeSwitch(coord)
+        switch = _make_switch(coord, "discharge_to_grid")
         assert switch.is_on is None
 
     def test_is_on_optimistic_state(self):
         coord = _mock_coordinator({"discharge_to_grid": False})
-        switch = LimitDischargeSwitch(coord)
+        switch = _make_switch(coord, "discharge_to_grid")
         switch._optimistic_state = True
         assert switch.is_on is True
 
     @pytest.mark.asyncio
     async def test_turn_on(self):
         coord = _mock_coordinator({"discharge_to_grid": False})
-        switch = LimitDischargeSwitch(coord)
+        switch = _make_switch(coord, "discharge_to_grid")
         switch.async_write_ha_state = MagicMock()
 
         await switch.async_turn_on()
@@ -277,7 +284,7 @@ class TestLimitDischargeSwitch:
     @pytest.mark.asyncio
     async def test_turn_off(self):
         coord = _mock_coordinator({"discharge_to_grid": True})
-        switch = LimitDischargeSwitch(coord)
+        switch = _make_switch(coord, "discharge_to_grid")
         switch.async_write_ha_state = MagicMock()
 
         await switch.async_turn_off()
@@ -291,7 +298,7 @@ class TestLimitDischargeSwitch:
     async def test_turn_on_error(self):
         coord = _mock_coordinator({"discharge_to_grid": False})
         coord.api.set_limit_discharge = AsyncMock(side_effect=Exception("API error"))
-        switch = LimitDischargeSwitch(coord)
+        switch = _make_switch(coord, "discharge_to_grid")
         switch.async_write_ha_state = MagicMock()
 
         with pytest.raises(Exception, match="API error"):
@@ -303,7 +310,7 @@ class TestLimitDischargeSwitch:
     async def test_turn_off_error(self):
         coord = _mock_coordinator({"discharge_to_grid": True})
         coord.api.set_limit_discharge = AsyncMock(side_effect=Exception("API error"))
-        switch = LimitDischargeSwitch(coord)
+        switch = _make_switch(coord, "discharge_to_grid")
         switch.async_write_ha_state = MagicMock()
 
         with pytest.raises(Exception, match="API error"):
@@ -315,7 +322,7 @@ class TestLimitDischargeSwitch:
     async def test_turn_on_no_api(self):
         coord = _mock_coordinator({"discharge_to_grid": False})
         coord.api = None
-        switch = LimitDischargeSwitch(coord)
+        switch = _make_switch(coord, "discharge_to_grid")
         switch.async_write_ha_state = MagicMock()
 
         with pytest.raises(HomeAssistantError):
@@ -325,7 +332,7 @@ class TestLimitDischargeSwitch:
     async def test_turn_off_no_api(self):
         coord = _mock_coordinator({"discharge_to_grid": True})
         coord.api = None
-        switch = LimitDischargeSwitch(coord)
+        switch = _make_switch(coord, "discharge_to_grid")
         switch.async_write_ha_state = MagicMock()
 
         with pytest.raises(HomeAssistantError):
@@ -333,8 +340,8 @@ class TestLimitDischargeSwitch:
 
     def test_unique_id(self):
         coord = _mock_coordinator(None)
-        switch = LimitDischargeSwitch(coord)
-        assert switch._attr_unique_id == f"{DOMAIN}_discharge_to_grid"
+        switch = _make_switch(coord, "discharge_to_grid")
+        assert switch._attr_unique_id == f"{coord.unique_id_prefix}_discharge_to_grid"
 
 
 # ===========================================================================
@@ -345,34 +352,34 @@ class TestReserveBatteryDischargeSwitch:
 
     def test_is_on_from_data(self):
         coord = _mock_coordinator({"reserve_battery_discharge": True})
-        switch = ReserveBatteryDischargeSwitch(coord)
+        switch = _make_switch(coord, "reserve_battery_discharge")
         assert switch.is_on is True
 
     def test_is_on_false_from_data(self):
         coord = _mock_coordinator({"reserve_battery_discharge": False})
-        switch = ReserveBatteryDischargeSwitch(coord)
+        switch = _make_switch(coord, "reserve_battery_discharge")
         assert switch.is_on is False
 
     def test_is_on_default_false(self):
         coord = _mock_coordinator({"soc": 50})
-        switch = ReserveBatteryDischargeSwitch(coord)
+        switch = _make_switch(coord, "reserve_battery_discharge")
         assert switch.is_on is False
 
     def test_is_on_none_when_no_data(self):
         coord = _mock_coordinator(None)
-        switch = ReserveBatteryDischargeSwitch(coord)
+        switch = _make_switch(coord, "reserve_battery_discharge")
         assert switch.is_on is None
 
     def test_is_on_optimistic_state(self):
         coord = _mock_coordinator({"reserve_battery_discharge": False})
-        switch = ReserveBatteryDischargeSwitch(coord)
+        switch = _make_switch(coord, "reserve_battery_discharge")
         switch._optimistic_state = True
         assert switch.is_on is True
 
     @pytest.mark.asyncio
     async def test_turn_on(self):
         coord = _mock_coordinator({"reserve_battery_discharge": False})
-        switch = ReserveBatteryDischargeSwitch(coord)
+        switch = _make_switch(coord, "reserve_battery_discharge")
         switch.async_write_ha_state = MagicMock()
 
         await switch.async_turn_on()
@@ -385,7 +392,7 @@ class TestReserveBatteryDischargeSwitch:
     @pytest.mark.asyncio
     async def test_turn_off(self):
         coord = _mock_coordinator({"reserve_battery_discharge": True})
-        switch = ReserveBatteryDischargeSwitch(coord)
+        switch = _make_switch(coord, "reserve_battery_discharge")
         switch.async_write_ha_state = MagicMock()
 
         await switch.async_turn_off()
@@ -399,7 +406,7 @@ class TestReserveBatteryDischargeSwitch:
     async def test_turn_on_error(self):
         coord = _mock_coordinator({"reserve_battery_discharge": False})
         coord.api.set_reserve_battery_discharge = AsyncMock(side_effect=Exception("API error"))
-        switch = ReserveBatteryDischargeSwitch(coord)
+        switch = _make_switch(coord, "reserve_battery_discharge")
         switch.async_write_ha_state = MagicMock()
 
         with pytest.raises(Exception, match="API error"):
@@ -411,7 +418,7 @@ class TestReserveBatteryDischargeSwitch:
     async def test_turn_off_error(self):
         coord = _mock_coordinator({"reserve_battery_discharge": True})
         coord.api.set_reserve_battery_discharge = AsyncMock(side_effect=Exception("API error"))
-        switch = ReserveBatteryDischargeSwitch(coord)
+        switch = _make_switch(coord, "reserve_battery_discharge")
         switch.async_write_ha_state = MagicMock()
 
         with pytest.raises(Exception, match="API error"):
@@ -423,7 +430,7 @@ class TestReserveBatteryDischargeSwitch:
     async def test_turn_on_no_api(self):
         coord = _mock_coordinator({"reserve_battery_discharge": False})
         coord.api = None
-        switch = ReserveBatteryDischargeSwitch(coord)
+        switch = _make_switch(coord, "reserve_battery_discharge")
         switch.async_write_ha_state = MagicMock()
 
         with pytest.raises(HomeAssistantError):
@@ -433,7 +440,7 @@ class TestReserveBatteryDischargeSwitch:
     async def test_turn_off_no_api(self):
         coord = _mock_coordinator({"reserve_battery_discharge": True})
         coord.api = None
-        switch = ReserveBatteryDischargeSwitch(coord)
+        switch = _make_switch(coord, "reserve_battery_discharge")
         switch.async_write_ha_state = MagicMock()
 
         with pytest.raises(HomeAssistantError):
@@ -441,8 +448,8 @@ class TestReserveBatteryDischargeSwitch:
 
     def test_unique_id(self):
         coord = _mock_coordinator(None)
-        switch = ReserveBatteryDischargeSwitch(coord)
-        assert switch._attr_unique_id == f"{DOMAIN}_reserve_battery_discharge"
+        switch = _make_switch(coord, "reserve_battery_discharge")
+        assert switch._attr_unique_id == f"{coord.unique_id_prefix}_reserve_battery_discharge"
 
 
 # ===========================================================================
@@ -453,34 +460,34 @@ class TestPowerMatchSwitch:
 
     def test_is_on_from_data(self):
         coord = _mock_coordinator({"power_match": True})
-        switch = PowerMatchSwitch(coord)
+        switch = _make_switch(coord, "power_match")
         assert switch.is_on is True
 
     def test_is_on_false_from_data(self):
         coord = _mock_coordinator({"power_match": False})
-        switch = PowerMatchSwitch(coord)
+        switch = _make_switch(coord, "power_match")
         assert switch.is_on is False
 
     def test_is_on_default_false(self):
         coord = _mock_coordinator({"soc": 50})
-        switch = PowerMatchSwitch(coord)
+        switch = _make_switch(coord, "power_match")
         assert switch.is_on is False
 
     def test_is_on_none_when_no_data(self):
         coord = _mock_coordinator(None)
-        switch = PowerMatchSwitch(coord)
+        switch = _make_switch(coord, "power_match")
         assert switch.is_on is None
 
     def test_is_on_optimistic_state(self):
         coord = _mock_coordinator({"power_match": False})
-        switch = PowerMatchSwitch(coord)
+        switch = _make_switch(coord, "power_match")
         switch._optimistic_state = True
         assert switch.is_on is True
 
     @pytest.mark.asyncio
     async def test_turn_on(self):
         coord = _mock_coordinator({"power_match": False})
-        switch = PowerMatchSwitch(coord)
+        switch = _make_switch(coord, "power_match")
         switch.async_write_ha_state = MagicMock()
 
         await switch.async_turn_on()
@@ -493,7 +500,7 @@ class TestPowerMatchSwitch:
     @pytest.mark.asyncio
     async def test_turn_off(self):
         coord = _mock_coordinator({"power_match": True})
-        switch = PowerMatchSwitch(coord)
+        switch = _make_switch(coord, "power_match")
         switch.async_write_ha_state = MagicMock()
 
         await switch.async_turn_off()
@@ -507,7 +514,7 @@ class TestPowerMatchSwitch:
     async def test_turn_on_error(self):
         coord = _mock_coordinator({"power_match": False})
         coord.api.set_power_match = AsyncMock(side_effect=Exception("API error"))
-        switch = PowerMatchSwitch(coord)
+        switch = _make_switch(coord, "power_match")
         switch.async_write_ha_state = MagicMock()
 
         with pytest.raises(Exception, match="API error"):
@@ -519,7 +526,7 @@ class TestPowerMatchSwitch:
     async def test_turn_off_error(self):
         coord = _mock_coordinator({"power_match": True})
         coord.api.set_power_match = AsyncMock(side_effect=Exception("API error"))
-        switch = PowerMatchSwitch(coord)
+        switch = _make_switch(coord, "power_match")
         switch.async_write_ha_state = MagicMock()
 
         with pytest.raises(Exception, match="API error"):
@@ -531,7 +538,7 @@ class TestPowerMatchSwitch:
     async def test_turn_on_no_api(self):
         coord = _mock_coordinator({"power_match": False})
         coord.api = None
-        switch = PowerMatchSwitch(coord)
+        switch = _make_switch(coord, "power_match")
         switch.async_write_ha_state = MagicMock()
 
         with pytest.raises(HomeAssistantError):
@@ -541,7 +548,7 @@ class TestPowerMatchSwitch:
     async def test_turn_off_no_api(self):
         coord = _mock_coordinator({"power_match": True})
         coord.api = None
-        switch = PowerMatchSwitch(coord)
+        switch = _make_switch(coord, "power_match")
         switch.async_write_ha_state = MagicMock()
 
         with pytest.raises(HomeAssistantError):
@@ -549,5 +556,5 @@ class TestPowerMatchSwitch:
 
     def test_unique_id(self):
         coord = _mock_coordinator(None)
-        switch = PowerMatchSwitch(coord)
-        assert switch._attr_unique_id == f"{DOMAIN}_power_match"
+        switch = _make_switch(coord, "power_match")
+        assert switch._attr_unique_id == f"{coord.unique_id_prefix}_power_match"

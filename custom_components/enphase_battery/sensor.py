@@ -12,13 +12,15 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import (
     PERCENTAGE,
+    EntityCategory,
     UnitOfEnergy,
     UnitOfPower,
+    UnitOfTemperature,
+    UnitOfTime,
 )
-from homeassistant.helpers.entity import EntityCategory  # type: ignore[attr-defined]
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DEVICE_INFO, DOMAIN, get_battery_device_info
+from .const import DEVICE_INFO, get_battery_device_info
 from .coordinator import EnphaseBatteryDataUpdateCoordinator
 
 if TYPE_CHECKING:
@@ -174,7 +176,7 @@ class EnphaseBatterySensorBase(CoordinatorEntity[EnphaseBatteryDataUpdateCoordin
         super().__init__(coordinator)
         self._sensor_type = sensor_type
         self._attr_translation_key = translation_key
-        self._attr_unique_id = f"{DOMAIN}_{sensor_type}"
+        self._attr_unique_id = f"{coordinator.unique_id_prefix}_{sensor_type}"
 
 
 class IndividualBatterySensorBase(CoordinatorEntity[EnphaseBatteryDataUpdateCoordinator], SensorEntity):
@@ -199,7 +201,7 @@ class IndividualBatterySensorBase(CoordinatorEntity[EnphaseBatteryDataUpdateCoor
         self._battery_num = battery_num
         self._sensor_type = sensor_type
         self._attr_translation_key = translation_key
-        self._attr_unique_id = f"{DOMAIN}_battery_{serial_num}_{sensor_type}"
+        self._attr_unique_id = f"{coordinator.unique_id_prefix}_battery_{serial_num}_{sensor_type}"
         self._attr_device_info = get_battery_device_info(serial_num, part_num)
 
     def _get_device_data(self) -> dict | None:  # type: ignore[type-arg]
@@ -487,7 +489,7 @@ class BatteryBackupTimeSensor(EnphaseBatterySensorBase):
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator, "backup_time", "battery_backup_time")
-        self._attr_native_unit_of_measurement = "min"
+        self._attr_native_unit_of_measurement = UnitOfTime.MINUTES
         self._attr_state_class = SensorStateClass.MEASUREMENT
         self._attr_icon = "mdi:clock-outline"
 
@@ -559,10 +561,7 @@ class EnvoySerialNumberSensor(EnphaseBatterySensorBase):
     @property
     def native_value(self) -> str | None:
         """Return the state of the sensor."""
-        # Get from coordinator's local_api or api
-        if self.coordinator.is_local_mode and self.coordinator.local_api:
-            return self.coordinator.local_api._serial_number
-        return None
+        return self.coordinator.envoy_serial
 
 
 class EnvoyFirmwareSensor(EnphaseBatterySensorBase):
@@ -578,10 +577,7 @@ class EnvoyFirmwareSensor(EnphaseBatterySensorBase):
     @property
     def native_value(self) -> str | None:
         """Return the state of the sensor."""
-        # Get from coordinator's local_api or api
-        if self.coordinator.is_local_mode and self.coordinator.local_api:
-            return self.coordinator.local_api._firmware_version
-        return None
+        return self.coordinator.envoy_firmware
 
 
 # =============================================================================
@@ -602,7 +598,7 @@ class IndividualBatteryTemperatureSensor(IndividualBatterySensorBase):
         """Initialize the sensor."""
         super().__init__(coordinator, serial_num, part_num, battery_num, "temperature", "individual_temperature")
         self._attr_device_class = SensorDeviceClass.TEMPERATURE
-        self._attr_native_unit_of_measurement = "°C"
+        self._attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
         self._attr_state_class = SensorStateClass.MEASUREMENT
         self._attr_icon = "mdi:thermometer"
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
@@ -629,7 +625,7 @@ class IndividualBatteryMaxCellTempSensor(IndividualBatterySensorBase):
         """Initialize the sensor."""
         super().__init__(coordinator, serial_num, part_num, battery_num, "max_cell_temp", "individual_max_cell_temp")
         self._attr_device_class = SensorDeviceClass.TEMPERATURE
-        self._attr_native_unit_of_measurement = "°C"
+        self._attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
         self._attr_state_class = SensorStateClass.MEASUREMENT
         self._attr_icon = "mdi:thermometer-alert"
         self._attr_entity_category = EntityCategory.DIAGNOSTIC

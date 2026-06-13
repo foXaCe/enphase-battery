@@ -91,6 +91,18 @@ class TestExceptions:
         assert isinstance(err, EnvoyLocalApiError)
 
 
+class TestProperties:
+    """Public accessors for serial/firmware."""
+
+    def test_serial_and_firmware(self, api_with_token: EnphaseEnvoyLocalAPI):
+        assert api_with_token.serial_number is None
+        assert api_with_token.firmware_version is None
+        api_with_token._serial_number = "121845123456"
+        api_with_token._firmware_version = "D8.2.4225"
+        assert api_with_token.serial_number == "121845123456"
+        assert api_with_token.firmware_version == "D8.2.4225"
+
+
 # ---------------------------------------------------------------------------
 # __init__
 # ---------------------------------------------------------------------------

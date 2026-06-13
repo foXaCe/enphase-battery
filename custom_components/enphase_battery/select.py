@@ -72,13 +72,15 @@ class BatteryModeSelect(CoordinatorEntity[EnphaseBatteryDataUpdateCoordinator], 
     _attr_options: ClassVar[list[str]] = [  # type: ignore[misc]
         "self_consumption",
         "savings",
+        "backup",
+        "expert",
     ]
 
     def __init__(self, coordinator: EnphaseBatteryDataUpdateCoordinator) -> None:
         """Initialize the select entity."""
         super().__init__(coordinator)
         self._attr_translation_key = "battery_mode"
-        self._attr_unique_id = f"{DOMAIN}_battery_mode"
+        self._attr_unique_id = f"{coordinator.unique_id_prefix}_battery_mode"
 
         # Mapping API values <-> translation keys
         self._mode_api_to_key = {

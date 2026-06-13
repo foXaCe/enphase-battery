@@ -53,7 +53,7 @@ class BatteryBackupReserveNumber(CoordinatorEntity[EnphaseBatteryDataUpdateCoord
         """Initialize the number entity."""
         super().__init__(coordinator)
         self._attr_translation_key = "battery_reserve"
-        self._attr_unique_id = f"{DOMAIN}_very_low_soc"
+        self._attr_unique_id = f"{coordinator.unique_id_prefix}_very_low_soc"
         self._attr_icon = "mdi:battery-alert"
         self._attr_native_unit_of_measurement = PERCENTAGE
         self._attr_mode = NumberMode.SLIDER
