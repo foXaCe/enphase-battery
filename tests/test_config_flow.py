@@ -1908,3 +1908,35 @@ async def test_zeroconf_prefers_ipv4(hass: HomeAssistant, mock_local_api) -> Non
     )
     assert result2["type"] == FlowResultType.CREATE_ENTRY
     assert result2["data"][CONF_ENVOY_HOST] == "192.168.1.77"
+
+
+async def test_zeroconf_ipv6_only_keeps_existing_host(hass: HomeAssistant) -> None:
+    """An IPv6-only rediscovery must not overwrite a working (reachable) host."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_CONNECTION_MODE: CONNECTION_MODE_LOCAL,
+            CONF_ENVOY_HOST: "envoy.local",
+            "cloud_username": "u@example.com",
+            "cloud_password": "pw",
+        },
+        unique_id="122050042807",
+    )
+    entry.add_to_hass(hass)
+
+    info = ZeroconfServiceInfo(
+        ip_address=ip_address("fd8d::c272"),
+        ip_addresses=[ip_address("fd8d::c272")],  # IPv6 only
+        hostname="envoy.local.",
+        name="envoy_122050042807._enphase-envoy._tcp.local.",
+        port=443,
+        type="_enphase-envoy._tcp.local.",
+        properties={"serialnum": "122050042807"},
+    )
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=info
+    )
+
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    assert entry.data[CONF_ENVOY_HOST] == "envoy.local"

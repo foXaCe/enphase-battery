@@ -275,15 +275,16 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_zeroconf(self, discovery_info: ZeroconfServiceInfo) -> ConfigFlowResult:
         """Handle an Envoy discovered via zeroconf (mDNS)."""
         serial = discovery_info.properties.get("serialnum") or discovery_info.hostname.partition(".")[0]
-        # Prefer an IPv4 address (more reliably routable than an IPv6 ULA).
-        host = next(
-            (str(ip) for ip in discovery_info.ip_addresses if ip.version == 4),
-            discovery_info.host,
-        )
+        # Envoys often advertise only an IPv6 ULA over mDNS, which is usually not
+        # routable. Prefer IPv4; otherwise fall back to the (resolvable) hostname
+        # rather than a raw IPv6 literal.
+        ipv4 = next((str(ip) for ip in discovery_info.ip_addresses if ip.version == 4), None)
+        host = ipv4 or discovery_info.hostname.rstrip(".") or discovery_info.host
 
         await self.async_set_unique_id(str(serial))
-        # Update the stored host if the Envoy's IP changed; abort if already set up.
-        self._abort_if_unique_id_configured(updates={CONF_ENVOY_HOST: host})
+        # Only refresh a configured entry's host when we found an IPv4, so a
+        # working host is never clobbered with an unreachable IPv6 literal.
+        self._abort_if_unique_id_configured(updates={CONF_ENVOY_HOST: ipv4} if ipv4 else {})
 
         self._discovered_host = host
         self.context["title_placeholders"] = {"name": f"Envoy {serial}"}
