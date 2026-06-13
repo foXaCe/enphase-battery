@@ -195,6 +195,10 @@ class EnphaseEnvoyLocalAPI:
                     )
                     _LOGGER.info("Token validated with local Envoy")
                     return True
+                except EnvoyLocalApiError:
+                    # Keep the typed error (auth vs connection) for correct
+                    # ConfigEntryAuthFailed / ConfigEntryNotReady mapping.
+                    raise
                 except Exception as err:
                     raise EnvoyAuthError(f"Token validation failed: {err}") from err
 
@@ -223,8 +227,14 @@ class EnphaseEnvoyLocalAPI:
 
                 raise EnvoyAuthError("No JWT token received from Envoy")
 
+        except EnvoyLocalApiError:
+            # Preserve the error type so the coordinator maps a connection
+            # failure to ConfigEntryNotReady (retry) and an auth failure to
+            # ConfigEntryAuthFailed (reauth), instead of treating every failure
+            # as an authentication error.
+            raise
         except Exception as err:
-            _LOGGER.error("Authentication failed: %s", err)
+            _LOGGER.error("Unexpected error authenticating with Envoy: %s", err)
             raise EnvoyAuthError(f"Failed to authenticate with Envoy: {err}") from err
 
     def _generate_installer_password(self, serial_number: str) -> str:
@@ -401,7 +411,7 @@ class EnphaseEnvoyLocalAPI:
 
             return response or {}  # type: ignore[return-value]
         except Exception as err:
-            _LOGGER.error("Failed to get /info: %s", err)
+            _LOGGER.debug("Failed to get /info: %s", err)
             raise
 
     async def get_production_data(self) -> dict[str, Any]:

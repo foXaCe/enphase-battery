@@ -22,6 +22,7 @@ from homeassistant.helpers.update_coordinator import (
 from .api import EnphaseBatteryAPI, EnphaseBatteryApiError, EnphaseBatteryAuthError
 from .const import (
     CONF_CONNECTION_MODE,
+    CONF_ENABLE_CLOUD_CONTROL,
     CONF_ENVOY_HOST,
     CONF_SITE_ID,
     CONF_USER_ID,
@@ -116,6 +117,7 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
             hass,
             _LOGGER,
             name=DOMAIN,
+            config_entry=entry,
             update_interval=update_interval,
             request_refresh_debouncer=Debouncer(
                 hass,
@@ -132,36 +134,42 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
         )
 
     async def _async_setup(self) -> None:
-        """Set up the coordinator based on connection mode.
+        """Authenticate and load persistent state.
 
-        Optimized for fast startup:
-        - Energy tracking loaded in parallel with authentication
-        - Local + cloud auth parallelized in hybrid mode
+        Called once by ``async_config_entry_first_refresh`` before the first
+        data fetch. Authentication and storage loading run in parallel. Auth
+        failures are translated to ``ConfigEntryAuthFailed`` (triggers reauth)
+        and connection failures to ``UpdateFailed`` (HA retries the setup).
         """
         session = async_get_clientsession(self.hass)
-        enable_cloud_control = self.entry.data.get("enable_cloud_control", False)
+        enable_cloud_control = self.entry.data.get(CONF_ENABLE_CLOUD_CONTROL, False)
 
-        if self._connection_mode == CONNECTION_MODE_LOCAL:
-            if enable_cloud_control:
-                # Hybrid mode: Parallelize local API + cloud API + storage loading
-                _LOGGER.debug("Hybrid mode: parallelizing local + cloud auth + storage")
-                await asyncio.gather(
-                    self._setup_local_api(session),
-                    self._setup_cloud_api_from_local_creds(session),
-                    self._load_energy_tracking(),
-                )
+        try:
+            if self._connection_mode == CONNECTION_MODE_LOCAL:
+                if enable_cloud_control:
+                    # Hybrid mode: parallelize local API + cloud API + storage loading
+                    _LOGGER.debug("Hybrid mode: parallelizing local + cloud auth + storage")
+                    await asyncio.gather(
+                        self._setup_local_api(session),
+                        self._setup_cloud_api_from_local_creds(session),
+                        self._load_energy_tracking(),
+                    )
+                else:
+                    # Local mode only: parallelize local API + storage loading
+                    await asyncio.gather(
+                        self._setup_local_api(session),
+                        self._load_energy_tracking(),
+                    )
             else:
-                # Local mode only: Parallelize local API + storage loading
+                # Cloud mode: parallelize cloud API + storage loading
                 await asyncio.gather(
-                    self._setup_local_api(session),
+                    self._setup_cloud_api(session),
                     self._load_energy_tracking(),
                 )
-        else:
-            # Cloud mode: Parallelize cloud API + storage loading
-            await asyncio.gather(
-                self._setup_cloud_api(session),
-                self._load_energy_tracking(),
-            )
+        except (EnvoyAuthError, EnphaseBatteryAuthError) as err:
+            raise ConfigEntryAuthFailed(str(err)) from err
+        except (EnvoyLocalApiError, EnphaseBatteryApiError) as err:
+            raise UpdateFailed(f"Error setting up Enphase Battery: {err}") from err
 
     async def _setup_local_api(self, session) -> None:  # type: ignore[no-untyped-def]
         """Set up local Envoy API client."""
@@ -182,12 +190,13 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
             cloud_password=cloud_password,
         )
 
-        # Authenticate
+        # Authenticate. Errors are logged with the right severity by HA once
+        # _async_setup maps them to ConfigEntryNotReady / ConfigEntryAuthFailed.
         try:
             await self.local_api.authenticate()
             _LOGGER.debug("Successfully authenticated with local Envoy at %s", host)
         except EnvoyLocalApiError as err:
-            _LOGGER.error("Failed to authenticate with local Envoy: %s", err)
+            _LOGGER.debug("Failed to authenticate with local Envoy: %s", err)
             raise
 
     async def _setup_cloud_api(self, session) -> None:  # type: ignore[no-untyped-def]
@@ -379,6 +388,12 @@ class EnphaseBatteryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
                     if should_fetch:
                         try:
                             cloud_settings = await self.api.get_battery_settings()
+                            _LOGGER.debug(
+                                "Cloud battery settings raw: dtgControl=%s, rbdControl=%s, chargeFromGrid=%s",
+                                cloud_settings.get("dtgControl"),
+                                cloud_settings.get("rbdControl"),
+                                cloud_settings.get("chargeFromGrid"),
+                            )
                             self._cloud_control_cache = {
                                 "charge_from_grid": cloud_settings.get("chargeFromGrid", False),
                                 "mode": cloud_settings.get("profile", "unknown"),

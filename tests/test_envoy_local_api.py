@@ -549,7 +549,7 @@ class TestAuthenticate:
             assert result is True
 
     async def test_fw7_token_validation_fails(self, api_with_token: EnphaseEnvoyLocalAPI):
-        """Token validation failure should raise EnvoyAuthError."""
+        """Token validation failure (401) should raise EnvoyAuthError (→ reauth)."""
         with aioresponses() as m:
             m.get(
                 f"{BASE_URL}/info",
@@ -557,7 +557,14 @@ class TestAuthenticate:
                 content_type="application/json",
             )
             m.get(f"{BASE_URL}/auth/check_jwt", status=401)
-            with pytest.raises(EnvoyAuthError, match="Failed to authenticate"):
+            with pytest.raises(EnvoyAuthError, match="token expired"):
+                await api_with_token.authenticate()
+
+    async def test_connection_error_propagates(self, api_with_token: EnphaseEnvoyLocalAPI):
+        """A connection failure must stay EnvoyConnectionError (→ retry, not reauth)."""
+        with aioresponses() as m:
+            m.get(f"{BASE_URL}/info", exception=aiohttp.ClientConnectionError("unreachable"))
+            with pytest.raises(EnvoyConnectionError):
                 await api_with_token.authenticate()
 
     async def test_fw7_no_cloud_credentials(self, api_no_cloud: EnphaseEnvoyLocalAPI):
@@ -568,7 +575,7 @@ class TestAuthenticate:
                 payload={"device": {"sn": FAKE_SERIAL, "software": "D7.3.0"}},
                 content_type="application/json",
             )
-            with pytest.raises(EnvoyAuthError, match="Failed to authenticate"):
+            with pytest.raises(EnvoyAuthError, match="cloud credentials"):
                 await api_no_cloud.authenticate()
 
     async def test_fw_below_7_with_installer_password(self, api_no_cloud: EnphaseEnvoyLocalAPI):
@@ -625,18 +632,18 @@ class TestAuthenticate:
                 payload={"error": "invalid"},
                 content_type="application/json",
             )
-            with pytest.raises(EnvoyAuthError, match="Failed to authenticate"):
+            with pytest.raises(EnvoyAuthError, match="No JWT token"):
                 await api_no_cloud.authenticate()
 
     async def test_no_serial_in_info(self, api: EnphaseEnvoyLocalAPI):
-        """Info response without serial should raise."""
+        """Info response without serial should raise EnvoyAuthError."""
         with aioresponses() as m:
             m.get(
                 f"{BASE_URL}/info",
                 payload={"unknown_key": "value"},
                 content_type="application/json",
             )
-            with pytest.raises(EnvoyAuthError, match="Failed to authenticate"):
+            with pytest.raises(EnvoyAuthError, match="serial number"):
                 await api.authenticate()
 
     async def test_serial_from_sn_key(self, api_no_cloud: EnphaseEnvoyLocalAPI):
@@ -753,10 +760,10 @@ class TestAuthenticate:
             assert api_no_cloud._firmware_version == "5.1.0"
 
     async def test_info_failure_raises(self, api: EnphaseEnvoyLocalAPI):
-        """Connection failure during _get_info should raise EnvoyAuthError."""
+        """Connection failure during _get_info should raise EnvoyConnectionError (→ retry)."""
         with aioresponses() as m:
             m.get(f"{BASE_URL}/info", exception=aiohttp.ClientError("no route"))
-            with pytest.raises(EnvoyAuthError, match="Failed to authenticate"):
+            with pytest.raises(EnvoyConnectionError, match="Failed to connect"):
                 await api.authenticate()
 
 

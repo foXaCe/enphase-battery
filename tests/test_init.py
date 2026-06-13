@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -143,71 +142,53 @@ async def test_migrate_entry_adds_connection_mode(
     assert old_entry.data[CONF_CONNECTION_MODE] == CONNECTION_MODE_CLOUD
 
 
-async def test_deferred_setup_exception_caught(
+async def test_setup_entry_not_ready_on_connection_failure(
     hass: HomeAssistant,
     mock_local_config_entry: MockConfigEntry,
 ) -> None:
-    """Test that exception in deferred setup is caught and logged."""
+    """Test a connection failure during first refresh raises ConfigEntryNotReady."""
     mock_local_config_entry.add_to_hass(hass)
 
     with (
         patch("custom_components.enphase_battery.EnphaseBatteryDataUpdateCoordinator") as mock_coord_class,
     ):
         mock_coord = MagicMock()
-        mock_coord._async_setup = AsyncMock(side_effect=Exception("Auth failed"))
-        mock_coord.async_refresh = AsyncMock()
-        mock_coord.async_config_entry_first_refresh = AsyncMock()
+        mock_coord.async_config_entry_first_refresh = AsyncMock(side_effect=ConfigEntryNotReady("Envoy unreachable"))
         mock_coord.async_shutdown = AsyncMock()
-        mock_coord.data = {"soc": 50}
-        mock_coord.last_update_success = True
         mock_coord_class.return_value = mock_coord
 
         await hass.config_entries.async_setup(mock_local_config_entry.entry_id)
         await hass.async_block_till_done()
 
-    # Entry is loaded despite deferred setup failure (exception was caught)
-    assert mock_local_config_entry.state == ConfigEntryState.LOADED
-    mock_coord._async_setup.assert_called_once()
-    # async_refresh should NOT be called since _async_setup raised
-    mock_coord.async_refresh.assert_not_called()
+    # Entry is retried (not loaded) when the first refresh fails to connect.
+    assert mock_local_config_entry.state == ConfigEntryState.SETUP_RETRY
+    mock_coord.async_config_entry_first_refresh.assert_awaited_once()
 
 
-async def test_setup_entry_ha_not_started(
+async def test_setup_entry_auth_failed_triggers_reauth(
     hass: HomeAssistant,
     mock_local_config_entry: MockConfigEntry,
 ) -> None:
-    """Test setup when HA hasn't started yet - deferred via event listener."""
+    """Test an auth failure during first refresh raises ConfigEntryAuthFailed."""
     mock_local_config_entry.add_to_hass(hass)
 
     with (
         patch("custom_components.enphase_battery.EnphaseBatteryDataUpdateCoordinator") as mock_coord_class,
-        patch.object(hass.config_entries, "async_forward_entry_setups", new=AsyncMock()),
     ):
         mock_coord = MagicMock()
-        mock_coord._async_setup = AsyncMock()
-        mock_coord.async_refresh = AsyncMock()
+        mock_coord.async_config_entry_first_refresh = AsyncMock(
+            side_effect=ConfigEntryAuthFailed("Invalid credentials")
+        )
         mock_coord.async_shutdown = AsyncMock()
-        mock_coord.data = {"soc": 50}
-        mock_coord.last_update_success = True
         mock_coord_class.return_value = mock_coord
 
-        # Call async_setup_entry directly with hass.is_running patched to False
-        from custom_components.enphase_battery import async_setup_entry
-
-        with patch.object(type(hass), "is_running", new_callable=PropertyMock, return_value=False):
-            result = await async_setup_entry(hass, mock_local_config_entry)
-
-        assert result is True
-        # Deferred setup not called yet (waiting for HA_STARTED event)
-        mock_coord._async_setup.assert_not_called()
-
-        # Fire HA started event to trigger deferred setup
-        hass.bus.async_fire(EVENT_HOMEASSISTANT_STARTED)
+        await hass.config_entries.async_setup(mock_local_config_entry.entry_id)
         await hass.async_block_till_done()
 
-        # Now deferred setup should have run
-        mock_coord._async_setup.assert_called_once()
-        mock_coord.async_refresh.assert_called_once()
+    # Auth failure puts the entry in error state and starts a reauth flow.
+    assert mock_local_config_entry.state == ConfigEntryState.SETUP_ERROR
+    flows = hass.config_entries.flow.async_progress_by_handler(DOMAIN)
+    assert any(flow["context"].get("source") == "reauth" for flow in flows)
 
 
 async def test_reload_entry(

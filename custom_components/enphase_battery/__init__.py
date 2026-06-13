@@ -7,17 +7,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import logging
-import time
 from typing import TYPE_CHECKING
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, Platform
+from homeassistant.const import Platform
 
 from .const import CONF_CONNECTION_MODE, CONNECTION_MODE_CLOUD, DOMAIN
 from .coordinator import EnphaseBatteryDataUpdateCoordinator
 
 if TYPE_CHECKING:
-    from homeassistant.core import Event, HomeAssistant
+    from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -73,58 +72,25 @@ async def async_setup_entry(
 ) -> bool:
     """Set up Enphase Battery from a config entry.
 
-    Optimized for fast startup (<2s):
-    - Authentication is deferred to background task
-    - Platforms are set up immediately (entities will be unavailable until first refresh)
-    - First data refresh happens after HA startup or in background
+    Authentication and the first data fetch run through
+    ``async_config_entry_first_refresh``. The coordinator's ``_async_setup``
+    raises ``ConfigEntryAuthFailed`` on bad credentials (triggers the reauth
+    flow) and ``ConfigEntryNotReady`` on a connection failure (HA retries with
+    exponential backoff). Migration is handled by HA before this runs.
     """
-    start_time = time.perf_counter()
-    _LOGGER.debug("Starting Enphase Battery setup")
-
-    # Create coordinator (fast, no I/O)
-    # Note: Migration is handled automatically by HA before this function is called
     coordinator = EnphaseBatteryDataUpdateCoordinator(hass, entry)
+
+    # Authenticate (coordinator._async_setup) and fetch the first data set.
+    await coordinator.async_config_entry_first_refresh()
 
     # Store coordinator in runtime_data (modern pattern, replaces hass.data)
     entry.runtime_data = EnphaseBatteryRuntimeData(coordinator=coordinator)
 
-    # Setup platforms immediately (entities will show as unavailable until first refresh)
+    # Set up platforms now that the first data is available.
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # Deferred setup: authentication + first refresh in background
-    # This prevents blocking HA startup while still getting data quickly
-    async def _async_deferred_setup(event: Event = None):  # type: ignore[assignment, no-untyped-def]
-        """Setup coordinator and fetch first data after HA has started."""
-        deferred_start = time.perf_counter()
-        try:
-            # Setup coordinator (authentication) - this is the slow part
-            await coordinator._async_setup()
-            auth_time = time.perf_counter() - deferred_start
-            _LOGGER.debug("Enphase Battery auth completed in %.2fs", auth_time)
-            # Fetch first data
-            await coordinator.async_refresh()
-            total_time = time.perf_counter() - deferred_start
-            _LOGGER.debug("Enphase Battery first refresh completed in %.2fs", total_time)
-        except Exception as err:
-            _LOGGER.error("Deferred setup failed: %s", err)
-
-    # If HA is already started, run deferred setup immediately in background
-    # Otherwise, wait for HA to finish starting
-    if hass.is_running:
-        task = hass.async_create_background_task(_async_deferred_setup(), "enphase_battery_deferred_setup")
-
-        def _cancel_task() -> None:
-            task.cancel()
-
-        entry.async_on_unload(_cancel_task)
-    else:
-        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _async_deferred_setup)
-
-    # Listen for options updates
+    # Reload the entry when its options change.
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
-
-    elapsed = time.perf_counter() - start_time
-    _LOGGER.info("Enphase Battery setup completed in %.2fs (auth deferred)", elapsed)
 
     return True
 
