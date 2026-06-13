@@ -1009,8 +1009,8 @@ async def test_validate_local_input_success(hass: HomeAssistant) -> None:
         mock_api = MagicMock()
         mock_api.authenticate = AsyncMock()
         mock_api._get_info = AsyncMock(return_value={"device": {"sn": "TEST123"}})
-        mock_api._serial_number = "TEST123"
-        mock_api._firmware_version = "8.0.0"
+        mock_api.serial_number = "TEST123"
+        mock_api.firmware_version = "8.0.0"
         mock_api_cls.return_value = mock_api
 
         result = await validate_local_input(hass, data)
@@ -1112,8 +1112,8 @@ async def test_validate_local_input_serial_from_info(hass: HomeAssistant) -> Non
         mock_api.authenticate = AsyncMock()
         # Serial only available via top-level "sn" key (not nested in device)
         mock_api._get_info = AsyncMock(return_value={"sn": "ENVOY999"})
-        mock_api._serial_number = "ENVOY999"
-        mock_api._firmware_version = "7.6.175"
+        mock_api.serial_number = "ENVOY999"
+        mock_api.firmware_version = "7.6.175"
         mock_api_cls.return_value = mock_api
 
         result = await validate_local_input(hass, data)

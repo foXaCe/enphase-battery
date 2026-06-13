@@ -19,7 +19,7 @@
           "user_id": "User ID (opcional, auto-detectado)",
           "username": "Email de la cuenta Enphase"
         },
-        "description": "{benefits}",
+        "description": "Conexión a través de la nube Enphase Enlighten. Funciona en remoto pero es más lenta y está sujeta a límites de la API.",
         "title": "Conexión Cloud Enlighten"
       },
       "local": {
@@ -32,7 +32,7 @@
         "data_description": {
           "enable_cloud_control": "Modo híbrido: datos locales (rápido) + control cloud (switch/select). Requerido porque el firmware 8.x ya no soporta control vía API local."
         },
-        "description": "{benefits}",
+        "description": "Conexión directa a su pasarela Envoy: rápida y sin límite de peticiones. Se requiere su cuenta Enlighten para obtener un token en firmware 7.x/8.x.",
         "title": "Conexión local al Envoy"
       },
       "reauth_confirm": {
@@ -248,6 +248,14 @@
         },
         "description": "Configure la conexión local al Envoy.",
         "title": "Configuración conexión local"
+      }
+    }
+  },
+  "selector": {
+    "connection_mode": {
+      "options": {
+        "cloud": "Cloud (Enlighten - más lento, cuota de API)",
+        "local": "Local (Envoy directo - rápido, sin cuota de API)"
       }
     }
   }

@@ -13,7 +13,7 @@
       },
       "local": {
         "title": "Local Envoy Connection",
-        "description": "{benefits}",
+        "description": "Direct connection to your Envoy gateway: fast and not rate-limited. Your Enlighten account is required to obtain a token on firmware 7.x/8.x.",
         "data": {
           "envoy_host": "Envoy Hostname or IP",
           "cloud_username": "Enphase account email (required for firmware 7.x/8.x)",
@@ -26,7 +26,7 @@
       },
       "cloud": {
         "title": "Cloud Enlighten Connection",
-        "description": "{benefits}",
+        "description": "Connect through the Enphase Enlighten cloud. Works remotely but is slower and subject to API rate limits.",
         "data": {
           "username": "Enphase Account Email",
           "password": "Enphase Account Password",
@@ -80,6 +80,14 @@
       "reauth_successful": "Re-authentication successful.",
       "reconfigure_successful": "Reconfiguration successful.",
       "unknown": "An unknown error occurred."
+    }
+  },
+  "selector": {
+    "connection_mode": {
+      "options": {
+        "local": "Local (Envoy direct - fast, no API quota)",
+        "cloud": "Cloud (Enlighten - slower, API quota)"
+      }
     }
   },
   "entity": {

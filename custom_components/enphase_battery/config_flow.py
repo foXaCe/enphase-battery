@@ -6,10 +6,15 @@ import logging
 from typing import Any
 
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.selector import (
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
+)
 import voluptuous as vol
 
 from .api import (
@@ -27,20 +32,25 @@ from .const import (
     CONF_USER_ID,
     CONNECTION_MODE_CLOUD,
     CONNECTION_MODE_LOCAL,
+    CONNECTION_MODES,
     DOMAIN,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
+# Translated dropdown for the connection mode (labels live in translations).
+CONNECTION_MODE_SELECTOR = SelectSelector(
+    SelectSelectorConfig(
+        options=CONNECTION_MODES,
+        translation_key="connection_mode",
+        mode=SelectSelectorMode.LIST,
+    )
+)
+
 # Configuration schema - Connection mode selection
 STEP_MODE_SCHEMA = vol.Schema(
     {
-        vol.Required(CONF_CONNECTION_MODE, default=CONNECTION_MODE_LOCAL): vol.In(
-            {
-                CONNECTION_MODE_LOCAL: "Local (Envoy direct - rapide, pas de quota API)",
-                CONNECTION_MODE_CLOUD: "Cloud (Enlighten - plus lent, quota API)",
-            }
-        ),
+        vol.Required(CONF_CONNECTION_MODE, default=CONNECTION_MODE_LOCAL): CONNECTION_MODE_SELECTOR,
     }
 )
 
@@ -91,12 +101,12 @@ async def validate_local_input(hass: HomeAssistant, data: dict[str, Any]) -> dic
 
         # Get basic info
         info = await api._get_info()
-        serial = info.get("device", {}).get("sn") or info.get("sn") or api._serial_number or "UNKNOWN"
+        serial = info.get("device", {}).get("sn") or info.get("sn") or api.serial_number or "UNKNOWN"
 
         return {
             "title": f"Enphase Battery Local ({host})",
             "serial": serial,
-            "firmware": api._firmware_version,
+            "firmware": api.firmware_version,
         }
 
     except EnvoyAuthError as err:
@@ -170,7 +180,7 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Get the options flow for this handler."""
         return EnphaseBatteryOptionsFlowHandler(config_entry)
 
-    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:  # type: ignore[name-defined]
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Handle the initial step - select connection mode."""
         if user_input is not None:
             self._connection_mode = user_input[CONF_CONNECTION_MODE]
@@ -186,7 +196,7 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=STEP_MODE_SCHEMA,
         )
 
-    async def async_step_local(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:  # type: ignore[name-defined]
+    async def async_step_local(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Handle local Envoy configuration."""
         errors: dict[str, str] = {}
 
@@ -217,13 +227,9 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="local",
             data_schema=STEP_LOCAL_DATA_SCHEMA,
             errors=errors,
-            description_placeholders={
-                "mode": "Local",
-                "benefits": "Réactivité maximale\n✅ Pas de quota API\n✅ Identifiants Enlighten requis pour firmware 7.x/8.x",
-            },
         )
 
-    async def async_step_cloud(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:  # type: ignore[name-defined]
+    async def async_step_cloud(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Handle cloud Enlighten configuration."""
         errors: dict[str, str] = {}
 
@@ -260,18 +266,14 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="cloud",
             data_schema=STEP_CLOUD_DATA_SCHEMA,
             errors=errors,
-            description_placeholders={
-                "mode": "Cloud",
-                "benefits": "Accès à distance\n⚠️ Quota API limité\n⚠️ Latence plus élevée",
-            },
         )
 
-    async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:  # type: ignore[name-defined]
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
         """Handle re-authentication."""
         self._reauth_entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
         return await self.async_step_reauth_confirm()
 
-    async def async_step_reauth_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:  # type: ignore[name-defined]
+    async def async_step_reauth_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Handle re-authentication confirmation."""
         errors: dict[str, str] = {}
 
@@ -310,7 +312,7 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:  # type: ignore[name-defined]
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Handle reconfiguration of the integration."""
         entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
         if entry is None:
@@ -329,12 +331,7 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         data_schema = vol.Schema(
             {
-                vol.Required(CONF_CONNECTION_MODE, default=current_mode): vol.In(
-                    {
-                        CONNECTION_MODE_LOCAL: "Local (Envoy direct)",
-                        CONNECTION_MODE_CLOUD: "Cloud (Enlighten)",
-                    }
-                ),
+                vol.Required(CONF_CONNECTION_MODE, default=current_mode): CONNECTION_MODE_SELECTOR,
             }
         )
 
@@ -343,7 +340,7 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=data_schema,
         )
 
-    async def async_step_reconfigure_local(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:  # type: ignore[name-defined]
+    async def async_step_reconfigure_local(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Reconfigure local mode settings."""
         errors: dict[str, str] = {}
         entry = getattr(self, "_reconfigure_entry", None)
@@ -388,7 +385,7 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_reconfigure_cloud(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:  # type: ignore[name-defined]
+    async def async_step_reconfigure_cloud(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Reconfigure cloud mode settings."""
         errors: dict[str, str] = {}
         entry = getattr(self, "_reconfigure_entry", None)
@@ -446,7 +443,7 @@ class EnphaseBatteryOptionsFlowHandler(config_entries.OptionsFlow):
         """Return config entry."""
         return self._config_entry
 
-    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:  # type: ignore[name-defined]
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """First step - choose connection mode."""
         current_data = self.config_entry.data
         current_mode = current_data.get(CONF_CONNECTION_MODE, CONNECTION_MODE_CLOUD)
@@ -462,12 +459,7 @@ class EnphaseBatteryOptionsFlowHandler(config_entries.OptionsFlow):
 
         data_schema = vol.Schema(
             {
-                vol.Required(CONF_CONNECTION_MODE, default=current_mode): vol.In(
-                    {
-                        CONNECTION_MODE_LOCAL: "Local (Envoy direct)",
-                        CONNECTION_MODE_CLOUD: "Cloud (Enlighten)",
-                    }
-                ),
+                vol.Required(CONF_CONNECTION_MODE, default=current_mode): CONNECTION_MODE_SELECTOR,
             }
         )
 
@@ -476,7 +468,7 @@ class EnphaseBatteryOptionsFlowHandler(config_entries.OptionsFlow):
             data_schema=data_schema,
         )
 
-    async def async_step_local(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:  # type: ignore[name-defined]
+    async def async_step_local(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Configure local mode."""
         errors: dict[str, str] = {}
         current_data = self.config_entry.data
@@ -529,7 +521,7 @@ class EnphaseBatteryOptionsFlowHandler(config_entries.OptionsFlow):
             errors=errors,
         )
 
-    async def async_step_cloud(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:  # type: ignore[name-defined]
+    async def async_step_cloud(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Configure cloud mode."""
         errors: dict[str, str] = {}
         current_data = self.config_entry.data
