@@ -38,6 +38,7 @@ class EnphaseEnvoyLocalAPI:
         cloud_username: str | None = None,
         cloud_password: str | None = None,
         token: str | None = None,
+        cloud_session: ClientSession | None = None,
     ) -> None:
         """Initialize the local Envoy API client.
 
@@ -49,6 +50,9 @@ class EnphaseEnvoyLocalAPI:
             cloud_username: Enlighten cloud email (for firmware >= 7.0 token)
             cloud_password: Enlighten cloud password (for firmware >= 7.0 token)
             token: Pre-existing JWT token (optional, will fetch if not provided)
+            cloud_session: Optional aiohttp session for cloud token retrieval. When
+                omitted, a dedicated short-lived session is created on demand
+                (kept separate from the HA session to avoid 406 responses).
         """
         self._session = session
         self._host = host
@@ -60,6 +64,7 @@ class EnphaseEnvoyLocalAPI:
         self._jwt_token: str | None = token
         self._serial_number: str | None = None
         self._firmware_version: str | None = None
+        self._cloud_session = cloud_session
 
     async def _make_request(  # type: ignore[no-untyped-def]
         self,
@@ -282,9 +287,10 @@ class EnphaseEnvoyLocalAPI:
             raise EnvoyAuthError("Serial number must be retrieved before obtaining token")
 
         try:
-            # Use a dedicated cloud session to avoid HA session headers causing 406
-            # In production, create a fresh session; in tests, _cloud_session can be injected
-            cloud_session = getattr(self, "_cloud_session", None)
+            # Use a dedicated cloud session to avoid HA session headers causing 406.
+            # In production none is provided so a fresh short-lived one is created;
+            # tests inject one via the constructor.
+            cloud_session = self._cloud_session
             created_session = False
             if cloud_session is None:
                 cloud_session = aiohttp.ClientSession(timeout=ClientTimeout(total=30))
@@ -677,23 +683,6 @@ class EnphaseEnvoyLocalAPI:
         except Exception as err:
             _LOGGER.debug("Failed to get battery data: %s", err)
             raise EnvoyLocalApiError(f"Failed to retrieve battery data: {err}") from err
-
-    async def set_battery_mode(self, mode: str) -> bool:
-        """Set battery operation mode.
-
-        Args:
-            mode: Battery mode (self-consumption, backup, etc.)
-
-        Returns:
-            True if successful
-
-        Note:
-            This endpoint may vary by firmware version.
-            Implementation may need adjustment based on actual Envoy responses.
-        """
-        _LOGGER.warning("set_battery_mode: Local API endpoint not yet fully documented")
-        # TODO: Implement once endpoint is confirmed via MITM capture
-        return False
 
     async def set_charge_from_grid(self, enabled: bool) -> bool:
         """Enable/disable charging from grid.

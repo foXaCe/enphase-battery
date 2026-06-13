@@ -12,6 +12,7 @@ from typing import Any
 
 import aiohttp
 from aiohttp import ClientSession, ClientTimeout
+from yarl import URL
 
 from .exceptions import (
     EnphaseBatteryApiError,
@@ -51,7 +52,6 @@ class EnphaseBatteryAPI:
         self._site_id: int | None = site_id  # Peut être fourni manuellement
         self._user_id: int | None = user_id  # Peut être fourni manuellement
         self._session_token: str | None = None
-        self._envoy_serial: str | None = None
         self._is_authenticated: bool = False
 
     async def _request_with_reauth(  # type: ignore[no-untyped-def]
@@ -176,7 +176,7 @@ class EnphaseBatteryAPI:
 
         # L'API Enphase utilise le header "e-auth-token" avec le cookie de session _enlighten_4_session
         # Et le header X-XSRF-Token pour la protection CSRF
-        cookies = self._session.cookie_jar.filter_cookies(API_BASE_URL)  # type: ignore[arg-type]
+        cookies = self._session.cookie_jar.filter_cookies(URL(API_BASE_URL))
         for cookie in cookies.values():
             if cookie.key == "_enlighten_4_session":
                 headers["e-auth-token"] = cookie.value
@@ -288,64 +288,6 @@ class EnphaseBatteryAPI:
 
         except aiohttp.ClientError as err:
             raise EnphaseBatteryConnectionError(f"Login connection error: {err}") from err
-
-    async def _get_session_token(self) -> str | None:  # type: ignore[return]
-        """Get session token after login.
-
-        Returns:
-            Session token string or None if not available
-        """
-        url = f"{API_BASE_URL}/service/auth_ms_enho/api/v1/session/token"
-
-        try:
-            async with self._session.get(
-                url,
-                timeout=ClientTimeout(total=API_TIMEOUT),
-            ) as response:
-                if response.status == 200:
-                    data = await response.json()
-
-                    # Le token peut être dans différents formats selon l'API
-                    if isinstance(data, dict):
-                        # Chercher le token dans la réponse
-                        token = data.get("token") or data.get("access_token") or data.get("session_token")
-                        if token:
-                            return token  # type: ignore[no-any-return]
-
-                    # Parfois la réponse est directement le token
-                    if isinstance(data, str):
-                        return data
-
-                    return None
-
-        except Exception:
-            return None
-
-    async def _get_envoy_serial(self) -> str | None:
-        """Get Envoy serial number from devices list.
-
-        Returns:
-            Envoy serial number or None
-        """
-        if not self._site_id:
-            return None
-
-        try:
-            devices_data = await self.get_devices()
-
-            # Chercher l'envoy dans la liste des devices
-            result = devices_data.get("result", [])
-            for device_group in result:
-                if device_group.get("type") == "envoy":
-                    devices = device_group.get("devices", [])
-                    if len(devices) > 0:
-                        envoy = devices[0]
-                        return envoy.get("serial_number")  # type: ignore[no-any-return]
-
-            return None
-
-        except Exception:
-            return None
 
     async def _get_user_id_from_battery_settings(self) -> int | None:
         """Try to extract user_id by calling batterySettings and parsing response.
@@ -523,7 +465,7 @@ class EnphaseBatteryAPI:
 
         # Méthode 3: Essayer d'extraire user_id depuis le JWT token dans les cookies
         try:
-            cookies = self._session.cookie_jar.filter_cookies(API_BASE_URL)  # type: ignore[arg-type]
+            cookies = self._session.cookie_jar.filter_cookies(URL(API_BASE_URL))
 
             for cookie in cookies.values():
                 # Chercher le token JWT enlighten_manager_token_production
@@ -759,25 +701,6 @@ class EnphaseBatteryAPI:
 
         except aiohttp.ClientError as err:
             raise EnphaseBatteryConnectionError(f"Failed to get schedules: {err}") from err
-
-    async def get_devices(self) -> dict[str, Any]:
-        """Get list of Enphase devices."""
-        if not self._site_id:
-            raise EnphaseBatteryAuthError("Not authenticated")
-
-        url = f"{API_BASE_URL}/app-api/{self._site_id}/devices.json"
-
-        try:
-            async with self._session.get(
-                url,
-                headers=self._get_headers(),
-                timeout=ClientTimeout(total=API_TIMEOUT),
-            ) as response:
-                response.raise_for_status()
-                return await response.json()  # type: ignore[no-any-return]
-
-        except aiohttp.ClientError as err:
-            raise EnphaseBatteryConnectionError(f"Failed to get devices: {err}") from err
 
     async def set_battery_mode(self, mode: str) -> bool:
         """Set battery operation mode.

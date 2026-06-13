@@ -38,15 +38,14 @@ async def session():
 @pytest.fixture
 def api(session: ClientSession) -> EnphaseEnvoyLocalAPI:
     """Create an API instance with default settings."""
-    instance = EnphaseEnvoyLocalAPI(
+    # Inject the test session as cloud_session so aioresponses can intercept
+    return EnphaseEnvoyLocalAPI(
         session=session,
         host=TEST_HOST,
         cloud_username=CLOUD_USER,
         cloud_password=CLOUD_PASS,
+        cloud_session=session,
     )
-    # Inject the test session as cloud_session so aioresponses can intercept
-    instance._cloud_session = session  # type: ignore[attr-defined]
-    return instance
 
 
 @pytest.fixture
@@ -1407,19 +1406,6 @@ class TestGetBatteryData:
             m.get(f"{BASE_URL}/admin/lib/tariff", payload={}, content_type="application/json")
             with pytest.raises(EnvoyLocalApiError, match="Failed to retrieve battery data"):
                 await api_with_token.get_battery_data()
-
-
-# ---------------------------------------------------------------------------
-# set_battery_mode
-# ---------------------------------------------------------------------------
-
-
-class TestSetBatteryMode:
-    """Test battery mode setter (not implemented)."""
-
-    async def test_returns_false(self, api_with_token: EnphaseEnvoyLocalAPI):
-        result = await api_with_token.set_battery_mode("self-consumption")
-        assert result is False
 
 
 # ---------------------------------------------------------------------------

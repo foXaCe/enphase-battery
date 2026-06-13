@@ -146,7 +146,6 @@ class TestInit:
         assert api._user_id == 2
         assert api._session is session
         assert api._session_token is None
-        assert api._envoy_serial is None
         assert api._is_authenticated is False
 
     def test_init_defaults(self, session):
@@ -582,92 +581,6 @@ class TestAuthenticate:
             pytest.raises(EnphaseBatteryConnectionError, match="Connection error"),
         ):
             await api_no_ids.authenticate()
-
-
-# ===========================================================================
-# _get_session_token
-# ===========================================================================
-
-
-class TestGetSessionToken:
-    """Test _get_session_token method."""
-
-    TOKEN_URL_PAT = _url_pattern("/service/auth_ms_enho/api/v1/session/token")
-
-    async def test_token_in_dict_token_key(self, api):
-        with aioresponses() as m:
-            m.get(self.TOKEN_URL_PAT, payload={"token": "abc123"})
-            assert await api._get_session_token() == "abc123"
-
-    async def test_token_in_dict_access_token_key(self, api):
-        with aioresponses() as m:
-            m.get(self.TOKEN_URL_PAT, payload={"access_token": "xyz789"})
-            assert await api._get_session_token() == "xyz789"
-
-    async def test_token_in_dict_session_token_key(self, api):
-        with aioresponses() as m:
-            m.get(self.TOKEN_URL_PAT, payload={"session_token": "sess456"})
-            assert await api._get_session_token() == "sess456"
-
-    async def test_token_dict_no_known_keys(self, api):
-        with aioresponses() as m:
-            m.get(self.TOKEN_URL_PAT, payload={"unknown_key": "value"})
-            assert await api._get_session_token() is None
-
-    async def test_token_string_response(self, api):
-        with aioresponses() as m:
-            m.get(self.TOKEN_URL_PAT, payload="direct-token-string")
-            assert await api._get_session_token() == "direct-token-string"
-
-    async def test_token_non_200_returns_none(self, api):
-        with aioresponses() as m:
-            m.get(self.TOKEN_URL_PAT, status=500)
-            assert await api._get_session_token() is None
-
-    async def test_token_connection_error_returns_none(self, api):
-        with aioresponses() as m:
-            m.get(self.TOKEN_URL_PAT, exception=aiohttp.ClientConnectionError("error"))
-            assert await api._get_session_token() is None
-
-
-# ===========================================================================
-# _get_envoy_serial
-# ===========================================================================
-
-
-class TestGetEnvoySerial:
-    """Test _get_envoy_serial method."""
-
-    async def test_no_site_id(self, api_no_ids):
-        assert await api_no_ids._get_envoy_serial() is None
-
-    async def test_envoy_found(self, api):
-        with aioresponses() as m:
-            m.get(DEVICES_12345_PAT, payload={"result": [{"type": "envoy", "devices": [{"serial_number": "SN123"}]}]})
-            assert await api._get_envoy_serial() == "SN123"
-
-    async def test_envoy_not_found(self, api):
-        with aioresponses() as m:
-            m.get(
-                DEVICES_12345_PAT,
-                payload={"result": [{"type": "microinverter", "devices": [{"serial_number": "MI001"}]}]},
-            )
-            assert await api._get_envoy_serial() is None
-
-    async def test_envoy_type_empty_devices(self, api):
-        with aioresponses() as m:
-            m.get(DEVICES_12345_PAT, payload={"result": [{"type": "envoy", "devices": []}]})
-            assert await api._get_envoy_serial() is None
-
-    async def test_envoy_exception_returns_none(self, api):
-        with aioresponses() as m:
-            m.get(DEVICES_12345_PAT, exception=aiohttp.ClientConnectionError("err"))
-            assert await api._get_envoy_serial() is None
-
-    async def test_envoy_empty_result(self, api):
-        with aioresponses() as m:
-            m.get(DEVICES_12345_PAT, payload={"result": []})
-            assert await api._get_envoy_serial() is None
 
 
 # ===========================================================================
@@ -1959,29 +1872,6 @@ class TestGetBatterySchedules:
             m.get(SCHEDULES_12345_PAT, exception=aiohttp.ClientConnectionError("err"))
             with pytest.raises(EnphaseBatteryConnectionError, match="Failed to get schedules"):
                 await api.get_battery_schedules()
-
-
-# ===========================================================================
-# get_devices
-# ===========================================================================
-
-
-class TestGetDevices:
-    async def test_no_site_id(self, api_no_ids):
-        with pytest.raises(EnphaseBatteryAuthError, match="Not authenticated"):
-            await api_no_ids.get_devices()
-
-    async def test_success(self, api):
-        with aioresponses() as m:
-            m.get(DEVICES_12345_PAT, payload={"result": [{"type": "envoy"}]})
-            result = await api.get_devices()
-        assert result == {"result": [{"type": "envoy"}]}
-
-    async def test_connection_error(self, api):
-        with aioresponses() as m:
-            m.get(DEVICES_12345_PAT, exception=aiohttp.ClientConnectionError("err"))
-            with pytest.raises(EnphaseBatteryConnectionError, match="Failed to get devices"):
-                await api.get_devices()
 
 
 # ===========================================================================
