@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
+import ipaddress
 import json
 import logging
 import re
@@ -24,6 +25,20 @@ DEFAULT_TIMEOUT = 10  # Local network - faster timeout
 # Enphase Cloud endpoints for token retrieval (firmware 7.x+)
 ENLIGHTEN_LOGIN_URL = "https://enlighten.enphaseenergy.com/login/login.json?"
 ENTREZ_TOKEN_URL = "https://entrez.enphaseenergy.com/tokens"
+
+
+def _format_host(host: str) -> str:
+    """Bracket an IPv6 literal so it is valid in an HTTPS URL.
+
+    Hostnames and IPv4 addresses are returned unchanged; an IPv6 address such as
+    ``fd8d::c272`` becomes ``[fd8d::c272]`` (required by RFC 3986).
+    """
+    try:
+        if isinstance(ipaddress.ip_address(host), ipaddress.IPv6Address):
+            return f"[{host}]"
+    except ValueError:
+        pass  # not an IP literal (a hostname)
+    return host
 
 
 class EnphaseEnvoyLocalAPI:
@@ -60,7 +75,7 @@ class EnphaseEnvoyLocalAPI:
         self._password = password
         self._cloud_username = cloud_username
         self._cloud_password = cloud_password
-        self._base_url = f"https://{host}"
+        self._base_url = f"https://{_format_host(host)}"
         self._jwt_token: str | None = token
         self._serial_number: str | None = None
         self._firmware_version: str | None = None

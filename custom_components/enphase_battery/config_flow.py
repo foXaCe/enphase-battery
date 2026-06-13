@@ -275,7 +275,11 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_zeroconf(self, discovery_info: ZeroconfServiceInfo) -> ConfigFlowResult:
         """Handle an Envoy discovered via zeroconf (mDNS)."""
         serial = discovery_info.properties.get("serialnum") or discovery_info.hostname.partition(".")[0]
-        host = discovery_info.host
+        # Prefer an IPv4 address (more reliably routable than an IPv6 ULA).
+        host = next(
+            (str(ip) for ip in discovery_info.ip_addresses if ip.version == 4),
+            discovery_info.host,
+        )
 
         await self.async_set_unique_id(str(serial))
         # Update the stored host if the Envoy's IP changed; abort if already set up.

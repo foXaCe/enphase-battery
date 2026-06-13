@@ -123,6 +123,12 @@ class TestInit:
         assert api._serial_number is None
         assert api._firmware_version is None
 
+    def test_base_url_ipv6_is_bracketed(self, session: ClientSession):
+        """An IPv6 host must be bracketed to form a valid URL."""
+        api = EnphaseEnvoyLocalAPI(session=session, host="fd8d:9a0d:c7d3:8e8c:21d:c0ff:fe74:c272")
+        assert api._base_url == "https://[fd8d:9a0d:c7d3:8e8c:21d:c0ff:fe74:c272]"
+        assert api._host == "fd8d:9a0d:c7d3:8e8c:21d:c0ff:fe74:c272"
+
     def test_custom_params(self, session: ClientSession):
         api = EnphaseEnvoyLocalAPI(
             session=session,

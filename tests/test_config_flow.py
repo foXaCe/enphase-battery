@@ -1885,3 +1885,26 @@ async def test_dhcp_discovery_no_serial_aborts(hass: HomeAssistant, mock_local_a
 
     assert result["type"] == FlowResultType.ABORT
     assert result["reason"] == "cannot_connect"
+
+
+async def test_zeroconf_prefers_ipv4(hass: HomeAssistant, mock_local_api) -> None:
+    """When both IPv4 and IPv6 are advertised, the IPv4 address is used."""
+    info = ZeroconfServiceInfo(
+        ip_address=ip_address("fd8d::c272"),
+        ip_addresses=[ip_address("fd8d::c272"), ip_address("192.168.1.77")],
+        hostname="envoy.local.",
+        name="envoy_122050042807._enphase-envoy._tcp.local.",
+        port=443,
+        type="_enphase-envoy._tcp.local.",
+        properties={"serialnum": "122050042807"},
+    )
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=info
+    )
+    assert result["type"] == FlowResultType.FORM
+    result2 = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {"cloud_username": "u@example.com", "cloud_password": "pw", "enable_cloud_control": False},
+    )
+    assert result2["type"] == FlowResultType.CREATE_ENTRY
+    assert result2["data"][CONF_ENVOY_HOST] == "192.168.1.77"
