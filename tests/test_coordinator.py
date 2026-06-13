@@ -855,6 +855,94 @@ class TestAsyncUpdateData:
         with pytest.raises(UpdateFailed, match="Error fetching cloud data"):
             await coordinator._async_update_data()
 
+    async def test_local_reauth_retry_success(
+        self,
+        hass: HomeAssistant,
+        local_entry: MockConfigEntry,
+        mock_store,
+        mock_local_api,
+        mock_session,
+    ):
+        """Local: an expired token re-authenticates and the retried fetch succeeds."""
+        good = {
+            "soc": 75,
+            "power": -500,
+            "total_energy_charged": 100.0,
+            "total_energy_discharged": 80.0,
+            "total_consumption": 200.0,
+            "available_energy": 5000,
+        }
+        mock_local_api.get_battery_data = AsyncMock(side_effect=[EnvoyAuthError("expired"), good])
+        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
+        coordinator.local_api = mock_local_api
+
+        result = await coordinator._async_update_data()
+
+        mock_local_api.authenticate.assert_awaited_once()
+        assert result["soc"] == 75
+
+    async def test_local_reauth_then_api_error_raises_update_failed(
+        self,
+        hass: HomeAssistant,
+        local_entry: MockConfigEntry,
+        mock_store,
+        mock_local_api,
+        mock_session,
+    ):
+        """Local: re-auth succeeds but the retried fetch fails -> UpdateFailed."""
+        mock_local_api.get_battery_data = AsyncMock(
+            side_effect=[EnvoyAuthError("expired"), EnvoyLocalApiError("timeout")]
+        )
+        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, local_entry)
+        coordinator.local_api = mock_local_api
+
+        with pytest.raises(UpdateFailed, match="after reauth"):
+            await coordinator._async_update_data()
+
+    async def test_cloud_reauth_retry_success(
+        self,
+        hass: HomeAssistant,
+        cloud_entry: MockConfigEntry,
+        mock_store,
+        mock_cloud_api,
+        mock_session,
+    ):
+        """Cloud: an expired token re-authenticates and the retried fetch succeeds."""
+        good = {
+            "soc": 50,
+            "power": 1000,
+            "total_energy_charged": 150.0,
+            "total_energy_discharged": 120.0,
+            "total_consumption": 300.0,
+            "available_energy": 3000,
+        }
+        mock_cloud_api.get_battery_data = AsyncMock(side_effect=[EnphaseBatteryAuthError("expired"), good])
+        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, cloud_entry)
+        coordinator.api = mock_cloud_api
+
+        result = await coordinator._async_update_data()
+
+        mock_cloud_api.authenticate.assert_awaited_once()
+        assert result["soc"] == 50
+
+    async def test_cloud_reauth_then_api_error_raises_update_failed(
+        self,
+        hass: HomeAssistant,
+        cloud_entry: MockConfigEntry,
+        mock_store,
+        mock_cloud_api,
+        mock_session,
+    ):
+        """Cloud: re-auth succeeds but the retried fetch fails -> UpdateFailed."""
+        mock_cloud_api.get_battery_data = AsyncMock(
+            side_effect=[EnphaseBatteryAuthError("expired"), EnphaseBatteryApiError("503")]
+        )
+        coordinator = EnphaseBatteryDataUpdateCoordinator(hass, cloud_entry)
+        coordinator.api = mock_cloud_api
+
+        with pytest.raises(UpdateFailed, match="after reauth"):
+            await coordinator._async_update_data()
+
     async def test_unexpected_error_raises_update_failed(
         self,
         hass: HomeAssistant,

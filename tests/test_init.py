@@ -167,12 +167,15 @@ async def test_migrate_v2_to_v3_scopes_unique_ids(hass: HomeAssistant) -> None:
     legacy_battery = registry.async_get_or_create(
         "sensor", DOMAIN, f"{DOMAIN}_battery_SN1_temperature", config_entry=entry
     )
+    # An already-scoped id (no legacy prefix) must be left untouched (idempotent).
+    already = registry.async_get_or_create("sensor", DOMAIN, f"{entry.entry_id}_already", config_entry=entry)
 
     assert await async_migrate_entry(hass, entry)
 
     assert entry.version == 3
     assert registry.async_get(legacy.entity_id).unique_id == f"{entry.entry_id}_soc"
     assert registry.async_get(legacy_battery.entity_id).unique_id == f"{entry.entry_id}_battery_SN1_temperature"
+    assert registry.async_get(already.entity_id).unique_id == f"{entry.entry_id}_already"
 
 
 async def test_setup_entry_not_ready_on_connection_failure(
