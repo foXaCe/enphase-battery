@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import socket
 from typing import Any
 
 from homeassistant import config_entries
@@ -279,6 +280,10 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # routable. Prefer IPv4; otherwise fall back to the (resolvable) hostname
         # rather than a raw IPv6 literal.
         ipv4 = next((str(ip) for ip in discovery_info.ip_addresses if ip.version == 4), None)
+        if not ipv4 and discovery_info.hostname:
+            # The Envoy advertised IPv6 only, and Home Assistant's async resolver
+            # cannot resolve .local (mDNS); resolve the hostname to IPv4 ourselves.
+            ipv4 = await self._async_resolve_ipv4(discovery_info.hostname.rstrip("."))
         host = ipv4 or discovery_info.hostname.rstrip(".") or discovery_info.host
 
         await self.async_set_unique_id(str(serial))
@@ -289,6 +294,16 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._discovered_host = host
         self.context["title_placeholders"] = {"name": f"Envoy {serial}"}
         return await self.async_step_zeroconf_confirm()
+
+    async def _async_resolve_ipv4(self, hostname: str) -> str | None:
+        """Resolve a hostname to an IPv4 address using the OS resolver (handles mDNS)."""
+        try:
+            infos = await self.hass.async_add_executor_job(
+                socket.getaddrinfo, hostname, 443, socket.AF_INET, socket.SOCK_STREAM
+            )
+        except OSError:
+            return None
+        return str(infos[0][4][0]) if infos else None
 
     async def async_step_zeroconf_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Collect the Enlighten credentials for a discovered Envoy (local mode)."""

@@ -1933,10 +1933,46 @@ async def test_zeroconf_ipv6_only_keeps_existing_host(hass: HomeAssistant) -> No
         type="_enphase-envoy._tcp.local.",
         properties={"serialnum": "122050042807"},
     )
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=info
-    )
+    # The hostname cannot be resolved here, so no IPv4 is found and the host is kept.
+    with patch("custom_components.enphase_battery.config_flow.socket.getaddrinfo", side_effect=OSError):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=info
+        )
 
     assert result["type"] == FlowResultType.ABORT
     assert result["reason"] == "already_configured"
     assert entry.data[CONF_ENVOY_HOST] == "envoy.local"
+
+
+async def test_zeroconf_ipv6_resolves_hostname_to_ipv4(hass: HomeAssistant) -> None:
+    """When only IPv6 is advertised, the .local hostname is resolved to IPv4."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_CONNECTION_MODE: CONNECTION_MODE_LOCAL,
+            CONF_ENVOY_HOST: "10.0.0.9",
+            "cloud_username": "u@example.com",
+            "cloud_password": "pw",
+        },
+        unique_id="122050042807",
+    )
+    entry.add_to_hass(hass)
+
+    info = ZeroconfServiceInfo(
+        ip_address=ip_address("fd8d::c272"),
+        ip_addresses=[ip_address("fd8d::c272")],  # IPv6 only
+        hostname="envoy.local.",
+        name="envoy_122050042807._enphase-envoy._tcp.local.",
+        port=443,
+        type="_enphase-envoy._tcp.local.",
+        properties={"serialnum": "122050042807"},
+    )
+    resolved = [(2, 1, 6, "", ("192.168.1.39", 443))]
+    with patch("custom_components.enphase_battery.config_flow.socket.getaddrinfo", return_value=resolved):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=info
+        )
+
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    assert entry.data[CONF_ENVOY_HOST] == "192.168.1.39"
