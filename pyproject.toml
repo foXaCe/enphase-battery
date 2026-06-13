@@ -1,6 +1,6 @@
 [project]
 name = "enphase-battery"
-version = "2.35.11"
+version = "2.36.0"
 description = "Home Assistant integration for Enphase Battery IQ 5P"
 readme = "README.md"
 requires-python = ">=3.12"

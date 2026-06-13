@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.36.0] - 2026-06-14
+
 Full integration overhaul: modular architecture, strict typing, modern config
 flow, and an exhaustive test suite (coverage 99%, mypy --strict clean, hassfest
 clean). Existing entities are migrated automatically; no user action required.
@@ -47,6 +49,10 @@ clean). Existing entities are migrated automatically; no user action required.
 - Temperature, max-cell-temperature and minimum-discharge use proper unit
   constants; `EntityCategory` is imported from `homeassistant.const`.
 - `filter_cookies` DeprecationWarning (now passes a `yarl.URL`).
+- IPv6 Envoy hosts are now bracketed in the request URL; discovery prefers an
+  IPv4 address, resolves the `.local` hostname to IPv4 (Home Assistant's
+  resolver does not handle mDNS), and never overwrites a working host with an
+  unreachable IPv6-only mDNS record.
 
 ### Removed
 - Unused `PyJWT` requirement (JWT is decoded manually).
