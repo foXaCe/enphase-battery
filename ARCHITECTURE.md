@@ -89,15 +89,21 @@ Legacy `enphase_battery_<key>` unique IDs are rewritten to
 `<entry_id>_<key>` by `_async_migrate_unique_ids` in `__init__.py` during
 `async_migrate_entry`. The migration is idempotent and covered by tests.
 
-## Discovery & repair issues
+## Discovery, repairs & device lifecycle
 
 - **Zeroconf**: the Envoy advertises `_enphase-envoy._tcp.local.`.
   `async_step_zeroconf` reads its serial (unique_id) and host, aborts/updates if
   already configured, then `async_step_zeroconf_confirm` collects the Enlighten
   credentials needed for a local setup.
+- **DHCP**: matched by hostname/OUI in the manifest; `async_step_dhcp` resolves
+  the serial from the unauthenticated `/info` endpoint, dedupes against existing
+  entries, and reuses the same confirm step.
 - **Repair issue** `control_disabled` is created/cleared by
   `_async_manage_control_issue` in `__init__.py` depending on whether battery
   control is available (cloud or hybrid) or not (local-only).
+- **Stale devices**: `async_remove_config_entry_device` lets the user delete an
+  individual battery that is no longer reported; the hub and active batteries
+  cannot be removed.
 
 ## Quality gates
 

@@ -12,12 +12,16 @@ flow, and an exhaustive test suite (coverage 99%, mypy --strict clean, hassfest
 clean). Existing entities are migrated automatically; no user action required.
 
 ### Added
-- **Zeroconf discovery**: a reachable Envoy (`_enphase-envoy._tcp.local.`) is now
-  auto-discovered; confirm with your Enlighten credentials to set it up. The
-  stored host is refreshed automatically if the Envoy's IP changes.
+- **Discovery**: a reachable Envoy is now auto-discovered via zeroconf
+  (`_enphase-envoy._tcp.local.`) and DHCP; confirm with your Enlighten
+  credentials to set it up. The stored host is refreshed automatically if the
+  Envoy's IP changes.
 - **System Health** panel entry reporting Enphase Enlighten cloud reachability.
 - **Repair issue** when local-only mode hides the control entities (firmware 8.x),
   guiding you to enable cloud control; cleared automatically once enabled.
+- **Stale device removal**: an individual battery no longer reported by the
+  system can be removed from the device page (active batteries and the hub are
+  protected).
 
 ### Changed
 - **Entity unique IDs are now scoped to the config entry** (`{entry_id}_…`)
