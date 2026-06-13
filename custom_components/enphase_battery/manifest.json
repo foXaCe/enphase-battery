@@ -6,6 +6,10 @@
   ],
   "config_flow": true,
   "dependencies": [],
+  "dhcp": [
+    {"hostname": "envoy*"},
+    {"macaddress": "001DC0*"}
+  ],
   "documentation": "https://github.com/foXaCe/enphase-battery",
   "integration_type": "hub",
   "iot_class": "local_polling",

@@ -24,6 +24,7 @@ from .coordinator import EnphaseBatteryDataUpdateCoordinator
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.device_registry import DeviceEntry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -169,3 +170,28 @@ async def async_reload_entry(
 ) -> None:
     """Reload config entry when options change."""
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def async_remove_config_entry_device(
+    hass: HomeAssistant,
+    config_entry: EnphaseBatteryConfigEntry,
+    device_entry: DeviceEntry,
+) -> bool:
+    """Allow removing a battery device that the system no longer reports.
+
+    The system (hub) device cannot be removed while the entry exists; an
+    individual battery can be removed only once it is no longer present in the
+    coordinator data (so a battery temporarily offline is kept).
+    """
+    coordinator = config_entry.runtime_data.coordinator
+    known_serials = {
+        device["serial_num"] for device in (coordinator.data or {}).get("devices", []) if device.get("serial_num")
+    }
+    for domain, identifier in device_entry.identifiers:
+        if domain != DOMAIN:
+            continue
+        if identifier == "enphase_battery_system":
+            return False
+        if identifier.startswith("battery_"):
+            return identifier.removeprefix("battery_") not in known_serials
+    return True

@@ -11,7 +11,11 @@ from homeassistant.helpers import entity_registry as er, issue_registry as ir
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.enphase_battery import async_migrate_entry
+from custom_components.enphase_battery import (
+    EnphaseBatteryRuntimeData,
+    async_migrate_entry,
+    async_remove_config_entry_device,
+)
 from custom_components.enphase_battery.const import (
     CONF_CONNECTION_MODE,
     CONF_ENVOY_HOST,
@@ -279,3 +283,37 @@ async def test_no_repair_issue_when_control_available(
 
     issue = ir.async_get(hass).async_get_issue(DOMAIN, f"control_disabled_{mock_local_config_entry.entry_id}")
     assert issue is None
+
+
+def _device(identifier: str) -> MagicMock:
+    """Build a device entry mock with a single Enphase identifier."""
+    dev = MagicMock()
+    dev.identifiers = {(DOMAIN, identifier)}
+    return dev
+
+
+async def test_remove_config_entry_device(hass: HomeAssistant) -> None:
+    """Stale-device rule: hub stays, present battery stays, absent battery is removable."""
+    entry = MockConfigEntry(domain=DOMAIN, data={}, unique_id="X")
+    coordinator = MagicMock()
+    coordinator.data = {"devices": [{"serial_num": "SN_PRESENT"}]}
+    entry.runtime_data = EnphaseBatteryRuntimeData(coordinator=coordinator)
+
+    # The hub device cannot be removed while the entry exists.
+    assert await async_remove_config_entry_device(hass, entry, _device("enphase_battery_system")) is False
+    # A battery still reported cannot be removed.
+    assert await async_remove_config_entry_device(hass, entry, _device("battery_SN_PRESENT")) is False
+    # A battery no longer reported can be removed.
+    assert await async_remove_config_entry_device(hass, entry, _device("battery_SN_GONE")) is True
+
+
+async def test_remove_config_entry_device_foreign_identifier(hass: HomeAssistant) -> None:
+    """A device without an Enphase identifier is always removable."""
+    entry = MockConfigEntry(domain=DOMAIN, data={}, unique_id="X")
+    coordinator = MagicMock()
+    coordinator.data = {"devices": []}
+    entry.runtime_data = EnphaseBatteryRuntimeData(coordinator=coordinator)
+
+    foreign = MagicMock()
+    foreign.identifiers = {("other_domain", "whatever")}
+    assert await async_remove_config_entry_device(hass, entry, foreign) is True

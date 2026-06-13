@@ -15,6 +15,7 @@ from homeassistant.helpers.selector import (
     SelectSelectorConfig,
     SelectSelectorMode,
 )
+from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 import voluptuous as vol
 
@@ -25,6 +26,7 @@ from .api import (
     EnphaseEnvoyLocalAPI,
     EnvoyAuthError,
     EnvoyConnectionError,
+    EnvoyLocalApiError,
 )
 from .const import (
     CONF_CONNECTION_MODE,
@@ -317,6 +319,35 @@ class EnphaseBatteryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
             description_placeholders={"host": self._discovered_host or ""},
         )
+
+    async def async_step_dhcp(self, discovery_info: DhcpServiceInfo) -> ConfigFlowResult:
+        """Handle an Envoy discovered via DHCP."""
+        host = discovery_info.ip
+
+        # DHCP carries no serial, so query the unauthenticated /info to identify the Envoy.
+        session = async_get_clientsession(self.hass, verify_ssl=False)
+        api = EnphaseEnvoyLocalAPI(session, host)
+        try:
+            info = await api._get_info()
+        except EnvoyLocalApiError:
+            return self.async_abort(reason="cannot_connect")
+
+        serial = (
+            info.get("device", {}).get("sn")
+            or info.get("device", {}).get("serial_num")
+            or info.get("sn")
+            or info.get("serial_num")
+            or info.get("serialNumber")
+        )
+        if not serial:
+            return self.async_abort(reason="cannot_connect")
+
+        await self.async_set_unique_id(str(serial))
+        self._abort_if_unique_id_configured(updates={CONF_ENVOY_HOST: host})
+
+        self._discovered_host = host
+        self.context["title_placeholders"] = {"name": f"Envoy {serial}"}
+        return await self.async_step_zeroconf_confirm()
 
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
         """Handle re-authentication."""

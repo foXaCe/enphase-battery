@@ -9,6 +9,7 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -16,6 +17,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.enphase_battery.api import (
     EnvoyAuthError,
     EnvoyConnectionError,
+    EnvoyLocalApiError,
 )
 from custom_components.enphase_battery.config_flow import (
     CannotConnect,
@@ -1833,3 +1835,53 @@ async def test_zeroconf_already_configured_updates_host(hass: HomeAssistant) -> 
     assert result["type"] == FlowResultType.ABORT
     assert result["reason"] == "already_configured"
     assert entry.data[CONF_ENVOY_HOST] == "192.168.1.50"
+
+
+# ---------------------------------------------------------------------------
+# DHCP discovery
+# ---------------------------------------------------------------------------
+
+
+def _dhcp_info(ip: str = "192.168.1.60") -> DhcpServiceInfo:
+    """Build a DhcpServiceInfo for a discovered Envoy."""
+    return DhcpServiceInfo(ip=ip, hostname="envoy", macaddress="001dc0aabbcc")
+
+
+async def test_dhcp_discovery_creates_entry(hass: HomeAssistant, mock_local_api) -> None:
+    """A DHCP-discovered Envoy resolves its serial via /info and creates an entry."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_DHCP}, data=_dhcp_info()
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "zeroconf_confirm"
+
+    result2 = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {"cloud_username": "u@example.com", "cloud_password": "pw", "enable_cloud_control": False},
+    )
+    assert result2["type"] == FlowResultType.CREATE_ENTRY
+    assert result2["data"][CONF_ENVOY_HOST] == "192.168.1.60"
+
+
+async def test_dhcp_discovery_cannot_connect(hass: HomeAssistant, mock_local_api) -> None:
+    """A DHCP-discovered host that cannot be queried aborts cleanly."""
+    mock_local_api._get_info = AsyncMock(side_effect=EnvoyLocalApiError("unreachable"))
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_DHCP}, data=_dhcp_info()
+    )
+
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "cannot_connect"
+
+
+async def test_dhcp_discovery_no_serial_aborts(hass: HomeAssistant, mock_local_api) -> None:
+    """A DHCP host whose /info lacks a serial aborts as cannot_connect."""
+    mock_local_api._get_info = AsyncMock(return_value={"device": {}})
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_DHCP}, data=_dhcp_info()
+    )
+
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "cannot_connect"
