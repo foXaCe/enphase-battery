@@ -17,8 +17,9 @@ custom_components/enphase_battery/
 │   ├── local_client.py  # EnphaseEnvoyLocalAPI — local Envoy/IQ Gateway client
 │   ├── models.py        # BatteryData / BatteryDevice TypedDicts
 │   └── exceptions.py    # typed API exceptions (auth vs connection)
-├── config_flow.py       # ConfigFlow + OptionsFlow (user/local/cloud/reauth/reconfigure)
+├── config_flow.py       # ConfigFlow + OptionsFlow (user/local/cloud/reauth/reconfigure/zeroconf)
 ├── diagnostics.py       # async_get_config_entry_diagnostics (redacted)
+├── system_health.py     # cloud reachability for the System Health panel
 ├── sensor.py / binary_sensor.py / switch.py / select.py / number.py
 ├── strings.json + translations/{en,es,fr}.json
 ├── manifest.json + icons.json
@@ -87,6 +88,16 @@ coordinator or an entity.
 Legacy `enphase_battery_<key>` unique IDs are rewritten to
 `<entry_id>_<key>` by `_async_migrate_unique_ids` in `__init__.py` during
 `async_migrate_entry`. The migration is idempotent and covered by tests.
+
+## Discovery & repair issues
+
+- **Zeroconf**: the Envoy advertises `_enphase-envoy._tcp.local.`.
+  `async_step_zeroconf` reads its serial (unique_id) and host, aborts/updates if
+  already configured, then `async_step_zeroconf_confirm` collects the Enlighten
+  credentials needed for a local setup.
+- **Repair issue** `control_disabled` is created/cleared by
+  `_async_manage_control_issue` in `__init__.py` depending on whether battery
+  control is available (cloud or hybrid) or not (local-only).
 
 ## Quality gates
 

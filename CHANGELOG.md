@@ -11,6 +11,14 @@ Full integration overhaul: modular architecture, strict typing, modern config
 flow, and an exhaustive test suite (coverage 99%, mypy --strict clean, hassfest
 clean). Existing entities are migrated automatically; no user action required.
 
+### Added
+- **Zeroconf discovery**: a reachable Envoy (`_enphase-envoy._tcp.local.`) is now
+  auto-discovered; confirm with your Enlighten credentials to set it up. The
+  stored host is refreshed automatically if the Envoy's IP changes.
+- **System Health** panel entry reporting Enphase Enlighten cloud reachability.
+- **Repair issue** when local-only mode hides the control entities (firmware 8.x),
+  guiding you to enable cloud control; cleared automatically once enabled.
+
 ### Changed
 - **Entity unique IDs are now scoped to the config entry** (`{entry_id}_…`)
   instead of a shared `enphase_battery_…` prefix, so two Enphase systems can
