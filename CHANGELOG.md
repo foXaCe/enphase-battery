@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Full integration overhaul: modular architecture, strict typing, modern config
+flow, and an exhaustive test suite (coverage 99%, mypy --strict clean, hassfest
+clean). Existing entities are migrated automatically; no user action required.
+
+### Changed
+- **Entity unique IDs are now scoped to the config entry** (`{entry_id}_…`)
+  instead of a shared `enphase_battery_…` prefix, so two Enphase systems can
+  coexist. `ConfigEntry` version bumped to 3 with an automatic migration that
+  renames existing entities in place (history and automations are preserved).
+- Setup now uses `async_config_entry_first_refresh`: connection failures retry
+  (`ConfigEntryNotReady`) and authentication failures trigger reauth
+  (`ConfigEntryAuthFailed`), replacing the deferred background-auth that
+  silently swallowed startup errors.
+- API clients split into a package (`api/cloud_client.py`, `api/local_client.py`,
+  `api/models.py`, `api/exceptions.py`); energy tracking extracted into
+  `energy.py`; switches consolidated behind a single `EntityDescription` class.
+- Config flow uses modern selectors with translated connection-mode labels
+  (en/es/fr); battery-mode select now exposes all modes (backup, expert).
+- `manifest.json`: declare `integration_type: hub`.
+
+### Fixed
+- Local authentication no longer mislabels a connection failure as an auth
+  failure (a transient network issue triggered a spurious reauth instead of a
+  retry).
+- Battery-mode select previously hid the `backup` and `expert` options.
+- Temperature, max-cell-temperature and minimum-discharge use proper unit
+  constants; `EntityCategory` is imported from `homeassistant.const`.
+- `filter_cookies` DeprecationWarning (now passes a `yarl.URL`).
+
+### Removed
+- Unused `PyJWT` requirement (JWT is decoded manually).
+- Dead code: `_get_session_token`, `_get_envoy_serial`, `get_devices`, and the
+  unimplemented local `set_battery_mode` stub.
+
 ## [2.35.11] - 2026-04-12
 
 ### Fixed
