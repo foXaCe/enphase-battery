@@ -6,7 +6,7 @@ ci:
 
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.16
+    rev: v0.16.2
     hooks:
       - id: ruff-check
         args: [--fix]
@@ -37,7 +37,7 @@ repos:
         additional_dependencies: ["bandit[toml]"]
 
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.2
+    rev: v2.4.3
     hooks:
       - id: codespell
         args: ["--skip", "*.json,*.yaml,*.yml", "--ignore-words-list=hass"]
