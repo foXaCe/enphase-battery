@@ -20,6 +20,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery Health Problem',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.PROBLEM: 'problem'>,
@@ -70,6 +71,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Envoy Connected',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.CONNECTIVITY: 'connectivity'>,
@@ -120,6 +122,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Grid Connected',
     'options': dict({
     }),
     'original_device_class': <BinarySensorDeviceClass.CONNECTIVITY: 'connectivity'>,
@@ -175,6 +178,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery Reserve Percentage',
     'options': dict({
     }),
     'original_device_class': None,
@@ -236,6 +240,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery Mode',
     'options': dict({
     }),
     'original_device_class': None,
@@ -293,6 +298,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Capacity',
     'options': dict({
       'sensor': dict({
         'suggested_display_precision': 0,
@@ -348,6 +354,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Firmware',
     'options': dict({
     }),
     'original_device_class': None,
@@ -392,6 +399,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Grid State',
     'options': dict({
     }),
     'original_device_class': <SensorDeviceClass.ENUM: 'enum'>,
@@ -449,6 +457,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Max Cell Temperature',
     'options': dict({
       'sensor': dict({
         'suggested_display_precision': 1,
@@ -504,6 +513,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Serial Number',
     'options': dict({
     }),
     'original_device_class': None,
@@ -544,6 +554,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'State of Charge',
     'options': dict({
     }),
     'original_device_class': <SensorDeviceClass.BATTERY: 'battery'>,
@@ -598,6 +609,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Temperature',
     'options': dict({
       'sensor': dict({
         'suggested_display_precision': 1,
@@ -653,6 +665,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Available Energy',
     'options': dict({
       'sensor': dict({
         'suggested_display_precision': 0,
@@ -709,6 +722,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery Health',
     'options': dict({
     }),
     'original_device_class': None,
@@ -762,6 +776,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery Power',
     'options': dict({
       'sensor': dict({
         'suggested_display_precision': 0,
@@ -825,6 +840,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery State',
     'options': dict({
     }),
     'original_device_class': <SensorDeviceClass.ENUM: 'enum'>,
@@ -884,6 +900,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Battery State of Charge',
     'options': dict({
     }),
     'original_device_class': <SensorDeviceClass.BATTERY: 'battery'>,
@@ -938,6 +955,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Charge Power',
     'options': dict({
       'sensor': dict({
         'suggested_display_precision': 0,
@@ -995,6 +1013,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Consumption Last 24h',
     'options': dict({
     }),
     'original_device_class': None,
@@ -1048,6 +1067,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Discharge Power',
     'options': dict({
       'sensor': dict({
         'suggested_display_precision': 0,
@@ -1105,6 +1125,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Energy Charged Today',
     'options': dict({
       'sensor': dict({
         'suggested_display_precision': 2,
@@ -1162,6 +1183,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Energy Discharged Today',
     'options': dict({
       'sensor': dict({
         'suggested_display_precision': 2,
@@ -1217,6 +1239,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Envoy Firmware',
     'options': dict({
     }),
     'original_device_class': None,
@@ -1255,6 +1278,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Envoy Serial Number',
     'options': dict({
     }),
     'original_device_class': None,
@@ -1295,6 +1319,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Estimated Backup Time',
     'options': dict({
     }),
     'original_device_class': None,
@@ -1352,6 +1377,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Grid Mode',
     'options': dict({
     }),
     'original_device_class': <SensorDeviceClass.ENUM: 'enum'>,
@@ -1407,6 +1433,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Allow Discharge To Grid',
     'options': dict({
     }),
     'original_device_class': None,
@@ -1456,6 +1483,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Charge From Grid',
     'options': dict({
     }),
     'original_device_class': None,
@@ -1505,6 +1533,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'Limit Battery Discharge',
     'options': dict({
     }),
     'original_device_class': None,
@@ -1554,6 +1583,7 @@
     'labels': set({
     }),
     'name': None,
+    'object_id_base': 'PowerMatch',
     'options': dict({
     }),
     'original_device_class': None,
