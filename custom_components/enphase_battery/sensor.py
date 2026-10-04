@@ -545,8 +545,14 @@ class BatteryGridModeSensor(EnphaseBatterySensorBase):
         if devices and len(devices) > 0:
             raw = devices[0].get("reported_enc_grid_state", "unknown")
             return raw.replace("-", "_")
-        status = self.coordinator.data.get("status")
-        return status.replace("-", "_") if status else None
+        # No per-device grid-state data available. Do not fall back to
+        # coordinator.data["status"] here: it's a general system-health
+        # string (e.g. "normal"), not a grid connection mode, and isn't
+        # in _attr_options -- returning it raises ValueError in HA's
+        # enum-sensor validation on every coordinator update. Matches
+        # IndividualBatteryGridStateSensor's existing (correct) behavior
+        # below.
+        return None
 
 
 class EnvoySerialNumberSensor(EnphaseBatterySensorBase):
