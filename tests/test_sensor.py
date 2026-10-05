@@ -465,10 +465,11 @@ class TestBatteryGridModeSensor:
         sensor = BatteryGridModeSensor(coord)
         assert sensor.native_value == "unknown"
 
-    def test_native_value_from_status_fallback(self):
+    def test_native_value_ignores_status_fallback(self):
+        """The system status string is not a grid mode and must not be used."""
         coord = _mock_coordinator({"devices": [], "status": "grid-tied"})
         sensor = BatteryGridModeSensor(coord)
-        assert sensor.native_value == "grid_tied"
+        assert sensor.native_value is None
 
     def test_native_value_no_devices_no_status(self):
         coord = _mock_coordinator({"soc": 50})
