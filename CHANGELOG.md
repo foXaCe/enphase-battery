@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.36.2] - 2026-10-14
+
+### Fixed
+- **Battery grid mode sensor crash-loops the coordinator**: when no
+  per-device grid-state data is available, the sensor fell back to the
+  general system-health string (e.g. `normal`), which is not a valid enum
+  option — Home Assistant raised `ValueError` on every coordinator update,
+  silently breaking the other entities on the same coordinator. The sensor
+  now reports `unavailable` in that case (fixes #33, reported in #34).
+
 ## [2.36.0] - 2026-06-14
 
 Full integration overhaul: modular architecture, strict typing, modern config
