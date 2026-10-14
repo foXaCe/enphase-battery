@@ -1795,7 +1795,11 @@ def _zeroconf_info(host: str = "192.168.1.50", serial: str = "122050042807") -> 
     )
 
 
-async def test_zeroconf_discovery_creates_entry(hass: HomeAssistant, mock_local_api) -> None:
+async def test_zeroconf_discovery_creates_entry(
+    hass: HomeAssistant,
+    mock_local_api,
+    mock_setup_entry: AsyncMock,
+) -> None:
     """A discovered Envoy shows a confirm form and creates a local entry."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=_zeroconf_info()
@@ -1847,7 +1851,11 @@ def _dhcp_info(ip: str = "192.168.1.60") -> DhcpServiceInfo:
     return DhcpServiceInfo(ip=ip, hostname="envoy", macaddress="001dc0aabbcc")
 
 
-async def test_dhcp_discovery_creates_entry(hass: HomeAssistant, mock_local_api) -> None:
+async def test_dhcp_discovery_creates_entry(
+    hass: HomeAssistant,
+    mock_local_api,
+    mock_setup_entry: AsyncMock,
+) -> None:
     """A DHCP-discovered Envoy resolves its serial via /info and creates an entry."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_DHCP}, data=_dhcp_info()
@@ -1887,7 +1895,11 @@ async def test_dhcp_discovery_no_serial_aborts(hass: HomeAssistant, mock_local_a
     assert result["reason"] == "cannot_connect"
 
 
-async def test_zeroconf_prefers_ipv4(hass: HomeAssistant, mock_local_api) -> None:
+async def test_zeroconf_prefers_ipv4(
+    hass: HomeAssistant,
+    mock_local_api,
+    mock_setup_entry: AsyncMock,
+) -> None:
     """When both IPv4 and IPv6 are advertised, the IPv4 address is used."""
     info = ZeroconfServiceInfo(
         ip_address=ip_address("fd8d::c272"),
