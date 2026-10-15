@@ -1,6 +1,9 @@
 # Test dependencies for Enphase Battery integration
-pytest==9.0.0
+pytest==9.0.3
 pytest-asyncio>=1.3.0
-pytest-cov==7.0.0
-pytest-homeassistant-custom-component>=0.13.109
+pytest-cov==7.1.0
+# Pinned: aioresponses 0.7.9 (latest) is incompatible with aiohttp >= 3.14 used by
+# pytest-homeassistant-custom-component >= 0.13.341 (ClientResponse now requires a
+# stream_writer keyword). 0.13.340 is the last release pinned to Home Assistant 2026.6.x.
+pytest-homeassistant-custom-component==0.13.340
 aioresponses>=0.7.9

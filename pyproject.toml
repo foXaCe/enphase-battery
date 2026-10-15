@@ -74,7 +74,7 @@ line-ending = "auto"
 
 [tool.mypy]
 # Match the Python used by current Home Assistant so mypy can parse its sources.
-python_version = "3.13"
+python_version = "3.14"
 show_error_codes = true
 follow_imports = "silent"
 ignore_missing_imports = true
